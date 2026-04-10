@@ -1,0 +1,177 @@
+{% extends "layout.html" %}
+
+{% block title %}Financial Management - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Financial Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-success text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50 mb-1">Total Income ({{ period|capitalize }})</h6>
+                        <h3 class="mb-0 fw-bold">${{ "%.2f"|format(total_income_usd) }}</h3>
+                        <h5 class="mb-0 opacity-75">L${{ "%.2f"|format(total_income_lrd) }}</h5>
+                    </div>
+                    <i class="fas fa-arrow-trend-up fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-danger text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50 mb-1">Total Expenses ({{ period|capitalize }})</h6>
+                        <h3 class="mb-0 fw-bold">${{ "%.2f"|format(total_expense_usd) }}</h3>
+                        <h5 class="mb-0 opacity-75">L${{ "%.2f"|format(total_expense_lrd) }}</h5>
+                    </div>
+                    <i class="fas fa-arrow-trend-down fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-primary text-white p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50 mb-1">Net Balance</h6>
+                        <div class="small">
+                            USD: ${{ "%.2f"|format(total_income_usd - total_expense_usd) }}<br>
+                            LRD: L${{ "%.2f"|format(total_income_lrd - total_expense_lrd) }}
+                        </div>
+                    </div>
+                    <i class="fas fa-scale-balanced fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Period Filter -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <div class="btn-group shadow-sm rounded-pill p-1 bg-white">
+                <a href="{{ url_for('financials', period='daily') }}" class="btn {% if period == 'daily' %}btn-dark{% else %}btn-light{% endif %} rounded-pill px-4">Daily View</a>
+                <a href="{{ url_for('financials', period='weekly') }}" class="btn {% if period == 'weekly' %}btn-dark{% else %}btn-light{% endif %} rounded-pill px-4">Weekly View</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Add Expense Form -->
+        <div class="col-lg-4">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-minus-circle me-2"></i>Record Expense</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_expense') }}" method="POST">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">Amount</label>
+                                <input type="number" step="0.01" name="amount" class="form-control" required placeholder="0.00">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Currency</label>
+                                <select class="form-select" name="currency">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="LRD">LRD (L$)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3" required placeholder="What was this expense for?"></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-save me-2"></i>Log Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow border-0 rounded-4 mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Daily Sales</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Daily sales are recorded via the Dashboard "Daily Sales Recording" section.</p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm w-100">Go to Dashboard to record sales</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Lists -->
+        <div class="col-lg-8">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-list-check me-2 text-primary"></i>Financial Transactions ({{ period|capitalize }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Description/Details</th>
+                                    <th>Amount</th>
+                                    <th>Admin</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Combined Income (Sales) -->
+                                {% for sale in sales %}
+                                <tr>
+                                    <td class="small">{{ sale.date_posted.strftime('%m/%d %H:%M') }}</td>
+                                    <td><span class="badge bg-success">INCOME</span></td>
+                                    <td>
+                                        <strong>Daily Sales</strong><br>
+                                        <small class="text-muted">{{ sale.report_text[:50] }}...</small>
+                                    </td>
+                                    <td class="text-success fw-bold">+{{ '$' if sale.currency == 'USD' else 'L$' }}{{ "%.2f"|format(sale.total_sales) }}</td>
+                                    <td class="small">{{ sale.staff_name }}</td>
+                                    <td>
+                                        {% if admin.role == 'admin' %}
+                                        <a href="{{ url_for('edit_sale', report_id=sale.id) }}" class="btn btn-sm btn-link text-primary"><i class="fas fa-edit"></i></a>
+                                        {% else %}
+                                        <i class="fas fa-lock text-muted small"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                <!-- Combined Expenses -->
+                                {% for expense in expenses %}
+                                <tr>
+                                    <td class="small">{{ expense.timestamp.strftime('%m/%d %H:%M') }}</td>
+                                    <td><span class="badge bg-danger">EXPENSE</span></td>
+                                    <td>{{ expense.description }}</td>
+                                    <td class="text-danger fw-bold">-{{ '$' if expense.currency == 'USD' else 'L$' }}{{ "%.2f"|format(expense.amount) }}</td>
+                                    <td class="small">{{ expense.admin.username }}</td>
+                                    <td>
+                                        {% if admin.role == 'admin' %}
+                                        <a href="{{ url_for('edit_expense', expense_id=expense.id) }}" class="btn btn-sm btn-link text-primary"><i class="fas fa-edit"></i></a>
+                                        {% else %}
+                                        <i class="fas fa-lock text-muted small"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                {% if not sales and not expenses %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">No transactions found for this period.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

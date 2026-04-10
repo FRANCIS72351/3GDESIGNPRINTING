@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}Add New Product - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-primary text-white p-4">
+                    <h2 class="mb-0"><i class="fas fa-box-open me-2"></i>Post New Goods</h2>
+                    <p class="mb-0 text-white-50">Add a new item to Our Products & Services</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-bold">Product Name</label>
+                            <input type="text" class="form-control form-control-lg" id="name" name="name" required placeholder="e.g. Custom T-Shirt">
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="category" class="form-label fw-bold">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Frame">Frame</option>
+                                    <option value="Banner">Banner</option>
+                                    <option value="Flyer">Flyer</option>
+                                    <option value="Mug">Mug</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label fw-bold">Price ($)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" id="price" name="price" required placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="image" class="form-label fw-bold">Product Image</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+                            <div class="form-text">High quality JPG or PNG recommended.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" required placeholder="Describe the product features, materials, and sizes..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill">
+                                <i class="fas fa-upload me-2"></i>Post to Home Page
+                            </button>
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill">
+                                Cancel & Back to Dashboard
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

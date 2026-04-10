@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# Database
+instance/
+*.db
+*.sqlite
+
+# Environment variables
+.env
+
+# Static Uploads (optional - usually you don't want to commit user uploads)
+static/uploads/portal/*
+!static/uploads/portal/.gitkeep
+static/uploads/leaders/*
+!static/uploads/leaders/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,16 @@
+<div class="login-card">
+    <h3>Emergency Recovery</h3>
+    <p>Enter your 16-character backup code to bypass 2FA.</p>
+    
+    <form method="POST">
+        <div class="input-group">
+            <input type="text" name="recovery_code" placeholder="XXXX-XXXX-XXXX-XXXX" required 
+                   style="text-transform: uppercase; font-family: monospace; letter-spacing: 2px;">
+        </div>
+        <button type="submit" class="login-btn" style="background: #dc3545;">Verify & Reset 2FA</button>
+    </form>
+    
+    <div class="login-footer">
+        <a href="/login">Back to standard login</a>
+    </div>
+</div>

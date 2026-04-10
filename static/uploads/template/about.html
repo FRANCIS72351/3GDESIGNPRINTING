@@ -1,0 +1,211 @@
+{% extends "layout.html" %}
+
+{% block title %}About Us - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div id="aboutCarousel" class="carousel slide carousel-fade mb-5" data-bs-ride="carousel">
+    <div class="carousel-inner">
+        {% if content and content.slider1 %}
+        <div class="carousel-item active">
+            <div class="carousel-image-wrapper">
+                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="d-block w-100 carousel-img" alt="3G DESIGN PRINTING">
+                <div class="carousel-overlay"></div>
+            </div>
+            <div class="carousel-caption">
+                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN PRINTING</h2>
+                <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
+                <div class="badge bg-primary p-2">EST. 2020</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="carousel-item active">
+            <div class="carousel-image-wrapper">
+                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="d-block w-100 carousel-img" alt="3G DESIGN PRINTING">
+                <div class="carousel-overlay"></div>
+            </div>
+            <div class="carousel-caption">
+                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN PRINTING</h2>
+                <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
+                <div class="badge bg-primary p-2">EST. 2020</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if content and content.slider2 %}
+        <div class="carousel-item">
+            <div class="carousel-image-wrapper">
+                <img src="{{ url_for('static', filename='img/' + content.slider2) }}" class="d-block w-100 carousel-img" alt="Custom Apparel">
+                <div class="carousel-overlay"></div>
+            </div>
+            <div class="carousel-caption">
+                <h2 class="animate__animated animate__fadeInDown">Custom Apparel</h2>
+                <p class="animate__animated animate__fadeInUp">Shirt Printing, DTF, and Brand Identity.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if content and content.slider3 %}
+        <div class="carousel-item">
+            <div class="carousel-image-wrapper">
+                <img src="{{ url_for('static', filename='img/' + content.slider3) }}" class="d-block w-100 carousel-img" alt="Quality Service">
+                <div class="carousel-overlay"></div>
+            </div>
+            <div class="carousel-caption">
+                <h2 class="animate__animated animate__fadeInDown">Quality Service</h2>
+                <p class="animate__animated animate__fadeInUp">We bring your ideas to life.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#aboutCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#aboutCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+
+<section class="about-story py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-10 mx-auto">
+                <div class="glass-card p-5 text-center animate__animated animate__fadeInUp">
+                    <h2 class="section-title">Our Story</h2>
+                    <hr class="title-line mx-auto">
+                    <div class="lead mt-4 text-start">
+                        {% if content and content.description %}
+                            {{ content.description | safe }}
+                        {% else %}
+                            <p>Founded in 2020, <strong>3G DESIGN PRINTING</strong> has been at the forefront of digital printing innovation in Liberia. We combine traditional craftsmanship with cutting-edge technology to deliver exceptional printing services that exceed our clients' expectations.</p>
+                            <p>From <strong>Vinyl Cutting</strong> to <strong>Large Format Banners</strong>, we are the go-to solution for businesses and individuals across Monrovia.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="services-grid py-5 bg-dark text-white">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-3 mb-4">
+                <div class="service-card animate__animated animate__fadeInUp">
+                    <div class="img-circle-container mb-3 shadow">
+                        <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom Shirt Printing" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                    </div>
+                    <h4>Shirts</h4>
+                    <p class="small text-muted">DTF & Screen Printing</p>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="service-card animate__animated animate__fadeInUp animate__delay-1s">
+                    <div class="img-circle-container mb-3 shadow">
+                        <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom Mug Printing" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                    </div>
+                    <h4>Mugs</h4>
+                    <p class="small text-muted">Sublimation Heat Press</p>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-4">
+                <div class="service-card animate__animated animate__fadeInUp animate__delay-2s">
+                    <div class="img-circle-container mb-3 shadow">
+                        <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large Format Banners" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                    </div>
+                    <h4>Banners</h4>
+                    <p class="small text-muted">Flex & Vinyl Quality</p>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-4">
+                <div class="service-card animate__animated animate__fadeInUp animate__delay-3s">
+                    <div class="img-circle-container mb-3 shadow">
+                        <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business Flyers" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                    </div>
+                    <h4>Flyers</h4>
+                    <p class="small text-muted">Digital & Offset Media</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5 fw-bold">The Minds Behind the Machine</h2>
+        
+        <div id="teamCarousel" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-inner">
+                {% for leader in leaders %}
+                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                    <div class="row align-items-center justify-content-center">
+                        <div class="col-md-4 text-center">
+                            <div class="leader-circle-wrapper mx-auto mb-4 shadow-lg animate__animated animate__zoomIn">
+                                {% if leader.image %}
+                                <img src="{{ url_for('static', filename='uploads/leaders/' + leader.image) }}" alt="{{ leader.name }}" class="leader-circle-img">
+                                {% else %}
+                                <div class="bg-secondary d-flex align-items-center justify-content-center h-100 text-white rounded-circle">
+                                    <i class="fas fa-user fa-5x"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="leader-bio-card p-4 animate__animated animate__fadeInRight">
+                                <h3 class="fw-bold text-primary mb-1">{{ leader.name }}</h3>
+                                <h5 class="text-muted mb-3">{{ leader.position or 'Team Member' }}</h5>
+                                <div class="bio-text">
+                                    {{ leader.bio or 'Dedicated professional at 3G DESIGN PRINTING, committed to delivering excellence in every project.' }}
+                                </div>
+                                <div class="social-links mt-4 d-flex align-items-center">
+                                    <div class="me-auto">
+                                        <a href="#" class="me-3 text-dark"><i class="fab fa-linkedin fa-lg"></i></a>
+                                        <a href="#" class="me-3 text-dark"><i class="fab fa-twitter fa-lg"></i></a>
+                                        <a href="mailto:info@3gdesignprinting.com" class="text-dark"><i class="fas fa-envelope fa-lg"></i></a>
+                                    </div>
+                                    
+                                    {% if session.get('admin_logged_in') %}
+                                        {% set current_user = Admin.query.get(session.get('admin_id')) if Admin else None %}
+                                        {% if current_user and current_user.role == 'admin' %}
+                                        <div class="admin-controls ms-3 border-start ps-3">
+                                            <a href="{{ url_for('edit_leader', leader_id=leader.id) }}" class="btn btn-sm btn-outline-primary rounded-pill me-2">
+                                                <i class="fas fa-edit me-1"></i>Edit
+                                            </a>
+                                            <form action="{{ url_for('delete_leader', leader_id=leader.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this team member?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                                    <i class="fas fa-trash me-1"></i>Delete
+                                                </button>
+                                            </form>
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="carousel-item active text-center py-5">
+                    <p class="text-muted">Team members coming soon.</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if leaders|length > 1 %}
+            <button class="carousel-control-prev" type="button" data-bs-target="#teamCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon bg-dark rounded-circle" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#teamCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon bg-dark rounded-circle" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

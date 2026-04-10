@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+
+{% block title %}My Sales History - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="card shadow-lg border-0 rounded-4 animate__animated animate__fadeIn">
+                <div class="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0"><i class="fas fa-history me-2"></i>My Sales History</h2>
+                        <p class="mb-0 text-white-50">View all your recorded daily sales for follow-ups</p>
+                    </div>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light rounded-pill px-4">
+                        <i class="fas fa-arrow-left me-2"></i>Dashboard
+                    </a>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Total Sales</th>
+                                    <th>Activities / Notes</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in reports %}
+                                <tr>
+                                    <td class="fw-bold">{{ report.date_posted.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td><span class="text-success fw-bold">${{ "%.2f"|format(report.total_sales) }}</span></td>
+                                    <td>
+                                        <div class="text-muted" style="max-width: 400px;">
+                                            {{ report.report_text }}
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-success rounded-pill">Recorded</span></td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="fas fa-ghost fa-3x mb-3 d-block"></i>
+                                        You haven't recorded any sales yet.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light p-3 border-0 text-center">
+                    <p class="small text-muted mb-0">Use this history to follow up with clients or verify past work details.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

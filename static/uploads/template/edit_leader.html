@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Team Member - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-primary text-white p-4">
+                    <h3 class="mb-0"><i class="fas fa-user-edit me-2"></i>Edit Team Member</h3>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('edit_leader', leader_id=leader.id) }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-bold">Full Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ leader.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="position" class="form-label fw-bold">Position</label>
+                            <input type="text" class="form-control" id="position" name="position" value="{{ leader.position }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bio" class="form-label fw-bold">Biography</label>
+                            <textarea class="form-control" id="bio" name="bio" rows="4">{{ leader.bio }}</textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label for="image" class="form-label fw-bold">Profile Image (Optional)</label>
+                            {% if leader.image %}
+                            <div class="mb-2">
+                                <img src="{{ url_for('static', filename='uploads/leaders/' + leader.image) }}" alt="Current" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+                                <small class="text-muted d-block mt-1">Current Image</small>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary fw-bold">
+                                <i class="fas fa-save me-2"></i>Update Member
+                            </button>
+                            <a href="{{ url_for('about') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block title %}Add Leader{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Add New Leader</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Full Name</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="position" class="form-label">Position</label>
+            <input type="text" class="form-control" id="position" name="position" placeholder="e.g. CEO, Graphic Designer" required>
+        </div>
+        <div class="mb-3">
+            <label for="bio" class="form-label">Biography</label>
+            <textarea class="form-control" id="bio" name="bio" rows="4" placeholder="Briefly describe their role and experience..."></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="image" class="form-label">Profile Image</label>
+            <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Team Member</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </form>
+</div>
+{% endblock %}

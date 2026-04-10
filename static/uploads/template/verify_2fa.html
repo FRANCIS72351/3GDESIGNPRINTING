@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA Verification - 3G DESIGN PRINTING</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-card animate__animated animate__zoomIn">
+        <div class="login-header">
+            <h2><i class="fas fa-shield-alt me-2"></i>Two-Factor Authentication</h2>
+            <p class="text-muted">Enter the 6-digit code from your authenticator app</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="mb-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('verify_2fa_page') }}" method="POST">
+            <div class="input-group">
+                <label for="token">Authentication Code</label>
+                <input type="text" id="token" name="token" required placeholder="000000" maxlength="6" pattern="[0-9]{6}">
+            </div>
+            <button type="submit" class="login-btn">Verify & Login</button>
+        </form>
+
+        <div class="login-footer">
+            <a href="{{ url_for('login_recovery') }}">Use Recovery Code</a> | 
+            <a href="{{ url_for('login') }}">Back to Login</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-focus the input field
+        document.getElementById('token').focus();
+
+        // Auto-submit when 6 digits are entered
+        document.getElementById('token').addEventListener('input', function(e) {
+            if (e.target.value.length === 6) {
+                e.target.form.submit();
+            }
+        });
+    </script>
+</body>
+</html>

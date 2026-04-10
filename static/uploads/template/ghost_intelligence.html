@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Ghost Intelligence Briefing{% endblock %}
+{% block content %}
+<div class="container mt-5" style="background: #050505; color: #00ff41; font-family: 'Courier New', Courier, monospace; padding: 30px; border-radius: 15px; border: 2px solid #00ff41;">
+    <h2 class="mb-4 text-uppercase fw-bold"><i class="fas fa-microchip"></i> Ghost Intelligence Briefing</h2>
+    <hr style="border-color: #00ff41;">
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="p-3" style="border: 1px solid #00ff41; background: rgba(0, 255, 65, 0.05);">
+                <h6>WEEKLY VELOCITY</h6>
+                <h3 class="fw-bold">${{ "%.2f"|format(revenue) }}</h3>
+                <small class="text-white-50">{{ orders }} New Orders</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3" style="border: 1px solid {% if alerts > 0 %}#ff3131{% else %}#00ff41{% endif %}; background: rgba(0, 255, 65, 0.05);">
+                <h6>INTRUSION ATTEMPTS</h6>
+                <h3 class="fw-bold text-{% if alerts > 0 %}danger{% else %}success{% endif %}">{{ alerts }}</h3>
+                <small>Failed Login Events</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3" style="border: 1px solid #00ff41; background: rgba(0, 255, 65, 0.05);">
+                <h6>VAULT STORAGE</h6>
+                <h3 class="fw-bold">{{ storage }} MB</h3>
+                <small>RSA Encrypted Data</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3" style="border: 1px solid #00ff41; background: rgba(0, 255, 65, 0.05);">
+                <h6>SERVER STATUS</h6>
+                <h3 class="fw-bold">ONLINE</h3>
+                <small>Node: PythonAnywhere_Live</small>
+            </div>
+        </div>
+    </div>
+    <div class="mt-5">
+        <button onclick="window.print()" class="btn btn-outline-success btn-sm">GENERATE PDF REPORT</button>
+        <a href="{{ url_for('ghost_dashboard') }}" class="btn btn-outline-info btn-sm">BACK TO OVERWATCH</a>
+    </div>
+</div>
+{% endblock %}

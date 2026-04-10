@@ -1,0 +1,141 @@
+{% extends "layout.html" %}
+{% block title %}Add New Product{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0"><i class="fas fa-box-open me-2"></i>Add New Product</h3>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('add_product') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required placeholder="e.g. Graphic T-Shirt">
+                        </div>
+                        <div class="mb-3">
+                            <label for="image" class="form-label">Product Image</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        </div>
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="category" name="category" placeholder="e.g. T-Shirt, Frame" value="{{ request.args.get('category', '') }}">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label">Price</label>
+                                <input type="number" step="0.01" class="form-control" id="price" name="price" value="0.00">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="currency" class="form-label">Currency</label>
+                                <select class="form-select" id="currency" name="currency">
+                                    <option value="USD" selected>USD ($)</option>
+                                    <option value="LRD">LRD (L$)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="stock" class="form-label">Initial Stock Level</label>
+                            <input type="number" class="form-control" id="stock" name="stock" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Brief product details..."></textarea>
+                        </div>
+                        <hr class="my-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="text-primary mb-0"><i class="fas fa-layer-group me-2"></i>Configure Variants (Size/Type)</h5>
+                            <button type="button" id="add-row" class="btn btn-info btn-sm text-white">
+                                <i class="fas fa-plus me-1"></i>Add Variant
+                            </button>
+                        </div>
+                        <p class="small text-muted mb-3">Specify different types (e.g., Material, Color) or Sizes with their own prices and stock levels.</p>
+                        
+                        <div class="table-responsive rounded-3 border">
+                            <table class="table table-hover align-middle mb-0" id="variants-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%;">Variant Type</th>
+                                        <th style="width: 20%;">Value/Size</th>
+                                        <th style="width: 15%;">Price</th>
+                                        <th style="width: 10%;">Stock</th>
+                                        <th style="width: 25%;">Design Image</th>
+                                        <th style="width: 10%; text-align: center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="variant-row">
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                                <input type="text" name="variant_type[]" class="form-control" placeholder="Size/Color">
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="text" name="variant_value[]" class="form-control form-control-sm" placeholder="XL / Red">
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" step="0.01" name="variant_price[]" class="form-control" placeholder="0.00">
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="variant_stock[]" class="form-control form-control-sm" placeholder="0">
+                                        </td>
+                                        <td>
+                                            <input type="file" name="variant_image[]" class="form-control form-control-sm" accept="image/*">
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-row border-0">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4"></div>
+
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <button type="submit" name="next_action" value="home" class="btn btn-primary w-100">Create & View Home</button>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="submit" name="next_action" value="add_another" class="btn btn-info text-white w-100">Create & Add Another</button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="{{ url_for('home') }}" class="btn btn-outline-secondary w-100">Cancel & Back to Home</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('add-row').addEventListener('click', function() {
+    const tableBody = document.querySelector('#variants-table tbody');
+    const firstRow = tableBody.querySelector('.variant-row');
+    const newRow = firstRow.cloneNode(true);
+    
+    // Clear inputs in cloned row
+    newRow.querySelectorAll('input').forEach(input => input.value = '');
+    
+    tableBody.appendChild(newRow);
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target && (e.target.classList.contains('remove-row') || e.target.parentElement.classList.contains('remove-row'))) {
+        const rows = document.querySelectorAll('.variant-row');
+        if (rows.length > 1) {
+            const row = e.target.closest('.variant-row');
+            row.remove();
+        }
+    }
+});
+</script>
+{% endblock %}

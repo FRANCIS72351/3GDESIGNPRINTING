@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block title %}About Settings{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>About Page Settings</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="description" class="form-label">About Description</label>
+            <textarea class="form-control" id="description" name="description" rows="4" required>{{ content.description if content else '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="service" class="form-label">Services</label>
+            <textarea class="form-control" id="service" name="service" rows="3" required>{{ content.services if content else '' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Slider Images (Optional - leave blank to keep current)</label>
+            <div class="row">
+                <div class="col-md-4">
+                    <label for="slider1" class="form-label">Slider 1</label>
+                    <input type="file" class="form-control" id="slider1" name="slider1" accept="image/*">
+                </div>
+                <div class="col-md-4">
+                    <label for="slider2" class="form-label">Slider 2</label>
+                    <input type="file" class="form-control" id="slider2" name="slider2" accept="image/*">
+                </div>
+                <div class="col-md-4">
+                    <label for="slider3" class="form-label">Slider 3</label>
+                    <input type="file" class="form-control" id="slider3" name="slider3" accept="image/*">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </form>
+</div>
+{% endblock %}

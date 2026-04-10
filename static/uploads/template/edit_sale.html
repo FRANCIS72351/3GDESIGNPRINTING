@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Sale - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card shadow border-0 rounded-4 animate__animated animate__fadeInUp">
+                <div class="card-header bg-success text-white p-4">
+                    <h3 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Sale Record</h3>
+                    <p class="mb-0 text-white-50">Admin-only: Modify recorded sales</p>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('edit_sale', report_id=report.id) }}" method="POST">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label fw-bold">Total Sales</label>
+                                <input type="number" step="0.01" name="total_sales" class="form-control" value="{{ report.total_sales }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Currency</label>
+                                <select class="form-select" name="currency">
+                                    <option value="USD" {{ 'selected' if report.currency == 'USD' }}>USD ($)</option>
+                                    <option value="LRD" {{ 'selected' if report.currency == 'LRD' }}>LRD (L$)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Report Details</label>
+                            <textarea name="report_text" class="form-control" rows="3" required>{{ report.report_text }}</textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success fw-bold">
+                                <i class="fas fa-save me-2"></i>Update Sale
+                            </button>
+                            <a href="{{ url_for('financials') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

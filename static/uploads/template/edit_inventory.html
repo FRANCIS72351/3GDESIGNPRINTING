@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Inventory Log - 3G DESIGN PRINTING{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card shadow border-0 rounded-4 animate__animated animate__fadeInUp">
+                <div class="card-header bg-warning text-dark p-4">
+                    <h3 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Inventory Transaction</h3>
+                    <p class="mb-0 text-dark-50">Admin-only: Modify existing inventory records</p>
+                </div>
+                <div class="card-body p-4">
+                    <form action="{{ url_for('edit_inventory_log', log_id=log.id) }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Product</label>
+                            <input type="text" class="form-control" value="{{ log.product.name }}" disabled>
+                            <small class="text-muted">Product cannot be changed. Create a new log if you made a mistake on product selection.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Transaction Type</label>
+                            <select name="transaction_type" class="form-select" required>
+                                <option value="IN" {% if log.transaction_type == 'IN' %}selected{% endif %}>Goods IN</option>
+                                <option value="OUT" {% if log.transaction_type == 'OUT' %}selected{% endif %}>Goods OUT</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Quantity</label>
+                            <input type="number" name="quantity" class="form-control" value="{{ log.quantity }}" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Notes / Reference</label>
+                            <textarea name="notes" class="form-control" rows="3">{{ log.notes }}</textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning fw-bold text-dark">
+                                <i class="fas fa-save me-2"></i>Update Log
+                            </button>
+                            <a href="{{ url_for('inventory') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}3G DESIGN PRINTING{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand animate__animated animate__fadeIn" href="{{ url_for('home') }}">
+                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G Logo" class="me-2 rounded shadow-sm" style="height: 50px; width: auto; object-fit: contain;">
+                <span class="fw-bold tracking-tight text-white">3G DESIGN PRINTING</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInLeft" href="{{ url_for('home') }}">
+                            <i class="fas fa-home me-1"></i>Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInLeft animate__delay-1s" href="{{ url_for('about') }}">
+                            <i class="fas fa-info-circle me-1"></i>About
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInLeft animate__delay-2s" href="{{ url_for('contact') }}">
+                            <i class="fas fa-phone me-1"></i>Contact
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link position-relative animate__animated animate__fadeIn" href="{{ url_for('view_cart') }}">
+                            <i class="fas fa-shopping-cart"></i> Cart
+                            {% if session.get('cart') %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">
+                                {{ session['cart']|length }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% if session.get('admin_logged_in') %}
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInRight" href="{{ url_for('dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInRight animate__delay-1s" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link animate__animated animate__fadeInRight" href="{{ url_for('login') }}">
+                            <i class="fas fa-sign-in-alt me-1"></i>Admin Login
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="container mt-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show animate__animated animate__bounceIn" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="animate__animated animate__fadeInUp">3G DESIGN PRINTING</h5>
+                    <p class="animate__animated animate__fadeInUp animate__delay-1s">
+                        Bringing your designs to life with precision and quality.
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="animate__animated animate__fadeInUp animate__delay-2s">
+                        <i class="fas fa-map-marker-alt me-2"></i>Newport and Benson Street, Monrovia, Liberia<br>
+                        <i class="fas fa-phone me-2"></i>+231 889 358 194
+                    </p>
+                </div>
+            </div>
+            <hr class="my-3">
+            <div class="text-center animate__animated animate__fadeInUp animate__delay-3s">
+                <p>&copy; 2026 3G DESIGN PRINTING. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wow/1.1.2/wow.min.js"></script>
+    <script>
+        new WOW().init();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

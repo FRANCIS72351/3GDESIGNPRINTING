@@ -1,0 +1,12 @@
+flask
+flask-sqlalchemy
+flask-mail
+python-dotenv
+twilio
+assemblyai
+pyotp
+qrcode[pil]
+werkzeug
+itsdangerous
+gunicorn
+flask-login
