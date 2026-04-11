@@ -73,8 +73,16 @@ db.init_app(app)
 mail = Mail(app)
 
 # ----------------------------------
-# Database Migration Logic (SQLite)
+# Production Configuration for PythonAnywhere
 # ----------------------------------
+# Force HTTPS in production
+if os.environ.get('PYTHONANYWHERE_DOMAIN'):
+    # Running on PythonAnywhere - force HTTPS
+    from flask_sslify import SSLify
+    sslify = SSLify(app)
+
+# Ensure URLs are generated with correct scheme
+app.config['PREFERRED_URL_SCHEME'] = 'https' if os.environ.get('PYTHONANYWHERE_DOMAIN') else 'http'
 with app.app_context():
     db.create_all()
     from sqlalchemy import text
