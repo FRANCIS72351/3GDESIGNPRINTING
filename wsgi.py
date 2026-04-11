@@ -22,4 +22,3 @@ if 'PYTHONANYWHERE_DOMAIN' in os.environ:
 else:
     # Development settings
     application.config['DEBUG'] = True
-app = application
