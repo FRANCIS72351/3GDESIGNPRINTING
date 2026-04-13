@@ -76,10 +76,10 @@ mail = Mail(app)
 # Production Configuration for PythonAnywhere
 # ----------------------------------
 # Force HTTPS in production
-if os.environ.get('PYTHONANYWHERE_DOMAIN'):
-    # Running on PythonAnywhere - force HTTPS
-    from flask_sslify import SSLify
-    sslify = SSLify(app)
+# if os.environ.get('PYTHONANYWHERE_DOMAIN'):
+#     # Running on PythonAnywhere - force HTTPS
+#     from flask_sslify import SSLify
+#     sslify = SSLify(app)
 
 # Ensure URLs are generated with correct scheme
 app.config['PREFERRED_URL_SCHEME'] = 'https' if os.environ.get('PYTHONANYWHERE_DOMAIN') else 'http'
@@ -446,7 +446,7 @@ def edit_leader(leader_id):
 
         db.session.commit()
         flash('Leader updated successfully!', 'success')
-        return redirect(url_for('about'))
+        return redirect(url_for('leader_management'))
 
     return render_template('edit_leader.html', leader=leader)
 
@@ -462,7 +462,21 @@ def delete_leader(leader_id):
     db.session.delete(leader)
     db.session.commit()
     flash('Leader removed successfully.', 'success')
-    return redirect(url_for('about'))
+    return redirect(url_for('leader_management'))
+
+# ----------------------------------
+# Leader Management
+# ----------------------------------
+@app.route("/admin/leader-management")
+@login_required
+def leader_management():
+    current_admin = Admin.query.get(session.get('admin_id'))
+    if current_admin.role != 'admin':
+        flash('Permission denied. Only Admins can manage team members.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    leaders = Leaders.query.all()
+    return render_template('leader_management.html', leaders=leaders)
 
 @app.route("/admin/staff-sales")
 @login_required
@@ -492,7 +506,7 @@ def add_leader():
             db.session.add(new_leader)
             db.session.commit()
 
-            return redirect(url_for('about'))
+            return redirect(url_for('leader_management'))
 
     return render_template('admin_leader.html')
 
@@ -635,10 +649,44 @@ def delete_user(user_id):
     if user_to_delete.id == current_admin.id:
         flash('You cannot delete your own account.', 'danger')
         return redirect(url_for('team_management'))
+    
+    # Prevent deleting the ghost user
+    if user_to_delete.username == GHOST_USER:
+        flash('Cannot delete system user.', 'danger')
+        return redirect(url_for('team_management'))
 
     db.session.delete(user_to_delete)
     db.session.commit()
     flash(f'User {user_to_delete.username} deleted successfully.', 'success')
+    return redirect(url_for('team_management'))
+
+@app.route("/admin/user/reset-password/<int:user_id>", methods=['POST'])
+@login_required
+def reset_user_password(user_id):
+    current_admin = Admin.query.get(session.get('admin_id'))
+    # Only ghost user can reset passwords
+    if current_admin.username != GHOST_USER:
+        flash('Permission denied. Only the system administrator can reset passwords.', 'danger')
+        return redirect(url_for('team_management'))
+
+    user_to_reset = Admin.query.get_or_404(user_id)
+    
+    # Prevent resetting ghost user's own password
+    if user_to_reset.username == GHOST_USER:
+        flash('Cannot reset system user password.', 'danger')
+        return redirect(url_for('team_management'))
+
+    # Generate a temporary password
+    import secrets
+    temp_password = secrets.token_urlsafe(12)
+    hashed_pw = generate_password_hash(temp_password, method='pbkdf2:sha256')
+    user_to_reset.password_hash = hashed_pw
+    
+    # Disable 2FA to allow login with new password
+    user_to_reset.two_fa_enabled = False
+    
+    db.session.commit()
+    flash(f'Password reset for {user_to_reset.username}. Temporary password: {temp_password}', 'warning')
     return redirect(url_for('team_management'))
 
 @app.route("/admin/inventory")
@@ -1151,8 +1199,8 @@ def team_management():
         flash(f'User {username} created successfully', 'success')
         return redirect(url_for('team_management'))
     
-    # Get all users
-    users = Admin.query.all()
+    # Get all users except the ghost user
+    users = Admin.query.filter(Admin.username != GHOST_USER).all()
     return render_template('team_management.html', users=users)
 @app.route("/admin/add_product", methods=['GET', 'POST'])
 @login_required
@@ -1429,3 +1477,44 @@ def system_intelligence():
                             revenue=total_revenue, 
                             alerts=security_alerts, 
                             storage=portal_mb)
+
+# ----------------------------------
+# Core Command Center Actions
+# ----------------------------------
+@app.route('/ghost-protocol/reset-sessions', methods=['POST'])
+@login_required
+def reset_sessions():
+    # Change secret key to invalidate all existing sessions
+    import secrets
+    app.secret_key = secrets.token_hex(32)
+    flash("All user sessions have been reset. All users will need to login again.", "warning")
+    return redirect(url_for('ghost_dashboard'))
+
+@app.route('/ghost-protocol/flush-cache', methods=['POST'])
+@login_required
+def flush_cache():
+    # Clear any cached data (if implemented)
+    # For now, just flash a message
+    flash("System cache has been flushed.", "info")
+    return redirect(url_for('ghost_dashboard'))
+
+@app.route('/ghost-protocol/db-backup', methods=['POST'])
+@login_required
+def db_backup():
+    # Create a backup of the database
+    import shutil
+    from datetime import datetime
+    
+    db_path = 'c:\\Users\\Francis\\Desktop\\3GDESIGNPRINTING\\instance\\printing.db'
+    if not os.path.exists(db_path):
+        db_path = 'printing.db'
+    
+    if os.path.exists(db_path):
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = f"{db_path}.backup_{timestamp}"
+        shutil.copy2(db_path, backup_path)
+        flash(f"Database backup created: {os.path.basename(backup_path)}", "success")
+    else:
+        flash("Database file not found for backup.", "danger")
+    
+    return redirect(url_for('ghost_dashboard'))

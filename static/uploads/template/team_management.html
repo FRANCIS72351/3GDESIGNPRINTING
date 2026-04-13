@@ -38,6 +38,11 @@
                     <hr>
 
                     <h4>Current Team Members</h4>
+                    {% if session.get('username') == GHOST_USER %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-key me-2"></i><strong>Password Recovery:</strong> As the system administrator, you can reset any user's password using the "Reset Password" button. This will generate a temporary password and disable 2FA for that user.
+                    </div>
+                    {% endif %}
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
@@ -71,6 +76,13 @@
                                                 <i class="fas fa-trash"></i> Delete
                                             </button>
                                         </form>
+                                        {% if session.get('username') == GHOST_USER %}
+                                        <form action="{{ url_for('reset_user_password', user_id=user.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to reset this user\'s password? They will need to set up 2FA again.');" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-warning ms-1">
+                                                <i class="fas fa-key"></i> Reset Password
+                                            </button>
+                                        </form>
+                                        {% endif %}
                                         {% else %}
                                         <span class="text-muted small">You (Self)</span>
                                         {% endif %}
