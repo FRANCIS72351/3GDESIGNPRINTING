@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}About Us - 3G DESIGN PRINTING{% endblock %}
+{% block title %}About Us - 3G DESIGN{% endblock %}
 
 {% block content %}
 <div id="aboutCarousel" class="carousel slide carousel-fade mb-5" data-bs-ride="carousel">
@@ -8,11 +8,11 @@
         {% if content and content.slider1 %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="d-block w-100 carousel-img" alt="3G DESIGN PRINTING">
+                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="d-block w-100 carousel-img" alt="3G DESIGN">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN PRINTING</h2>
+                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN</h2>
                 <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
                 <div class="badge bg-primary p-2">EST. 2020</div>
             </div>
@@ -20,11 +20,11 @@
         {% else %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="d-block w-100 carousel-img" alt="3G DESIGN PRINTING">
+                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="d-block w-100 carousel-img" alt="3G DESIGN">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN PRINTING</h2>
+                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN</h2>
                 <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
                 <div class="badge bg-primary p-2">EST. 2020</div>
             </div>
@@ -78,7 +78,7 @@
                         {% if content and content.description %}
                             {{ content.description | safe }}
                         {% else %}
-                            <p>Founded in 2020, <strong>3G DESIGN PRINTING</strong> has been at the forefront of digital printing innovation in Liberia. We combine traditional craftsmanship with cutting-edge technology to deliver exceptional printing services that exceed our clients' expectations.</p>
+                            <p>Founded in 2020, <strong>3G DESIGN</strong> has been at the forefront of digital printing innovation in Liberia. We combine traditional craftsmanship with cutting-edge technology to deliver exceptional printing services that exceed our clients' expectations.</p>
                             <p>From <strong>Vinyl Cutting</strong> to <strong>Large Format Banners</strong>, we are the go-to solution for businesses and individuals across Monrovia.</p>
                         {% endif %}
                     </div>
@@ -134,6 +134,68 @@
     </div>
 </section>
 
+<section class="business-plan-section py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Business Vision & Strategy</h2>
+            <p class="text-muted">Building Africa's Next Business Empire</p>
+        </div>
+        
+        <div class="row g-4">
+            <!-- Vision & Mission -->
+            <div class="col-md-6 col-lg-3">
+                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp">
+                    <div class="icon-box mb-3">
+                        <i class="fas fa-lightbulb fa-2x text-warning"></i>
+                    </div>
+                    <h4>Our Vision</h4>
+                    <p class="small">To become a leading creative and print solutions bring in Liberia and Africa at large, recognized for innovation, quality excellence, and the ability to tranform ideas into powerful visual expriences.</p>
+                </div>
+            </div>
+
+            <!-- Divisions -->
+            <div class="col-md-6 col-lg-3">
+                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-1s">
+                    <div class="icon-box mb-3">
+                        <i class="fas fa-th-large fa-2x text-primary"></i>
+                    </div> 
+                    <h4>Our Divisions</h4>
+                    <ul class="list-unstyled small">
+                        <li><i class="fas fa-print me-2 text-secondary"></i>Creative Design</li>
+                        <li><i class="fas fa-paint-brush me-2 text-secondary"></i>Quality Print</li>
+                        <li><i class="fas fa-box me-2 text-secondary"></i>Excellence Packaging</li>
+                        <li><i class="fas fa-film me-2 text-secondary"></i>Pro Media</li>
+                        <li><i class="fas fa-film me-2 text-secondary"></i>Software Development</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Market & Revenue -->
+            <div class="col-md-6 col-lg-3">
+                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-2s">
+                    <div class="icon-box mb-3">
+                        <i class="fas fa-chart-line fa-2x text-success"></i>
+                    </div>
+                    <h4>Growth Goals</h4>
+                    <p class="small"><strong>Target:</strong> Monrovia & Major Cities</p>
+                    <p class="small"><strong>Revenue:</strong> $1M+ Annual Revenue within 5 years.</p>
+                </div>
+            </div>
+
+            <!-- Strategy -->
+            <div class="col-md-6 col-lg-3">
+                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-3s">
+                    <div class="icon-box mb-3">
+                        <i class="fas fa-rocket fa-2x text-danger"></i>
+                    </div>
+                    <h4>Strategy</h4>
+                    <p class="small">Scaling through skilled staff, stringent quality control, and strategic marketing across local and social channels.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="py-5 bg-light">
     <div class="container">
         <h2 class="text-center mb-5 fw-bold">The Minds Behind the Machine</h2>
@@ -159,13 +221,13 @@
                                 <h3 class="fw-bold text-primary mb-1">{{ leader.name }}</h3>
                                 <h5 class="text-muted mb-3">{{ leader.position or 'Team Member' }}</h5>
                                 <div class="bio-text">
-                                    {{ leader.bio or 'Dedicated professional at 3G DESIGN PRINTING, committed to delivering excellence in every project.' }}
+                                    {{ leader.bio or 'Dedicated professional at 3G DESIGN, committed to delivering excellence in every project.' }}
                                 </div>
                                 <div class="social-links mt-4 d-flex align-items-center">
                                     <div class="me-auto">
                                         <a href="#" class="me-3 text-dark"><i class="fab fa-linkedin fa-lg"></i></a>
                                         <a href="#" class="me-3 text-dark"><i class="fab fa-twitter fa-lg"></i></a>
-                                        <a href="mailto:info@3gdesignprinting.com" class="text-dark"><i class="fas fa-envelope fa-lg"></i></a>
+                                        <a href="mailto:info@3G DESIGNprinting.com" class="text-dark"><i class="fas fa-envelope fa-lg"></i></a>
                                     </div>
                                     
                                     {% if session.get('admin_logged_in') %}

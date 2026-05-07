@@ -19,6 +19,9 @@ class Product(db.Model):
     stock = db.Column(db.Integer, default=0) # Total stock
     image = db.Column(db.String(100))
     description = db.Column(db.Text)
+    stock_quantity = db.Column(db.Integer, default=0)
+    # Add this line to define when to alert you
+    min_stock_threshold = db.Column(db.Integer, default=5)
     
     variants = db.relationship('ProductVariant', backref='product', lazy=True, cascade="all, delete-orphan")
 
@@ -38,6 +41,8 @@ class Leaders(db.Model):
     image = db.Column(db.String(100))
     position = db.Column(db.String(100))
     bio = db.Column(db.Text)
+    email = db.Column(db.String(120))
+    contact = db.Column(db.String(20))
 
 class CallLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -90,6 +95,7 @@ class Sale(db.Model):
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    sms_status = db.Column(db.String(20), default="Pending")
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -97,8 +103,10 @@ class Order(db.Model):
     status = db.Column(db.String(20), default='Pending') # Pending, Processing, Shipped, Delivered, Cancelled
     total_amount = db.Column(db.Float, default=0.0)
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    order_source = db.Column(db.String(50)) # e.g., 'WhatsApp Direct', 'In-Store'
+    date_ordered = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship('OrderItem', backref='order', lazy=True)
+    customer = db.relationship('Customer', backref='orders', lazy=True)
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -107,6 +115,8 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, default=1)
     price_at_time = db.Column(db.Float) # Price when ordered
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
+    
+    product = db.relationship('Product', backref='order_items', lazy=True)
 
 class DailyReport(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -135,6 +145,17 @@ class InventoryLog(db.Model):
 
     product = db.relationship('Product', backref='inventory_logs')
     admin = db.relationship('Admin', backref='inventory_logs')
+# generate document
+class GeneratedDocument(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    doc_type = db.Column(db.String(20)) # 'invoice', 'receipt', 'letterhead'
+    doc_number = db.Column(db.String(50), unique=True)
+    content = db.Column(db.Text) # JSON or formatted string of items
+    issued_by = db.Column(db.Integer, db.ForeignKey('admin.id')) # TRACKING KEY
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship to get the name easily
+    creator = db.relationship('Admin', backref='documents')
 
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)

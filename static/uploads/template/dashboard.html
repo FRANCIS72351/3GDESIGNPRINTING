@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Dashboard - 3G DESIGN PRINTING{% endblock %}
+{% block title %}Dashboard - 3G DESIGN{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -18,6 +18,14 @@
                 <div class="stat-number text-white">${{ "%.2f"|format(today_income_usd) }}</div>
                 <div class="stat-number text-white h4">L${{ "%.2f"|format(today_income_lrd) }}</div>
                 <p class="text-white-50">Total sales today</p>
+
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="dashboard-card animate__animate__fadeInLeft animal__delay-1s bg-danger text-white">
+                <h3><i class="fas fa-arrow-trend-down me-2"></i>Direct Sale History</h3>
+                <div class="stat-numeber text-white">${{ "%.2f"|format(admin_log) }}</div>
+                <p class="test-white-50">Total direct sales</p>
             </div>
         </div>
 
@@ -48,6 +56,7 @@
             </div>
         </div>
     </div>
+    
 
     <div class="row">
         <div class="col-lg-6 mb-4">
@@ -169,6 +178,9 @@
                     <a href="{{ url_for('about_settings') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-cog me-2"></i>Update About Page
                     </a>
+                    <a href="{{ url_for('admin_portal') }}" class="btn btn-outline-secondary">" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-2"></i>Direct sale history
+                    </a>
                     <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#quickCaptureModal">
                         <i class="fas fa-plus-circle me-2"></i>Quick Customer Capture
                     </button>
@@ -177,6 +189,15 @@
                     </a>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+<div class="col-md-4">
+    <div class="card bg-primary text-white shadow">
+        <div class="card-body">
+            <h5>Management Portal</h5>
+            <p>Generate Invoices & Letterheads</p>
+            <a href="{{ url_for('admin_portal') }}" class="btn btn-light btn-sm">Open Portal</a>
         </div>
     </div>
 </div>
@@ -216,4 +237,34 @@
         </div>
     </div>
 </div>
+{% if session['role'] in ['admin', 'moderator'] %}
+<div class="col-md-12">
+    <div class="card border-primary shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-file-invoice me-2"></i> Management & Documentation Portal
+        </div>
+        <div class="card-body">
+            <p class="small text-muted">Authorized access for <strong>{{ session['role']|capitalize }}</strong> only.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('download_pdf', doc_type='invoice') }}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-1"></i> Issue Invoice
+                </a>
+                <a href="{{ url_for('download_pdf', doc_type='receipt') }}" class="btn btn-success">
+                    <i class="fas fa-receipt me-1"></i> Issue Receipt
+                </a>
+                <a href="{{ url_for('download_pdf', doc_type='letterhead') }}" class="btn btn-dark">
+                    <i class="fas fa-heading me-1"></i> Official Letterhead
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="col-md-12">
+    <div class="alert alert-secondary">
+        <i class="fas fa-lock me-2"></i> Management documents are restricted to Admin/Moderator level.
+    </div>
+</div>
+{% endif %}
 {% endblock %}
+

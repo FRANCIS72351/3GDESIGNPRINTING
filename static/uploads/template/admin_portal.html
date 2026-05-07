@@ -1,0 +1,33 @@
+<div class="row mt-5">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Quick Issue: Invoice/Receipt</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('generate_order_pdf') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Select Product</label>
+                        <select name="product_name" class="form-select">
+                            <option value="Squire Frame Original">Squire Frame Original - $15.00</option>
+                            <option value="Graphic Design Service">Graphic Design Service - Variable</option>
+                            <option value="3GDESIGN Print Job">3GDESIGN Print Job - Variable</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" name="customer_name" class="form-control" placeholder="Enter customer name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <button type="submit" name="doc_type" value="invoice" class="btn btn-primary w-100">Generate Invoice</button>
+                        </div>
+                        <div class="col">
+                            <button type="submit" name="doc_type" value="receipt" class="btn btn-success w-100">Issue Receipt</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

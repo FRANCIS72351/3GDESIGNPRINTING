@@ -1,0 +1,39 @@
+<div class="card shadow-sm border-primary mt-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fab fa-whatsapp me-2"></i> Log Direct WhatsApp Order</h5>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('log_manual_order') }}" method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Customer WhatsApp/Name</label>
+                    <input type="text" name="customer_info" class="form-control" placeholder="e.g. John Doe (+231...)" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Product Sold</label>
+                    <select name="product_id" class="form-select">
+                        {% for product in products %}
+                        <option value="{{ product.id }}">{{ product.name }} - ${{ product.price_usd }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="qty" class="form-control" value="1" min="1">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Payment Status</label>
+                    <select name="status" class="form-select">
+                        <option value="Paid">Paid (Issue Receipt)</option>
+                        <option value="Pending">Pending (Issue Invoice)</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end mb-3">
+                    <button type="submit" class="btn btn-dark w-100">Save to System & Generate PDF</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

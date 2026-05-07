@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}3G DESIGN PRINTING{% endblock %}</title>
+    <title>{% block title %} 3G DESIGN {% endblock %}</title>
+    <link rel="icon" href="{{ url_for('favicon')}}" type="image/icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
@@ -14,8 +15,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
         <div class="container">
             <a class="navbar-brand animate__animated animate__fadeIn" href="{{ url_for('home') }}">
-                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G Logo" class="me-2 rounded shadow-sm" style="height: 50px; width: auto; object-fit: contain;">
-                <span class="fw-bold tracking-tight text-white">3G DESIGN PRINTING</span>
+                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3GDESIGN Logo" class="me-2 rounded shadow-sm" style="height: 50px; width: auto; object-fit: contain;">
+                <span class="fw-bold tracking-tight text-white">3G DESIGN</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -91,23 +92,23 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h5 class="animate__animated animate__fadeInUp">3G DESIGN PRINTING</h5>
+                    <h5 class="animate__animated animate__fadeInUp">3G DESIGN</h5>
                     <p class="animate__animated animate__fadeInUp animate__delay-1s">
-                        Bringing your designs to life with precision and quality.
+                        Creative Designs, Premium Prints, Powerful Impression.
                     </p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <p class="animate__animated animate__fadeInUp animate__delay-2s">
                         <i class="fas fa-map-marker-alt me-2"></i>Newport and Benson Street, Monrovia, Liberia<br>
-                        <i class="fas fa-phone me-2"></i>+231 889 358 194
+                        <i class="fas fa-phone me-2"></i>231775323731/+231881669599<br>
                     </p>
                 </div>
             </div>
             <hr class="my-3">
             <div class="text-center animate__animated animate__fadeInUp animate__delay-3s">
-                <p>&copy; 2026 3G DESIGN PRINTING. All rights reserved.</p>
+                <p>&copy; 2026 3G DESIGN. All rights reserved.</p>
             </div>
-        </div>
+        </div>                 
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

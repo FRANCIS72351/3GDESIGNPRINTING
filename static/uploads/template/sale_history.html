@@ -1,0 +1,46 @@
+<div class="row mb-4">
+    <!-- Card 1: Total Orders -->
+    <div class="col-md-4">
+        <div class="card bg-primary text-white shadow-sm border-0 position-relative p-3">
+            <div class="z-1">
+                <h6 class="text-uppercase small mb-1">Total Website Orders</h6>
+                <h3 class="fw-bold mb-0">{{ order_count }}</h3>
+            </div>
+            <i class="fas fa-shopping-cart fa-3x position-absolute end-0 bottom-0 m-2 opacity-25"></i>
+        </div>
+    </div>
+
+    <!-- Card 2: USD Revenue -->
+    <div class="col-md-4">
+        <div class="card bg-success text-white shadow-sm border-0 position-relative p-3">
+            <div class="z-1">
+                <h6 class="text-uppercase small mb-1">Total Revenue (USD)</h6>
+                <h3 class="fw-bold mb-0">${{ "{:,.2f}".format(total_usd) }}</h3>
+            </div>
+            <i class="fas fa-dollar-sign fa-3x position-absolute end-0 bottom-0 m-2 opacity-25"></i>
+        </div>
+    </div>
+
+    <!-- Card 3: LRD Revenue -->
+    <div class="col-md-4">
+        <div class="card bg-info text-white shadow-sm border-0 position-relative p-3">
+            <div class="z-1">
+                <h6 class="text-uppercase small mb-1">Total Revenue (LRD)</h6>
+                <h3 class="fw-bold mb-0">L${{ "{:,.2f}".format(total_lrd) }}</h3>
+            </div>
+            <i class="fas fa-money-bill-wave fa-3x position-absolute end-0 bottom-0 m-2 opacity-25"></i>
+        </div>
+    </div>
+</div>
+<div>
+<th>SMS Status</th>
+<td>
+    {% if sale.sms_status == 'Sent' %}
+        <span class="badge bg-success">Sent</span>
+    {% elif sale.sms_status == 'Failed' %}
+        <span class="badge bg-danger">Failed</span>
+    {% else %}
+        <span class="badge bg-warning text-dark">Pending</span>
+    {% endif %}
+</td>
+</div>

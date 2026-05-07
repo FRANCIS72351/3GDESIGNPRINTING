@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}3G DESIGN ERP | Moderator Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-dark">Moderator Dashboard </h1>
+            <p class="text-muted">Welcome back, <strong>{{ session['username'] }}</strong></p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-secondary px-3 py-2">Standard Access</span>
+        </div>
+        <div></div>
+    </div>
+
+    <hr>
+
+    {% if not user.two_factor_enabled %}
+    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center" role="alert">
+        <i class="fas fa-shield-alt me-3 fa-2x text-warning"></i>
+        <div>
+            <strong>Enhance Your Security:</strong> Your account is currently using single-factor login. 
+            <a href="{{url_for('setup_2factor')}}" class="alert-link ms-2">Enable 2FA Now</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="card-title mb-0 text-primary">
+                        <i class="fas fa-tasks me-2"></i>Production Workflow
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="{{url_for('file_portal')}}" class="list-group-item list-group-item-action py-3 border-0 rounded mb-2 bg-light">
+                            <i class="fas fa-cloud-download-alt me-3 text-primary"></i>Client File Portal
+                        </a>
+                        <a href="{{url_for('digital_sales_ledger')}}" class="list-group-item list-group-item-action py-3 border-0 rounded mb-2 bg-light">
+                            <i class="fas fa-globe me-3 text-primary"></i>Website Commerce Ledger
+                        </a>
+                        <a href="{{url_for('upload_file')}}" class="list-group-item list-group-item-action py-3 border-0 rounded mb-2 bg-light">
+                            <i class="fas fa-file-upload me-3 text-primary"></i>Upload Design Proofs
+                        </a>
+                        <a href="{{url_for('admin_logs')}}" class="list-group-item list-group-item-action py-3 border-0 rounded mb-2 bg-light">
+                            <i class="fas fa-history me-3 text-primary"></i>Direct Sale History
+                        </a>
+                        <a href="{{url_for('file_download')}}" class="list-group-item list-group-item-action py-3 border-0 rounded bg-light">
+                            <i class="fas fa-hdd me-3 text-primary"></i>Archive Access
+                        </a>
+                         <a href="{{ url_for('staff_sales_history') }}" class="btn btn-outline-success">
+                        <i class="fas fa-history me-2"></i>My Sales History
+                    </a>
+                    <a href="{{ url_for('financials') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-dollar-sign me-2"></i>Financial Management
+                    </a>
+                    <div class="d-grid gap-2">
+                    <a href="{{ url_for('add_product') }}" class="btn btn-primary text-white">
+                        <i class="fas fa-plus-circle me-2"></i>Post New Advertisement (Product)
+                    </a>
+                    <a href="{{ url_for('inventory') }}" class="btn btn-warning text-dark fw-bold">
+                        <i class="fas fa-boxes me-2"></i>Inventory & Stock Management
+                    </a>
+                       <a href="{{url_for('admin_portal')}}" class="list-group-item list-group-item-action py-3 border-0 rounded mb-2 bg-light">
+                            <i class="fas fa-cloud-download-alt me-3 text-primary"></i>Management Portal
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="card-title mb-0 text-success">
+                        <i class="fas fa-user-check me-2"></i>Time Tracking
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="text-muted small mb-4">Clocking in accurately ensures your monthly service hours are logged for payroll and performance reviews.</p>
+                    <a href="{{url_for('Attending_for_staff')}}" class="btn btn-success btn-lg mt-auto py-3 shadow-sm">
+                        <i class="fas fa-fingerprint me-2"></i>Log Daily Attendance
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <div class="py-3 px-4 bg-light rounded-pill d-inline-block border">
+                <small class="text-muted">
+                    <i class="fas fa-lock me-2"></i> 
+                    Financial documents (Invoices/Receipts) require <strong>Moderator</strong> or <strong>Admin</strong> authorization.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card { border-radius: 15px; overflow: hidden; }
+    .list-group-item:hover { background-color: #e9ecef !important; transform: scale(1.02); transition: 0.2s; }
+    .btn-success { border-radius: 10px; font-weight: bold; }
+</style>
+{% endblock %}
+
+

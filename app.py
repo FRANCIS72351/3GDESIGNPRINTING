@@ -9,13 +9,14 @@ import urllib.parse
 from datetime import datetime, timedelta, time as datetime_time
 from sqlalchemy import func
 from twilio.twiml.voice_response import VoiceResponse
+from flask import send_from_directory
 # Removed flask_login import as we use a custom decorator
 
 
 import assemblyai as aai
 
 from werkzeug.utils import secure_filename
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash, Response
+from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response
 from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -40,8 +41,9 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback-key-for-dev-only')
 aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 
 # 3. Database Alignment
-# This points exactly to /home/FRANCIS72351/3GDESIGNPRINTING/printing.db
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'printing.db')
+# This points exactly to /home/FRANCIS72351/3G DESIGNPRINTING/3G_ERP_V1.db
+# Updated for 3G DESIGN Branding
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, '3G_ERP_V1.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # ----------------------------------
@@ -101,6 +103,10 @@ with app.app_context():
                 ("last_login_at", "DATETIME"),
                 ("last_login_ip", "VARCHAR(100)"),
                 ("time_drift", "INTEGER DEFAULT 0")
+            ],
+            'order': [
+                ("order_source", "VARCHAR(50)"),
+                ("date_ordered", "DATETIME")
             ]
         }
         
@@ -108,11 +114,11 @@ with app.app_context():
             for col_name, col_type in columns:
                 try:
                     # Check if column exists
-                    conn.execute(text(f"SELECT {col_name} FROM {table} LIMIT 1"))
+                    conn.execute(text(f'SELECT {col_name} FROM "{table}" LIMIT 1'))
                 except Exception:
                     # Column doesn't exist, add it
                     try:
-                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+                        conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN {col_name} {col_type}'))
                         conn.commit()
                         print(f"Added column {col_name} to {table}")
                     except Exception as e:
@@ -174,6 +180,14 @@ def home():
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
+
+#---------------------------------
+# favicon route to prevent 404 error 
+#----------------------------------
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 # ----------------------------------
 # Shopping Cart Logic
@@ -242,7 +256,7 @@ def checkout_whatsapp():
     base_url = request.host_url.rstrip('/')
     
     # Professional Header
-    message = "📑 *OFFICIAL ORDER RECEIPT - 3G DESIGN PRINTING*\n"
+    message = "📑 *OFFICIAL ORDER RECEIPT - Olatricity*\n"
     message += "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
     
     # Optimization: Put the first image link at the very top for WhatsApp Link Preview
@@ -287,34 +301,56 @@ def checkout_whatsapp():
 @app.route("/voice", methods=['POST'])
 def voice():
     response = VoiceResponse()
-    response.say(
-        "Welcome to 3G DESIGN PRINTING. "
-        "Your call is being recorded for order accuracy."
-    )
+    response.say("Welcome to Olatricity. Your call is being recorded for order accuracy.")
+    
+    # Twilio will POST to /handle-recording when the user hangs up or time is up
     response.record(action="/handle-recording", maxLength=60)
     return str(response)
-
 # ----------------------------------
 # AssemblyAI: Handle Recording
 # ----------------------------------
+from flask import request, current_app
+import assemblyai as aai
+# Make sure db and CallLog are imported from your models file
+# from models import db, CallLog 
+
 @app.route("/handle-recording", methods=['POST'])
 def handle_recording():
+    # 1. Get data from Twilio
     recording_url = request.form.get('RecordingUrl')
     from_number = request.form.get('From')
 
-    transcriber = aai.Transcriber()
-    transcript = transcriber.transcribe(recording_url)
+    if not recording_url:
+        current_app.logger.warning("No recording URL received from Twilio.")
+        return "No recording found", 400
+    try:
+        # 2. Start Transcription (Ensure aai.settings.api_key is set elsewhere)
+        transcriber = aai.Transcriber()
+        transcript = transcriber.transcribe(recording_url)
 
-    new_call = CallLog(
-        phone_number=from_number,
-        transcript=transcript.text,
-        audio_url=recording_url
-    )
+        # 3. Check for transcription errors
+        if transcript.status == aai.TranscriptStatus.error:
+            current_app.logger.error(f"Transcription Error: {transcript.error}")
+            return "Transcription failed", 500
 
-    db.session.add(new_call)
-    db.session.commit()
-    return "OK", 200
+        # 4. Save to Database
+        new_call = CallLog(
+            phone_number=from_number,
+            transcript=transcript.text,
+            audio_url=recording_url
+        )
 
+        db.session.add(new_call)
+        db.session.commit()
+        
+        print(f"Success: Recorded call from {from_number}")
+        return "OK", 200
+
+    except Exception as e:
+        # If the database or transcription fails, roll back the session
+        db.session.rollback()
+        print(f"System Error: {str(e)}")
+        return "Internal Server Error", 500
 # ----------------------------------
 # Exponential Backoff Helper
 # ----------------------------------
@@ -424,6 +460,214 @@ def upload_file():
     
     return redirect(url_for('file_portal', date=selected_date))
 
+def roles_required(*roles):
+    def wrapper(f):
+        @wraps(f)
+        def decorated_view(*args, **kwargs):
+            # Assumes 'role' is stored in the session during login
+            user_role = session.get('role')
+            if user_role not in roles:
+                # 403 Forbidden: They aren't an Admin or Moderator
+                abort(403) 
+            return f(*args, **kwargs)
+        return decorated_view
+    return wrapper
+
+# Apply it to your Management Portal route
+@app.route('/download-doc/<doc_type>')
+@roles_required('admin', 'moderator') # ONLY these roles can enter
+def download_pdf(doc_type):
+    # Role check
+    if session.get('role') not in ['admin', 'moderator']:
+        abort(403)
+
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    
+    # --- 1. TOP DECORATIVE BARS ---
+    p.setFillColor(colors.HexColor("#0B1F3A")) # 3G DESIGN Deep Navy
+    p.rect(0, height - 25, width, 25, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 10)
+    p.drawCentredString(width/2, height - 17, doc_type.upper())
+
+    # --- 2. LOGO & CONTACT INFO ---
+    logo_path = os.path.join(app.root_path, 'static/img/LOGO.png')
+    if os.path.exists(logo_path):
+        p.drawImage(logo_path, 50, height - 85, width=120, preserveAspectRatio=True, mask='auto')
+
+    # Contact Details (Right Aligned like the sample)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica", 9)
+    text_x = 550
+    p.drawRightString(text_x, height - 55, "📞 +231 77 532 3731")
+    p.drawRightString(text_x, height - 67, "📧 info@olatricity.com")
+    p.drawRightString(text_x, height - 79, "🌐 www.olatricity.com")
+    p.drawRightString(text_x, height - 91, "📍 Newport & Benson Street, Monrovia, Liberia")
+
+    # --- 3. THE ACCENT BLUE LINE ---
+    p.setStrokeColor(colors.HexColor("#4FC3F7")) # Olatricity Sky Blue
+    p.setLineWidth(2)
+    p.line(50, height - 110, 550, height - 110)
+
+    # --- 4. RECIPIENT & DATE ---
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(50, height - 140, "To:")
+    p.setFont("Helvetica", 10)
+    p.drawString(50, height - 152, "Valued Client / Management")
+    p.drawRightString(550, height - 170, datetime.now().strftime("%B %d, %Y"))
+
+    # --- 5. CONTENT AREA ---
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, height - 200, f"Subject: Official {doc_type.title()}")
+    
+    p.setFont("Helvetica", 11)
+    p.drawString(50, height - 230, "Dear Sir/Madam,")
+    # Add your body text logic here...
+
+    # --- 6. SIGNATURE LINE ---
+    p.drawString(50, 150, "Sincerely,")
+    p.line(50, 110, 180, 110) # Signature line
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(50, 95, f"{session.get('username')}")
+    p.setFont("Helvetica", 9)
+    p.drawString(50, 83, "Authorized Signatory")
+    p.drawString(50, 71, "3G DESIGN")
+
+    # --- 7. BOTTOM BLUE BAR ---
+    p.setFillColor(colors.HexColor("#0B1F3A"))
+    p.rect(0, 0, width, 30, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawCentredString(width/2, 12, "QUALITY IN EVERY PRINT, EXCELLENCE IN EVERY DESIGN")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=f"3G DESIGN_{doc_type}.pdf", mimetype='application/pdf')
+
+@app.route('/admin_portal')
+@roles_required('admin', 'moderator')
+def admin_portal():
+    return render_template("admin_portal.html")
+
+@app.route('/direct-sale-history')
+@roles_required('admin', 'moderator')
+def direct_sale_history():
+    search = request.args.get('search', '')
+    query = Order.query
+    
+    if search:
+        query = query.join(Customer).filter(
+            (Customer.name.ilike(f"%{search}%")) |
+            (Order.status.ilike(f"%{search}%")) |
+            (Order.order_source.ilike(f"%{search}%"))
+        )
+    
+    orders = query.order_by(Order.date_ordered.desc()).all()
+    return render_template("direct_sale_history.html", orders=orders, search=search)
+
+@app.route("/admin/generate-order-pdf", methods=['POST'])
+@app.route("/admin/generate-order-pdf/<int:order_id>", methods=['GET'])
+@roles_required('admin', 'moderator')
+def generate_order_pdf(order_id=None):
+    if order_id:
+        order = Order.query.get_or_404(order_id)
+        customer_name = order.customer.name if order.customer else "Guest"
+        # Combine items for description
+        items_list = []
+        for item in order.items:
+            p_name = item.product.name if item.product else "Deleted Product"
+            items_list.append(f"{p_name} (x{item.quantity})")
+        
+        product_name = ", ".join(items_list)
+        price_display = f"${order.total_amount:,.2f}"
+        doc_type = "invoice"
+    else:
+        product_name = request.form.get('product_name')
+        customer_name = request.form.get('customer_name')
+        doc_type = request.form.get('doc_type', 'invoice')
+        
+        # Original logic for price from product_name string
+        price_display = "$0.00"
+        if product_name and "$" in product_name:
+            price_display = "$" + product_name.split("$")[-1].strip()
+        elif product_name and "Variable" in product_name:
+            price_display = "TBD"
+
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    # --- Modern UI: Sidebar Accent ---
+    p.setFillColor(colors.HexColor("#0B1F3A"))
+    p.rect(0, 0, 40, height, fill=1, stroke=0)
+
+    # --- Header ---
+    p.setFillColor(colors.HexColor("#0B1F3A"))
+    p.rect(40, height - 80, width - 40, 80, fill=1, stroke=0)
+    
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 24)
+    p.drawString(60, height - 50, "3G DESIGN")
+    
+    p.setFont("Helvetica", 12)
+    p.drawRightString(width - 30, height - 35, doc_type.upper())
+    p.drawRightString(width - 30, height - 55, datetime.now().strftime("%d %b %Y"))
+
+    # --- Logo & Contact ---
+    logo_path = os.path.join(app.root_path, 'static', 'img', 'LOGO.png')
+    if os.path.exists(logo_path):
+        p.drawImage(logo_path, 60, height - 160, width=100, preserveAspectRatio=True, mask='auto')
+
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(200, height - 110, "3G DESIGN")
+    p.setFont("Helvetica", 9)
+    p.drawString(200, height - 125, "Newport & Benson Street, Monrovia, Liberia")
+    p.drawString(200, height - 137, "Tel: +231 77 532 3731")
+    p.drawString(200, height - 149, "Email: info@3GDESIGNprinting.com")
+
+    # --- Customer Info ---
+    p.setStrokeColor(colors.HexColor("#0B1F3A"))
+    p.setLineWidth(1)
+    p.line(60, height - 180, width - 30, height - 180)
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(60, height - 210, "BILLED TO:")
+    p.setFont("Helvetica", 11)
+    p.drawString(60, height - 225, customer_name)
+
+    # --- Order Table Header ---
+    p.setFillColor(colors.HexColor("#F2F4F7"))
+    p.rect(60, height - 280, width - 90, 25, fill=1, stroke=0)
+    
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(70, height - 273, "DESCRIPTION")
+    p.drawRightString(width - 40, height - 273, "AMOUNT")
+
+    # --- Order Details ---
+    p.setFont("Helvetica", 10)
+    p.drawString(70, height - 310, product_name[:80] + ("..." if len(product_name) > 80 else ""))
+    
+    p.drawRightString(width - 40, height - 310, price_display)
+
+    # --- Footer ---
+    p.setStrokeColor(colors.HexColor("#0B1F3A"))
+    p.line(60, 100, width - 30, 100)
+    
+    p.setFont("Helvetica-Oblique", 8)
+    p.drawCentredString(width/2 + 20, 80, "Thank you for choosing 3G DESIGN for your digital solutions.")
+    p.setFont("Helvetica-Bold", 10)
+    p.drawCentredString(width/2 + 20, 60, "QUALITY IN EVERY PRINT, EXCELLENCE IN EVERY DESIGN")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=f"{customer_name}_{doc_type}.pdf", mimetype='application/pdf')
+
 @app.route("/admin/leader/edit/<int:leader_id>", methods=['GET', 'POST'])
 @login_required
 def edit_leader(leader_id):
@@ -437,7 +681,8 @@ def edit_leader(leader_id):
         leader.name = request.form.get('name')
         leader.position = request.form.get('position')
         leader.bio = request.form.get('bio')
-        
+        leader.email = request.form.get('email')
+        leader.contact = request.form.get('contact')
         file = request.files.get('image')
         if file:
             filename = secure_filename(file.filename)
@@ -477,6 +722,98 @@ def leader_management():
     
     leaders = Leaders.query.all()
     return render_template('leader_management.html', leaders=leaders)
+#-----------------------------------
+# admin alert: inventory low
+#-------------------------------------
+@app.route('/add-sale', methods=['POST'])
+def add_sale():
+    # ... your existing sale logic ...
+    
+    product = Product.query.get(product_id)
+    product.stock_quantity -= quantity_sold
+    
+    db.session.commit()
+
+    # --- INVENTORY CHECK START ---
+    check_inventory_alerts(product)
+    # --- INVENTORY CHECK END ---
+
+    return redirect(url_for('dashboard'))
+
+ADMIN_PHONE = '+231881669599'  # Replace with your actual phone number
+
+def check_inventory_alerts(product):
+    """Checks if stock is low and sends an alert to the Admin."""
+    if product.stock_quantity <= product.min_stock_threshold:
+        message_body = (
+            f"⚠️ 3G DESIGN INVENTORY ALERT ⚠️\n"
+            f"Item: {product.name} is running low!\n"
+            f"Current Stock: {product.stock_quantity}\n"
+            f"Threshold: {product.min_stock_threshold}\n"
+            f"Please restock soon to avoid missing sales."
+        )
+
+        try:
+            twilio_client.messages.create(
+                body=message_body,
+                from_=app.config['TWILIO_PHONE_NUMBER'],
+                to=ADMIN_PHONE
+            )
+            print(f"Low stock alert sent for {product.name}")
+        except Exception as e:
+            print(f"Failed to send inventory alert: {e}")
+
+#-------------------------------------
+#sales status for admin and moderator
+#-------------------------------------
+def trigger_order_sms(sale_id):
+    """Updates the sale record based on SMS success."""
+    sale = Sale.query.get(sale_id)
+    if not sale or not sale.phone_number:
+        return
+
+    message_body = f"3G DESIGN: Order #{sale.id} confirmed for ${sale.total_amount:.2f}. Thank you!"
+
+    try:
+        twilio_client.messages.create(
+            body=message_body,
+            from_=app.config['TWILIO_PHONE_NUMBER'],
+            to=sale.phone_number
+        )
+        sale.sms_status = "Sent" # Success!
+    except Exception as e:
+        print(f"SMS Error: {e}")
+        sale.sms_status = "Failed" # Something went wrong
+    
+    db.session.commit()
+#-----------------------------------------
+# sale finalism
+#-----------------------------------------
+def trigger_order_sms(sale_obj):
+    """
+    Automated professional response for 3G DESIGN.
+    Takes a 'sale' object from your database.
+    """
+    if not sale_obj.phone_number or not sale_obj.phone_number.startswith('+'):
+        print(f"Skipping SMS: Invalid phone for {sale_obj.customer_name}")
+        return
+
+    message_body = (
+        f"3G DESIGN ERP: Success! Order #{sale_obj.id} confirmed.\n"
+        f"Customer: {sale_obj.customer_name}\n"
+        f"Amount: ${sale_obj.total_amount:.2f}\n"
+        f"Thank you for your business. We are processing your request now!"
+    )
+
+    try:
+        twilio_client.messages.create(
+            body=message_body,
+            from_=app.config['TWILIO_PHONE_NUMBER'],
+            to=sale_obj.phone_number
+        )
+        print(f"Auto-SMS sent to {sale_obj.customer_name}")
+    except Exception as e:
+        print(f"Auto-SMS failed: {e}")
 
 @app.route("/admin/staff-sales")
 @login_required
@@ -496,13 +833,15 @@ def add_leader():
         name = request.form.get('name')
         position = request.form.get('position')
         bio = request.form.get('bio')
+        email = request.form.get('email')
+        contact = request.form.get('contact')
         file = request.files.get('image')
 
         if file:
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-            new_leader = Leaders(name=name, position=position, bio=bio, image=filename)
+            new_leader = Leaders(name=name, position=position, bio=bio, email=email, contact=contact, image=filename)
             db.session.add(new_leader)
             db.session.commit()
 
@@ -789,7 +1128,7 @@ def check_for_late_staff():
 
 def send_late_notification(username):
     # This uses your existing Flask-Mail or Twilio setup
-    msg_body = f"ALERT: {username} has not clocked in for their shift at 3G DESIGN PRINTING as of 08:15 AM."
+    msg_body = f"ALERT: {username} has not clocked in for their shift at 3G DESIGN as of 08:15 AM."
     print(msg_body) # For testing, or send via Twilio/Email
     
     # Optional: Send via Flask-Mail if configured
@@ -809,7 +1148,7 @@ def send_late_notification(username):
 # ----------------------------------
 def send_welcome_email(customer_email, customer_name):
     msg = Message(
-        subject="Welcome to 3G DESIGN PRINTING!",
+        subject="Welcome to 3G DESIGN!",
         sender=app.config['MAIL_USERNAME'],
         recipients=[customer_email]
     )
@@ -877,7 +1216,7 @@ def quick_capture():
     return redirect(url_for('dashboard'))
 
 @app.route("/dashboard")
-@login_required
+@role_required(['admin', 'moderator'])
 def dashboard():
     calls = CallLog.query.order_by(CallLog.timestamp.desc()).all()
     sales = Sale.query.all()
@@ -890,10 +1229,15 @@ def dashboard():
     today_attendance = Attendance.query.filter(db.func.date(Attendance.check_in) == today).all()
     late_threshold = datetime_time(8, 15)
 
+    # 1. Calculate admin_log (The missing piece!)
+    # This sums the total_amount of all manual WhatsApp orders
+    admin_log = db.session.query(func.sum(Order.total_amount)).filter(
+        Order.order_source == 'WhatsApp Direct'
+    ).scalar() or 0
+
     # Financial summary for today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Income for today by currency
     today_income_usd = db.session.query(func.sum(DailyReport.total_sales)).filter(
         DailyReport.date_posted >= today_start, DailyReport.currency == 'USD'
     ).scalar() or 0
@@ -901,7 +1245,6 @@ def dashboard():
         DailyReport.date_posted >= today_start, DailyReport.currency == 'LRD'
     ).scalar() or 0
 
-    # Expenses for today by currency
     today_expense_usd = db.session.query(func.sum(Expense.amount)).filter(
         Expense.timestamp >= today_start, Expense.currency == 'USD'
     ).scalar() or 0
@@ -921,7 +1264,8 @@ def dashboard():
         today_income_usd=today_income_usd,
         today_income_lrd=today_income_lrd,
         today_expense_usd=today_expense_usd,
-        today_expense_lrd=today_expense_lrd
+        today_expense_lrd=today_expense_lrd,
+        admin_log=admin_log
     )
 
 @app.route('/logout')
@@ -994,7 +1338,7 @@ def setup_2fa():
 
     # Generate TOTP URI for QR code
     totp = pyotp.TOTP(admin.otp_secret)
-    uri = totp.provisioning_uri(name="3G DESIGN PRINTING Admin", issuer_name="3G DESIGN PRINTING")
+    uri = totp.provisioning_uri(name="3G DESIGN Admin", issuer_name="3G DESIGN")
     
     # Generate QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -1338,7 +1682,7 @@ def delete_product(product_id):
 
 def send_deactivation_warning(target_email):
     msg = Message("URGENT: 3G System Maintenance Alert",
-                  sender="architect@yourdomain.com",
+                  sender="xhangocharm@gmail.com",
                   recipients=[target_email])
     msg.body = """
     NOTICE OF PENDING SYSTEM DEACTIVATION
@@ -1408,7 +1752,7 @@ def secure_download(filename):
 @app.route('/ghost-protocol/overwatch')
 @login_required
 def ghost_dashboard():
-    db_path = 'c:\\Users\\Francis\\Desktop\\3GDESIGNPRINTING\\instance\\printing.db'
+    db_path = 'c:\\Users\\Francis\\Desktop\\3G DESIGNPRINTING\\instance\\printing.db'
     if not os.path.exists(db_path):
         # Fallback to current dir if instance folder is not there
         db_path = 'printing.db'
@@ -1505,7 +1849,7 @@ def db_backup():
     import shutil
     from datetime import datetime
     
-    db_path = 'c:\\Users\\Francis\\Desktop\\3GDESIGNPRINTING\\instance\\printing.db'
+    db_path = 'c:\\Users\\Francis\\Desktop\\3G DESIGNPRINTING\\instance\\printing.db'
     if not os.path.exists(db_path):
         db_path = 'printing.db'
     

@@ -1,18 +1,69 @@
-/* Modern Classic Business Style */
+/* 3G DESIGN Unique Branding Style */
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --accent-color: #e74c3c;
-    --light-bg: #f8f9fa;
-    --dark-text: #2c3e50;
-    --muted-text: #6c757d;
+    --primary-color: #0B1F3A; /* Deep Navy */
+    --secondary-color: #4FC3F7; /* Sky Blue */
+    --accent-color: #4FC3F7;
+    --light-bg: #F2F4F7; /* Off-White Gray */
+    --dark-text: #0B1F3A;
+    --muted-text: #546E7A;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     line-height: 1.6;
     color: var(--dark-text);
     background-color: var(--light-bg);
+}
+
+.navbar {
+    background-color: var(--primary-color) !important;
+}
+
+.navbar-brand {
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: -0.5px;
+}
+
+.btn-primary {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: #29B6F6;
+    border-color: #29B6F6;
+    color: var(--primary-color);
+}
+
+.plan-card {
+    background: white;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+.plan-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(11, 31, 58, 0.1) !important;
+    border-color: var(--secondary-color) !important;
+}
+
+.plan-card h4 {
+    color: var(--primary-color);
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.icon-box {
+    width: 60px;
+    height: 60px;
+    background: var(--light-bg);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
 }
 
 .navbar-brand {
@@ -536,3 +587,5 @@ body {
 .social-links a { transition: color 0.3s ease, transform 0.3s ease; display: inline-block; }  
 .social-links a:hover { color: #3498db !important; transform: translateY(-3px); }  
 .admin-controls { display: flex; align-items: center; } 
+
+

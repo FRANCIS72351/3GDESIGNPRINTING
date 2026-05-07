@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block title %}Direct Sale History{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-history me-2 text-primary"></i>Direct WhatsApp & Order History</h2>
+        <a href="{{ url_for('admin_portal') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-1"></i> Back to Portal
+        </a>
+    </div>
+
+    <!-- Search Bar -->
+    <form class="mb-4" method="GET">
+        <div class="input-group">
+            <input type="text" name="search" class="form-control" placeholder="Search customer or status..." value="{{ search }}">
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Source</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td class="small">{{ order.date_ordered.strftime('%Y-%m-%d %H:%M') if order.date_ordered else 'N/A' }}</td>
+                        <td>
+                            <strong>{{ order.customer.name if order.customer else 'Unknown' }}</strong>
+                            {% if order.customer and order.customer.phone %}
+                                <br><small class="text-muted">{{ order.customer.phone }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for item in order.items %}
+                                <div class="small">
+                                    {{ item.product.name if item.product else 'Product Removed' }} (x{{ item.quantity }})
+                                </div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if order.order_source == 'WhatsApp Direct' %}
+                                <span class="badge bg-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
+                            {% else %}
+                                <span class="badge bg-info text-dark"><i class="fas fa-globe"></i> Website</span>
+                            {% endif %}
+                        </td>
+                        <td>${{ "{:,.2f}".format(order.total_amount) }}</td>
+                        <td>
+                            {% if order.status == 'Paid' %}
+                                <span class="badge rounded-pill bg-success">Paid</span>
+                            {% else %}
+                                <span class="badge rounded-pill bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('generate_order_pdf', order_id=order.id) }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No orders found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -26,7 +26,7 @@ with app.app_context():
             totp = pyotp.TOTP(new_secret)
             provisioning_uri = totp.provisioning_uri(
                 name=user.username,
-                issuer_name='3G Design Printing'
+                issuer_name='3G DESIGN'
             )
             
             print(f"\n✅ 2FA Reset Complete!")
@@ -35,3 +35,5 @@ with app.app_context():
             print(f"\n⚠️  Manual Entry Key: {new_secret}")
             print(f"\nNow visit: http://localhost:5001/setup-2fa to scan the QR code or enter the key manually")
             print("=" * 50)
+
+

@@ -75,7 +75,7 @@ def show_current_secret():
                 totp = pyotp.TOTP(user.otp_secret)
                 provisioning_uri = totp.provisioning_uri(
                     name=user.username,
-                    issuer_name='3G Design Printing'
+                    issuer_name='3G DESIGN'
                 )
                 print(f"\n📱 QR Code URL:\n{provisioning_uri}")
                 print(f"\n📖 Visit this site to generate QR code from the URL:")
@@ -94,3 +94,4 @@ if __name__ == "__main__":
         show_current_secret()
     else:
         print("❌ Invalid option")
+
