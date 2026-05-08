@@ -187,7 +187,7 @@ def contact():
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
-                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+                               'favicon.ico', mimetype='image/favicon.icon')
 
 # ----------------------------------
 # Shopping Cart Logic
@@ -301,7 +301,7 @@ def checkout_whatsapp():
 @app.route("/voice", methods=['POST'])
 def voice():
     response = VoiceResponse()
-    response.say("Welcome to Olatricity. Your call is being recorded for order accuracy.")
+    response.say("Welcome to 3G DESIGN. Your call is being recorded for order accuracy.")
     
     # Twilio will POST to /handle-recording when the user hangs up or time is up
     response.record(action="/handle-recording", maxLength=60)

@@ -1,4 +1,21 @@
 /* 3G DESIGN Unique Branding Style */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+/* Fallback/Local Fonts - User should ensure these files exist in static/fonts/ */
+@font-face {
+    font-family: 'Evil Empire';
+    src: url('fonts/EvilEmpire.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Ethnocentric';
+    src: url('fonts/Ethnocentric.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
 :root {
     --primary-color: #0B1F3A; /* Deep Navy */
     --secondary-color: #4FC3F7; /* Sky Blue */
@@ -6,13 +23,34 @@
     --light-bg: #F2F4F7; /* Off-White Gray */
     --dark-text: #0B1F3A;
     --muted-text: #546E7A;
+    
+    /* Font Variables */
+    --title-font: 'Evil Empire', cursive, sans-serif;
+    --subtitle-font: 'Open Sans', sans-serif; /* Use font-weight: 700 for bold */
+    --body-font: 'Open Sans', sans-serif;
+    --business-font: 'Ethnocentric', sans-serif;
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: var(--body-font);
     line-height: 1.6;
     color: var(--dark-text);
     background-color: var(--light-bg);
+}
+
+h1, h2, h3, .section-title {
+    font-family: var(--title-font);
+    letter-spacing: 1px;
+}
+
+h4, h5, h6, .subtitle, .fw-bold {
+    font-family: var(--subtitle-font);
+    font-weight: 700 !important;
+}
+
+.business-name {
+    font-family: var(--business-font);
+    text-transform: uppercase;
 }
 
 .navbar {
@@ -401,7 +439,7 @@ body {
 }
 
 .login-card {
-    background: white;
+    background: whitesmoke;
     padding: 40px;
     border-radius: 20px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.2);
@@ -587,5 +625,3 @@ body {
 .social-links a { transition: color 0.3s ease, transform 0.3s ease; display: inline-block; }  
 .social-links a:hover { color: #3498db !important; transform: translateY(-3px); }  
 .admin-controls { display: flex; align-items: center; } 
-
-
