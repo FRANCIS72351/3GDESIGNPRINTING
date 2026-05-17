@@ -11,7 +11,7 @@ from sqlalchemy import func
 from twilio.twiml.voice_response import VoiceResponse
 from flask import send_from_directory
 # Removed flask_login import as we use a custom decorator
-
+from flask import Flask, render_template, request, redirect, url_for, session
 
 import assemblyai as aai
 
@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from datetime import datetime
 
 from models import db, Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog
 from flask_mail import Mail, Message
@@ -188,7 +189,78 @@ def contact():
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico', mimetype='image/favicon.icon')
+#-----------------------------------
+# event route for the system
+#----------------------------------
+@app.route('/events', methods=['GET', 'POST'])
+@login_required
+def event_portal():
+    """
+    Business Event Portal: Handles both displaying milestones
+    and registering new ones cleanly.
+    """
+    if request.method == 'POST':
+        title = request.form.get('title')
+        event_date_str = request.form.get('date')
+        event_type = request.form.get('event_type')
+        description = request.form.get('description')
 
+        if not title or not event_date_str:
+            flash("Missing mandatory fields: Title and Date are required.", "danger")
+            return redirect(url_for('event_portal'))
+
+        try:
+            # Parse HTML date format to Python Date object
+            event_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
+            
+            # Construct model mapping
+            new_event = Event(
+                title=title,
+                date=event_date,
+                event_type=event_type, # Captures 'Holiday', 'Birthday', or 'Anniversary'
+                description=description
+            )
+            
+            db.session.add(new_event)
+            db.session.commit()
+            flash(f"Success: '{title}' has been registered.", "success")
+            return redirect(url_for('event_portal'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error compiling operational database log: {str(e)}", "danger")
+            return redirect(url_for('event_portal'))
+
+    # GET Request: Fetch milestones sorted by earliest upcoming date first
+    try:
+        events = Event.query.order_by(Event.date.asc()).all()
+    except Exception:
+        events = [] # Safe fallback if table structure is empty on initial render
+
+    return render_template("events.html", events=events, today=datetime.today().date())
+
+    # --- GET REQUEST LOGIC ---
+    today = datetime.today().date()
+    current_month = today.month
+
+    # Fetch events for the current month, sorted by day
+    events = Event.query.filter(
+        extract('month', Event.date) == current_month
+    ).order_by(extract('day', Event.date).asc()).all()
+
+    # Dashboard Statistics
+    stats = {
+        "total_this_month": len(events),
+        "today_count": len([e for e in events if e.date.day == today.day]),
+        "upcoming": len([e for e in events if e.date.day > today.day])
+    }
+
+    return render_template(
+        'events.html', 
+        events=events, 
+        today=today, 
+        stats=stats
+    )
 # ----------------------------------
 # Shopping Cart Logic
 # ----------------------------------
@@ -244,7 +316,8 @@ def remove_from_cart(index):
         session.modified = True
         flash(f"Removed {item['product_name']} from cart.", "info")
     return redirect(url_for('view_cart'))
-
+# -----------------------------------------------------------------
+# whatapp
 @app.route('/checkout-whatsapp')
 def checkout_whatsapp():
     cart = session.get('cart', [])

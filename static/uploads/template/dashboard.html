@@ -3,268 +3,392 @@
 {% block title %}Dashboard - 3G DESIGN{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4 animate__animated animate__fadeInDown">Admin Dashboard</h1>
+<div class="container mt-5 mb-5">
+    
+    <div class="dashboard-header animate__animated animate__fadeIn p-4 mb-5 shadow-sm d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+            <div class="logo-container me-4">
+                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN Logo" class="img-fluid dashboard-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="logo-placeholder bg-primary text-white fw-bold align-items-center justify-content-center rounded-circle shadow-sm" style="display:none; width:65px; height:65px; font-size:1.5rem;">3G</div>
+            </div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h2 tracking-tight">Command Center</h1>
+                <p class="text-muted mb-0 small">
+                    <i class="fas fa-user-shield text-primary me-2"></i>Logged in as <strong>{{ session.get('username', 'Admin') }}</strong> 
+                    {% if session.get('role') %} | <span class="badge bg-light text-dark text-uppercase border">{{ session['role'] }}</span>{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="text-end d-none d-md-block">
+            <div class="badge bg-soft-primary text-primary p-2 px-3 rounded-pill border border-primary border-opacity-25">
+                <i class="fas fa-clock me-1"></i> 
+                {% if today and today.strftime %}
+                    {{ today.strftime('%A, %B %d, %Y') }}
+                {% else %}
+                    System Operational
+                {% endif %}
+            </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- New Financial Summary Cards -->
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInLeft bg-success text-white">
-                <h3><i class="fas fa-arrow-trend-up me-2"></i>Today's Income</h3>
-                <div class="stat-number text-white">${{ "%.2f"|format(today_income_usd) }}</div>
-                <div class="stat-number text-white h4">L${{ "%.2f"|format(today_income_lrd) }}</div>
-                <p class="text-white-50">Total sales today</p>
-
-            </div>
-        </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="dashboard-card animate__animate__fadeInLeft animal__delay-1s bg-danger text-white">
-                <h3><i class="fas fa-arrow-trend-down me-2"></i>Direct Sale History</h3>
-                <div class="stat-numeber text-white">${{ "%.2f"|format(admin_log) }}</div>
-                <p class="test-white-50">Total direct sales</p>
+    <div class="row g-4 mb-5">
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 card-gradient-green text-white animate__animated animate__fadeInUp">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase small fw-bold opacity-75 mb-3"><i class="fas fa-arrow-trend-up me-2"></i>Today's Income</h6>
+                        <h3 class="fw-bold mb-1">${{ "%.2f"|format(today_income_usd if today_income_usd is defined else 0) }}</h3>
+                        <h5 class="opacity-90 fw-normal">L${{ "%.2f"|format(today_income_lrd if today_income_lrd is defined else 0) }}</h5>
+                    </div>
+                    <div class="mt-3 pt-2 border-top border-white border-opacity-10 opacity-50 small">Total sales today</div>
+                </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInLeft animate__delay-1s bg-danger text-white">
-                <h3><i class="fas fa-arrow-trend-down me-2"></i>Today's Expenses</h3>
-                <div class="stat-number text-white">${{ "%.2f"|format(today_expense_usd) }}</div>
-                <div class="stat-number text-white h4">L${{ "%.2f"|format(today_expense_lrd) }}</div>
-                <p class="text-white-50">Total outgoings today</p>
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 card-gradient-crimson text-white animate__animated animate__fadeInUp animate__delay-1s">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase small fw-bold opacity-75 mb-3"><i class="fas fa-history me-2"></i>Direct Sale History</h6>
+                        <h3 class="fw-bold mb-1">${{ "%.2f"|format(admin_log if admin_log is defined else 0) }}</h3>
+                    </div>
+                    <div class="mt-4 pt-2 border-top border-white border-opacity-10 opacity-50 small">Total direct transactions</div>
+                </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-4">
-            <a href="{{ url_for('inventory') }}" class="text-decoration-none">
-                <div class="dashboard-card animate__animated animate__fadeInRight animate__delay-1s hover-shadow">
-                    <h3><i class="fas fa-box text-warning me-2"></i>Inventory</h3>
-                    <div class="stat-number text-dark">{{ products|length if products else 0 }}</div>
-                    <p class="text-muted">Manage Products & Stock</p>
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100 card-gradient-red text-white animate__animated animate__fadeInUp animate__delay-1s">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase small fw-bold opacity-75 mb-3"><i class="fas fa-arrow-trend-down me-2"></i>Today's Expenses</h6>
+                        <h3 class="fw-bold mb-1">${{ "%.2f"|format(today_expense_usd if today_expense_usd is defined else 0) }}</h3>
+                        <h5 class="opacity-90 fw-normal">L${{ "%.2f"|format(today_expense_lrd if today_expense_lrd is defined else 0) }}</h5>
+                    </div>
+                    <div class="mt-3 pt-2 border-top border-white border-opacity-10 opacity-50 small">Total outgoings today</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <a href="{{ url_for('inventory') }}" class="text-decoration-none text-dark">
+                <div class="card border-0 shadow-sm h-100 animate__animated animate__fadeInUp animate__delay-2s hover-lift bg-white">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="text-uppercase small fw-bold text-muted mb-0">Warehouse</h6>
+                                <i class="fas fa-box text-warning fa-lg"></i>
+                            </div>
+                            <h2 class="fw-bold tracking-tight mb-1">{{ products|length if products else 0 }}</h2>
+                            <p class="text-muted small mb-0">Active Products & Stock</p>
+                        </div>
+                        <div class="mt-3 pt-2 border-top border-light small text-primary fw-medium">Manage stock <i class="fas fa-angle-right ms-1"></i></div>
+                    </div>
                 </div>
             </a>
         </div>
+    </div>
 
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInRight animate__delay-2s">
-                <h3><i class="fas fa-users text-info me-2"></i>Leaders</h3>
-                <div class="stat-number">{{ leaders|length if leaders else 0 }}</div>
-                <p class="text-muted">Team members</p>
+    <div class="row g-4 mb-5">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm p-4 h-100 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>Business Events & Milestones</h5>
+                    <a href="{{ url_for('event_portal') }}" class="btn btn-sm btn-light rounded-pill border px-3">
+                        Open Full Portal <i class="fas fa-arrow-right small ms-1"></i>
+                    </a>
+                </div>
+                <div class="p-3 bg-light rounded-3 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="icon-shape bg-soft-primary text-primary rounded-circle p-3 me-3">
+                            <i class="fas fa-cake-candles fa-lg"></i>
+                        </div>
+                        <div>
+                            <p class="mb-0 text-muted small fw-medium">Active Milestones Today</p>
+                            <h6 class="fw-bold mb-0 text-dark">Holidays, anniversaries, or customer birthdays</h6>
+                        </div>
+                    </div>
+                    <span class="badge bg-danger rounded-pill px-3 py-2 fw-bold">
+                        {{ stats.today_count if (stats is defined and stats.today_count) else 'View' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 h-100 text-center bg-white border-top border-5 border-info">
+                <div class="p-2 rounded-circle bg-soft-info text-info mx-auto mb-2" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-users fa-lg"></i>
+                </div>
+                <h4 class="fw-bold mb-0 text-dark">{{ leaders|length if leaders else 0 }}</h4>
+                <p class="text-muted small fw-medium mb-3">Active Team Members</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{{ url_for('team_management') }}" class="btn btn-xs btn-outline-secondary rounded-pill py-1 px-3 small" style="font-size: 0.78rem;">View Team</a>
+                </div>
             </div>
         </div>
     </div>
-    
 
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInUp">
-                <h3><i class="fas fa-file-invoice-dollar text-success me-2"></i>Daily Sales Recording</h3>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm p-4 mb-4 bg-white">
+                <h5 class="fw-bold text-dark mb-4"><i class="fas fa-file-invoice-dollar text-success me-2"></i>Daily Sales Recording</h5>
                 <form action="{{ url_for('submit_daily_report') }}" method="POST">
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="total_sales" class="form-label">Total Sales</label>
-                            <input type="number" step="0.01" class="form-control" id="total_sales" name="total_sales" required placeholder="0.00">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="total_sales" class="form-label small fw-bold text-muted">Total Sales Revenue</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0" style="border-radius: 50px 0 0 50px;"><i class="fas fa-coins text-muted"></i></span>
+                                <input type="number" step="0.01" class="form-control bg-light border-start-0" style="border-radius: 0 50px 50px 0;" id="total_sales" name="total_sales" required placeholder="0.00">
+                            </div>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="currency" class="form-label">Currency</label>
-                            <select class="form-select" id="currency" name="currency">
+                        <div class="col-md-4">
+                            <label for="currency" class="form-label small fw-bold text-muted">Trading Currency</label>
+                            <select class="form-select bg-light rounded-pill" id="currency" name="currency">
                                 <option value="USD" selected>USD ($)</option>
                                 <option value="LRD">LRD (L$)</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="report_text" class="form-label">Daily Activities / Notes</label>
-                        <textarea class="form-control" id="report_text" name="report_text" rows="4" required placeholder="Describe today's activities, jobs completed, and any issues..."></textarea>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Submit Daily Report
-                        </button>
+                        <div class="col-12">
+                            <label for="report_text" class="form-label small fw-bold text-muted">Daily Activities / Operational Notes</label>
+                            <textarea class="form-control bg-light" id="report_text" name="report_text" rows="4" style="border-radius: 16px;" required placeholder="Describe today's print jobs, finished designs, and completed workflows..."></textarea>
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-medium">
+                                <i class="fas fa-save me-2"></i>Submit Daily Report
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
 
-            <div class="dashboard-card mt-4 animate__animated animate__fadeInUp animate__delay-1s">
-                <h3>Recent Reports</h3>
+            <div class="card border-0 shadow-sm p-4 bg-white">
+                <h5 class="fw-bold text-dark mb-3"><i class="fas fa-clock-rotate-left me-2 text-muted"></i>Recent Reports Archive</h5>
                 {% if reports %}
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover">
-                        <thead>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <th>Date</th>
-                                <th>Staff</th>
-                                <th>Sales</th>
+                                <th class="border-0 small fw-bold text-muted">Date</th>
+                                <th class="border-0 small fw-bold text-muted">Staff Name</th>
+                                <th class="border-0 small fw-bold text-muted text-end">Sales Value</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for report in reports %}
                             <tr>
-                                <td>{{ report.date_posted.strftime('%m/%d') }}</td>
-                                <td>{{ report.staff_name }}</td>
-                                <td>{{ '$' if report.currency == 'USD' else 'L$' }}{{ "%.2f"|format(report.total_sales) }}</td>
+                                <td class="small text-muted">{{ report.date_posted.strftime('%m/%d') if report.date_posted else 'N/A' }}</td>
+                                <td class="fw-medium text-dark">{{ report.staff_name }}</td>
+                                <td class="text-end fw-bold text-dark">
+                                    <span class="badge bg-soft-dark text-dark rounded">
+                                        {{ '$' if report.currency == 'USD' else 'L$' }}{{ "%.2f"|format(report.total_sales) }}
+                                    </span>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
                 {% else %}
-                <p class="text-muted small">No reports submitted yet.</p>
+                <div class="text-center py-4">
+                    <p class="text-muted small mb-0">No active reports filed for this period.</p>
+                </div>
                 {% endif %}
             </div>
         </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInUp">
-                <h3>Recent Voice Calls</h3>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm p-4 mb-4 bg-white">
+                <h5 class="fw-bold text-dark mb-3"><i class="fas fa-phone-volume text-primary me-2"></i>Recent Voice Tracking</h5>
                 {% if calls %}
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Phone</th>
-                                <th>Time</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
+                    <table class="table table-hover align-middle mb-0">
                         <tbody>
-                            {% for call in calls[:5] %}
+                            {% for call in calls[:4] %}
                             <tr>
-                                <td>{{ call.phone_number }}</td>
-                                <td>{{ call.timestamp.strftime('%m/%d %H:%M') }}</td>
-                                <td><span class="badge bg-success">Processed</span></td>
+                                <td class="p-2 border-0"><i class="fas fa-phone-incoming text-success small me-2"></i>{{ call.phone_number }}</td>
+                                <td class="p-2 border-0 text-muted small text-end">{{ call.timestamp.strftime('%m/%d %H:%M') if call.timestamp else '' }}</td>
+                                <td class="p-2 border-0 text-end"><span class="badge bg-soft-success text-success rounded-pill px-2" style="font-size:0.7rem">Processed</span></td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
                 {% else %}
-                <p class="text-muted">No recent calls</p>
+                <p class="text-muted small text-center my-3">No system-tracked voice interactions.</p>
                 {% endif %}
             </div>
-        </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="dashboard-card animate__animated animate__fadeInUp animate__delay-1s">
-                <h3>Quick Actions</h3>
+            <div class="card border-0 shadow-sm bg-dark text-white p-4 mb-4" style="border-radius: 20px;">
+                <h5 class="fw-bold mb-4 tracking-wide"><i class="fas fa-layer-group text-warning me-2"></i>Quick Console Links</h5>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <a href="{{ url_for('add_product') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                            <i class="fas fa-plus-circle text-warning d-block mb-2 fa-lg"></i>Post Product
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('inventory') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                            <i class="fas fa-boxes text-info d-block mb-2 fa-lg"></i>Inventory Mgmt
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('file_portal') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                            <i class="fas fa-folder-open text-primary d-block mb-2 fa-lg"></i>File Portal
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('leader_management')}}" class="btn btn-outline border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                            <i class="fas fa-users text-info d-block mb-2 fa-lg"></i>Leader Management
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" class="btn btn-outline-success w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;" data-bs-toggle="modal" data-bs-target="#quickCaptureModal">
+                            <i class="fas fa-user-plus text-success d-block mb-2 fa-lg"></i>Quick Capture
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top border-secondary d-flex flex-wrap gap-2 justify-content-between">
+                    <a href="{{ url_for('financials') }}" class="text-white-50 text-decoration-none small hover-white"><i class="fas fa-dollar-sign me-1"></i>Financials</a>
+                    <a href="{{ url_for('team_management') }}" class="text-white-50 text-decoration-none small hover-white"><i class="fas fa-users me-1"></i>Team</a>
+                    <a href="{{ url_for('about_settings') }}" class="text-white-50 text-decoration-none small hover-white"><i class="fas fa-cog me-1"></i>Settings</a>
+                    <a href="{{ url_for('logout') }}" class="text-danger text-decoration-none small fw-medium"><i class="fas fa-sign-out-alt me-1"></i>Exit</a>
+                </div>
+            </div>
+
+            {% if session.get('role') in ['admin', 'moderator'] %}
+            <div class="card border-0 shadow-lg p-4 border-start border-primary border-5 bg-white">
+                <h5 class="fw-bold text-dark mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Documentation Portal</h5>
+                <p class="small text-muted mb-4">Authorized access configuration level.</p>
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('add_product') }}" class="btn btn-primary text-white">
-                        <i class="fas fa-plus-circle me-2"></i>Post New Advertisement (Product)
+                    <a href="{{ url_for('download_pdf', doc_type='invoice') }}" class="btn btn-primary text-start px-3 rounded-pill">
+                        <i class="fas fa-file-invoice me-2"></i>Issue Official Invoice
                     </a>
-                    <a href="{{ url_for('inventory') }}" class="btn btn-warning text-dark fw-bold">
-                        <i class="fas fa-boxes me-2"></i>Inventory & Stock Management
+                    <a href="{{ url_for('download_pdf', doc_type='receipt') }}" class="btn btn-success text-start px-3 rounded-pill">
+                        <i class="fas fa-receipt me-2"></i>Issue Receipt Voucher
                     </a>
-                    <a href="{{ url_for('team_management') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-users me-2"></i>Team Management
+                    <a href="{{ url_for('download_pdf', doc_type='letterhead') }}" class="btn btn-dark text-start px-3 rounded-pill">
+                        <i class="fas fa-heading me-2"></i>Corporate Letterhead
                     </a>
-                    <a href="{{ url_for('file_portal') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-folder-open me-2"></i>File Share Portal
-                    </a>
-                    <a href="{{ url_for('financials') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-dollar-sign me-2"></i>Financial Management
-                    </a>
-                    <a href="{{ url_for('staff_sales_history') }}" class="btn btn-outline-success">
-                        <i class="fas fa-history me-2"></i>My Sales History
-                    </a>
-                    <a href="{{ url_for('add_leader') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-user-plus me-2"></i>Add Team Member
-                    </a>
-                    <a href="{{ url_for('leader_management') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-users-cog me-2"></i>Manage Team Members
-                    </a>
-                    <a href="{{ url_for('about_settings') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-cog me-2"></i>Update About Page
-                    </a>
-                    <a href="{{ url_for('direct_sale_history') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-cog me-2"></i>Direct sale history
-                    </a>
-                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#quickCaptureModal">
-                        <i class="fas fa-plus-circle me-2"></i>Quick Customer Capture
-                    </button>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-light border shadow-sm p-3 d-flex align-items-center mb-0">
+                <i class="fas fa-lock text-muted me-3 fa-lg"></i>
+                <div class="small text-muted">Management invoice documentation modules restricted to Admin and Moderator clearings.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="container mb-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card border-0 bg-primary text-white shadow-sm" style="border-radius: 16px;">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-1">Management Portal</h5>
+                    <p class="small text-white-50 mb-3">Generate automated Invoices & Corporate Letterheads</p>
+                    <a href="{{ url_for('admin_portal') }}" class="btn btn-light btn-sm rounded-pill px-3 fw-medium text-primary">Open Portal</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-<div class="col-md-4">
-    <div class="card bg-primary text-white shadow">
-        <div class="card-body">
-            <h5>Management Portal</h5>
-            <p>Generate Invoices & Letterheads</p>
-            <a href="{{ url_for('admin_portal') }}" class="btn btn-light btn-sm">Open Portal</a>
-        </div>
-    </div>
-</div>
 
-<!-- Quick Capture Modal -->
 <div class="modal fade" id="quickCaptureModal" tabindex="-1" aria-labelledby="quickCaptureModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="quickCaptureModalLabel"><i class="fas fa-user-plus me-2"></i>Quick Customer Capture</h5>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-success text-white px-4 py-3" style="border-radius: 20px 20px 0 0;">
+                <h5 class="modal-title fw-bold" id="quickCaptureModalLabel"><i class="fas fa-user-plus me-2"></i>Quick Customer Capture</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('quick_capture') }}" method="POST">
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required placeholder="John Doe">
+                        <label for="name" class="form-label small fw-bold text-muted">Full Client Name</label>
+                        <input type="text" class="form-control bg-light rounded-pill px-3" id="name" name="name" required placeholder="John Doe">
                     </div>
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="email" name="email" required placeholder="john@example.com">
+                        <label for="email" class="form-label small fw-bold text-muted">Email Address</label>
+                        <input type="email" class="form-control bg-light rounded-pill px-3" id="email" name="email" required placeholder="john@example.com">
                     </div>
                     <div class="mb-3">
-                        <label for="phone" class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="+231...">
+                        <label for="phone" class="form-label small fw-bold text-muted">Phone Number</label>
+                        <input type="tel" class="form-control bg-light rounded-pill px-3" id="phone" name="phone" placeholder="+231...">
                     </div>
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="2" placeholder="Monrovia, Liberia"></textarea>
+                    <div class="mb-0">
+                        <label for="address" class="form-label small fw-bold text-muted">Business/Billing Address</label>
+                        <textarea class="form-control bg-light" id="address" name="address" rows="2" style="border-radius:12px;" placeholder="Monrovia, Liberia"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Save Customer</button>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4">Save Customer</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-{% if session['role'] in ['admin', 'moderator'] %}
-<div class="col-md-12">
-    <div class="card border-primary shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <i class="fas fa-file-invoice me-2"></i> Management & Documentation Portal
-        </div>
-        <div class="card-body">
-            <p class="small text-muted">Authorized access for <strong>{{ session['role']|capitalize }}</strong> only.</p>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ url_for('download_pdf', doc_type='invoice') }}" class="btn btn-primary">
-                    <i class="fas fa-plus-circle me-1"></i> Issue Invoice
-                </a>
-                <a href="{{ url_for('download_pdf', doc_type='receipt') }}" class="btn btn-success">
-                    <i class="fas fa-receipt me-1"></i> Issue Receipt
-                </a>
-                <a href="{{ url_for('download_pdf', doc_type='letterhead') }}" class="btn btn-dark">
-                    <i class="fas fa-heading me-1"></i> Official Letterhead
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<div class="col-md-12">
-    <div class="alert alert-secondary">
-        <i class="fas fa-lock me-2"></i> Management documents are restricted to Admin/Moderator level.
-    </div>
-</div>
-{% endif %}
-{% endblock %}
 
+<style>
+    body {
+        background-color: #f8f9fa;
+    }
+    .dashboard-header {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 20px;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .dashboard-logo {
+        height: 65px;
+        max-width: 140px;
+        object-fit: contain;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08));
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .dashboard-logo:hover {
+        transform: scale(1.06) rotate(-1deg);
+    }
+    .card-gradient-green {
+        background: linear-gradient(135deg, #1f945d, #146c43);
+    }
+    .card-gradient-crimson {
+        background: linear-gradient(135deg, #e03e52, #b02a37);
+    }
+    .card-gradient-red {
+        background: linear-gradient(135deg, #ea4335, #c53023);
+    }
+    .bg-soft-primary {
+        background-color: rgba(13, 110, 253, 0.08);
+    }
+    .bg-soft-info {
+        background-color: rgba(13, 202, 240, 0.08);
+    }
+    .bg-soft-success {
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+    .bg-soft-dark {
+        background-color: #f1f3f5;
+    }
+    .hover-lift {
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.06) !important;
+    }
+    .hover-white:hover {
+        color: #ffffff !important;
+    }
+    .tracking-tight {
+        letter-spacing: -0.025em;
+    }
+    .tracking-wide {
+        letter-spacing: 0.03em;
+    }
+</style>
+{% endblock %}

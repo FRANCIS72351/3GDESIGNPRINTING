@@ -2,31 +2,246 @@
 
 {% block title %}About Us - 3G DESIGN{% endblock %}
 
+{% block head %}
+<style>
+    /* ==========================================================================
+       HERO CAROUSEL LUXURY FRAME
+       ========================================================================== */
+    .about-hero-carousel {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+    .carousel-image-wrapper {
+        position: relative;
+        height: 500px;
+        overflow: hidden;
+        background-color: #0b0c0d;
+    }
+    .carousel-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.65;
+        transition: transform 6s ease;
+    }
+    .carousel-item.active .carousel-img {
+        transform: scale(1.08);
+    }
+    .carousel-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(15,17,18,0.2) 0%, rgba(15,17,18,0.85) 100%);
+    }
+    .carousel-caption {
+        bottom: 15%;
+        text-align: center;
+        z-index: 3;
+    }
+    .carousel-caption h2 {
+        font-size: 3.5rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .carousel-caption p {
+        font-size: 1.25rem;
+        font-weight: 300;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    /* ==========================================================================
+       THE BRAND STORY (GLASS PANEL CARD)
+       ========================================================================== */
+    .section-heading-block {
+        margin-bottom: 2.5rem;
+    }
+    .classic-section-title {
+        font-size: 2rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        position: relative;
+        padding-bottom: 0.75rem;
+        display: inline-block;
+    }
+    .classic-section-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 3px;
+        background-color: #0d6efd;
+    }
+    .glass-show-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.04);
+        border-radius: 12px;
+        transition: transform 0.3s ease;
+    }
+    .story-body-text p {
+        color: #4a5568;
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+
+    /* ==========================================================================
+       GEOMETRIC SERVICE PROFILES BLOCK
+       ========================================================================== */
+    .premium-service-card {
+        background-color: #141617;
+        border: 1px solid #222629;
+        border-radius: 10px;
+        padding: 2rem 1.5rem;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        height: 100%;
+    }
+    .premium-service-card:hover {
+        border-color: #0d6efd;
+        transform: translateY(-5px);
+        background-color: #191b1d;
+    }
+    .square-img-frame {
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 1.5rem auto;
+        overflow: hidden;
+        border-radius: 12px;
+        border: 2px solid #2d3236;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        transition: border-color 0.3s ease;
+    }
+    .premium-service-card:hover .square-img-frame {
+        border-color: #0d6efd;
+    }
+    .square-frame-src {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+    }
+    .premium-service-card:hover .square-frame-src {
+        transform: scale(1.1);
+    }
+    .premium-service-card h4 {
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 1.15rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ==========================================================================
+       STRATEGIC MAP MATRIX CARDS
+       ========================================================================== */
+    .matrix-strategy-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 2.25rem 2rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+    }
+    .matrix-strategy-card:hover {
+        box-shadow: 0 15px 35px rgba(0,0,0,0.07);
+        transform: translateY(-3px);
+    }
+    .icon-square-container {
+        width: 50px;
+        height: 50px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        margin-bottom: 1.25rem;
+    }
+    .matrix-strategy-card h4 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f1112;
+        margin-bottom: 0.85rem;
+    }
+
+    /* ==========================================================================
+       EXECUTIVE TEAM CAROUSEL PANELS (MOBILE FIX APPLIED)
+       ========================================================================== */
+    .executive-bio-panel {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.04);
+        overflow: hidden;
+        height: auto !important; /* Forces layout to grow naturally vertically */
+    }
+    .leader-square-wrapper {
+        width: 240px;
+        height: 240px;
+        overflow: hidden;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        background-color: #f7fafc;
+    }
+    .leader-square-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .social-link-icon {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f1f5f9;
+        color: #4a5568;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .social-link-icon:hover {
+        background-color: #0d6efd;
+        color: #ffffff;
+    }
+    .bio-text-container {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div id="aboutCarousel" class="carousel slide carousel-fade mb-5" data-bs-ride="carousel">
+<div id="aboutCarousel" class="carousel slide carousel-fade about-hero-carousel mb-5" data-bs-ride="carousel">
     <div class="carousel-inner">
         {% if content and content.slider1 %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="d-block w-100 carousel-img" alt="3G DESIGN">
+                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="carousel-img" alt="3G DESIGN">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN</h2>
-                <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
-                <div class="badge bg-primary p-2">EST. 2020</div>
+                <h2 class="animate__animated animate__fadeInDown">3G DESIGN</h2>
+                <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
+                <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
             </div>
         </div>
         {% else %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="d-block w-100 carousel-img" alt="3G DESIGN">
+                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="carousel-img" alt="3G DESIGN">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="display-3 fw-bold animate__animated animate__fadeInDown">3G DESIGN</h2>
-                <p class="fs-4 animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
-                <div class="badge bg-primary p-2">EST. 2020</div>
+                <h2 class="animate__animated animate__fadeInDown">3G DESIGN</h2>
+                <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
+                <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
             </div>
         </div>
         {% endif %}
@@ -34,7 +249,7 @@
         {% if content and content.slider2 %}
         <div class="carousel-item">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider2) }}" class="d-block w-100 carousel-img" alt="Custom Apparel">
+                <img src="{{ url_for('static', filename='img/' + content.slider2) }}" class="carousel-img" alt="Custom Apparel">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
@@ -47,7 +262,7 @@
         {% if content and content.slider3 %}
         <div class="carousel-item">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider3) }}" class="d-block w-100 carousel-img" alt="Quality Service">
+                <img src="{{ url_for('static', filename='img/' + content.slider3) }}" class="carousel-img" alt="Quality Service">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
@@ -57,6 +272,7 @@
         </div>
         {% endif %}
     </div>
+    
     <button class="carousel-control-prev" type="button" data-bs-target="#aboutCarousel" data-bs-slide="prev">
         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
         <span class="visually-hidden">Previous</span>
@@ -69,16 +285,18 @@
 
 <section class="about-story py-5">
     <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-10 mx-auto">
-                <div class="glass-card p-5 text-center animate__animated animate__fadeInUp">
-                    <h2 class="section-title">Our Story</h2>
-                    <hr class="title-line mx-auto">
-                    <div class="lead mt-4 text-start">
+        <div class="row">
+            <div class="col-xl-9 col-lg-10 mx-auto">
+                <div class="glass-card glass-show-card p-4 p-md-5 animate__animated animate__fadeInUp">
+                    <div class="section-heading-block text-center">
+                        <h2 class="classic-section-title">Our Story</h2>
+                    </div>
+                    <div class="story-body-text text-muted fs-6">
                         {% if content and content.description %}
                             {{ content.description | safe }}
                         {% else %}
-                            <p>3G DESIGN is not just a printing business—it is a brand-building partner dedicated to helping clients communicate, influence, and stand out in competitive markets. 3G DESIGN is a forward-thinking creative and print solutions company committed to delivering high-quality, visually compelling, and results-driven design products. 3G DESIGN specializes in transforming ideas into tangible brand assets through innovative graphic design, premium printing, and customized merchandise production. With a strong focus on precision, creativity, and customer satisfaction, 3G DESIGN serves Individuals, Businesses, Schools, Organizations and Companies seeking to elevate their visual identity and market presence. By combining modern design principles with cutting-edge production techniques, the company ensures consistency, quality, and timely delivery across all projects.</p>
+                            <p class="mb-0">3G DESIGN is not just a printing business—it is a brand-building partner dedicated to helping clients communicate, influence, and stand out in competitive markets. 3G DESIGN is a forward-thinking creative and print solutions company committed to delivering high-quality, visually compelling, and results-driven design products.</p>
+                            <p class="mt-3 mb-0">3G DESIGN specializes in transforming ideas into tangible brand assets through innovative graphic design, premium printing, and customized merchandise production. With a strong focus on precision, creativity, and customer satisfaction, 3G DESIGN serves Individuals, Businesses, Schools, Organizations and Companies seeking to elevate their visual identity and market presence. By combining modern design principles with cutting-edge production techniques, the company ensures consistency, quality, and timely delivery across all projects.</p>
                         {% endif %}
                     </div>
                 </div>
@@ -88,162 +306,175 @@
 </section>
 
 <section class="services-grid py-5 bg-dark text-white">
-    <div class="container">
-        <div class="row text-center">
-            <div class="col-md-3 mb-4">
-                <div class="service-card animate__animated animate__fadeInUp">
-                    <div class="img-circle-container mb-3 shadow">
-                        <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom Shirt Printing" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <h2 class="classic-section-title text-white">Production Framework</h2>
+        </div>
+        
+        <div class="row g-4 text-center">
+            <div class="col-xl-3 col-md-6">
+                <div class="premium-service-card animate__animated animate__fadeInUp">
+                    <div class="square-img-frame">
+                        <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom Shirt Printing" class="square-frame-src">
                     </div>
                     <h4>Shirts</h4>
-                    <p class="small text-muted">DTF & Screen Printing</p>
+                    <p class="small text-muted mb-0">DTF & Industrial Screen Prints</p>
                 </div>
             </div>
             
-            <div class="col-md-3 mb-4">
-                <div class="service-card animate__animated animate__fadeInUp animate__delay-1s">
-                    <div class="img-circle-container mb-3 shadow">
-                        <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom Mug Printing" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <div class="col-xl-3 col-md-6">
+                <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-1s">
+                    <div class="square-img-frame">
+                        <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom Mug Printing" class="square-frame-src">
                     </div>
                     <h4>Mugs</h4>
-                    <p class="small text-muted">Sublimation Heat Press</p>
+                    <p class="small text-muted mb-0">Sublimation Thermal Customization</p>
                 </div>
             </div>
 
-            <div class="col-md-3 mb-4">
-                <div class="service-card animate__animated animate__fadeInUp animate__delay-2s">
-                    <div class="img-circle-container mb-3 shadow">
-                        <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large Format Banners" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <div class="col-xl-3 col-md-6">
+                <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-2s">
+                    <div class="square-img-frame">
+                        <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large Format Banners" class="square-frame-src">
                     </div>
                     <h4>Banners</h4>
-                    <p class="small text-muted">Flex & Vinyl Quality</p>
+                    <p class="small text-muted mb-0">Flex & Heavy Duty Outdoor Vinyl</p>
                 </div>
             </div>
 
-            <div class="col-md-3 mb-4">
-                <div class="service-card animate__animated animate__fadeInUp animate__delay-3s">
-                    <div class="img-circle-container mb-3 shadow">
-                        <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business Flyers" class="service-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <div class="col-xl-3 col-md-6">
+                <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-3s">
+                    <div class="square-img-frame">
+                        <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business Flyers" class="square-frame-src">
                     </div>
                     <h4>Flyers</h4>
-                    <p class="small text-muted">Digital & Offset Media</p>
+                    <p class="small text-muted mb-0">High-Volume Digital & Offset Media</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="business-plan-section py-5">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="fw-bold">Business Vision & Strategy</h2>
-            <p class="text-muted">Building Africa's Next Business Empire</p>
+<section class="business-plan-section py-5 bg-light">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <h2 class="classic-section-title">Strategic Vision</h2>
         </div>
         
         <div class="row g-4">
-            <!-- Vision & Mission -->
-            <div class="col-md-6 col-lg-3">
-                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp">
-                    <div class="icon-box mb-3">
-                        <i class="fas fa-lightbulb fa-2x text-warning"></i>
+            <div class="col-xl-3 col-md-6">
+                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp">
+                    <div class="icon-square-container bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-lightbulb fa-lg"></i>
                     </div>
                     <h4>Our Vision</h4>
-                    <p class="small">To become a leading creative and print solutions bring in Liberia and Africa at large, recognized for innovation, quality excellence, and the ability to tranform ideas into powerful visual expriences.</p>
+                    <p class="text-muted small mb-0">To become a leading creative blueprint matrix and print solutions house across Liberia and Africa, recognized for disruptive custom innovation and visual quality excellence.</p>
                 </div>
             </div>
 
-            <!-- Divisions -->
-            <div class="col-md-6 col-lg-3">
-                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-1s">
-                    <div class="icon-box mb-3">
-                        <i class="fas fa-th-large fa-2x text-primary"></i>
+            <div class="col-xl-3 col-md-6">
+                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-1s">
+                    <div class="icon-square-container bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-th-large fa-lg"></i>
                     </div> 
                     <h4>Our Divisions</h4>
-                    <ul class="list-unstyled small">
-                        <li><i class="fas fa-print me-2 text-secondary"></i>Creative Design</li>
-                        <li><i class="fas fa-paint-brush me-2 text-secondary"></i>Quality Print</li>
-                        <li><i class="fas fa-box me-2 text-secondary"></i>Excellence Packaging</li>
-                        <li><i class="fas fa-film me-2 text-secondary"></i>Pro Media</li>
-                        <li><i class="fas fa-film me-2 text-secondary"></i>Software Development</li>
+                    <ul class="list-unstyled d-flex flex-column gap-2 small text-muted mb-0">
+                        <li><i class="fas fa-print me-2 text-primary opacity-50"></i>Creative Graphic Design</li>
+                        <li><i class="fas fa-paint-brush me-2 text-primary opacity-50"></i>Quality Print Execution</li>
+                        <li><i class="fas fa-box me-2 text-primary opacity-50"></i>Excellence Packaging</li>
+                        <li><i class="fas fa-film me-2 text-primary opacity-50"></i>Pro Media Logistics</li>
+                        <li><i class="fas fa-code me-2 text-primary opacity-50"></i>Software Architecture</li>
                     </ul>
                 </div>
             </div>
 
-            <!-- Market & Revenue -->
-            <div class="col-md-6 col-lg-3">
-                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-2s">
-                    <div class="icon-box mb-3">
-                        <i class="fas fa-chart-line fa-2x text-success"></i>
+            <div class="col-xl-3 col-md-6">
+                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-2s">
+                    <div class="icon-square-container bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-chart-line fa-lg"></i>
                     </div>
                     <h4>Growth Goals</h4>
-                    <p class="small"><strong>Target:</strong> Monrovia & Major Cities</p>
-                    <p class="small"><strong>Revenue:</strong> $1M+ Annual Revenue within 5 years.</p>
+                    <div class="mb-2">
+                        <span class="d-block text-dark fw-semibold small">Territorial Footprint:</span>
+                        <span class="text-muted small">Monrovia & Major Economic Hubs</span>
+                    </div>
+                    <div>
+                        <span class="d-block text-dark fw-semibold small">Financial Target:</span>
+                        <span class="text-muted small">$1M+ Annual Yield Metrics within 5 years.</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Strategy -->
-            <div class="col-md-6 col-lg-3">
-                <div class="plan-card h-100 p-4 shadow-sm border-0 rounded-4 animate__animated animate__fadeInUp animate__delay-3s">
-                    <div class="icon-box mb-3">
-                        <i class="fas fa-rocket fa-2x text-danger"></i>
+            <div class="col-xl-3 col-md-6">
+                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-3s">
+                    <div class="icon-square-container bg-danger bg-opacity-10 text-danger">
+                        <i class="fas fa-rocket fa-lg"></i>
                     </div>
-                    <h4>Strategy</h4>
-                    <p class="small">Scaling through skilled staff, stringent quality control, and strategic marketing across local and social channels.</p>
+                    <h4>Scale Strategy</h4>
+                    <p class="text-muted small mb-0">Driving localized scaling models through highly-trained internal staff matrices, strict quality checks, and aggressive deployment across domestic marketing channels.</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="py-5 bg-light">
-    <div class="container">
-        <h2 class="text-center mb-5 fw-bold">The Minds Behind the Machine</h2>
+<section class="py-5 bg-white">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <h2 class="classic-section-title">Leadership Core</h2>
+        </div>
         
         <div id="teamCarousel" class="carousel slide" data-bs-ride="carousel">
             <div class="carousel-inner">
                 {% for leader in leaders %}
                 <div class="carousel-item {% if loop.first %}active{% endif %}">
                     <div class="row align-items-center justify-content-center">
-                        <div class="col-md-4 text-center">
-                            <div class="leader-circle-wrapper mx-auto mb-4 shadow-lg animate__animated animate__zoomIn">
-                                {% if leader.image %}
-                                <img src="{{ url_for('static', filename='uploads/leaders/' + leader.image) }}" alt="{{ leader.name }}" class="leader-circle-img">
-                                {% else %}
-                                <div class="bg-secondary d-flex align-items-center justify-content-center h-100 text-white rounded-circle">
-                                    <i class="fas fa-user fa-5x"></i>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="leader-bio-card p-4 animate__animated animate__fadeInRight">
-                                <h3 class="fw-bold text-primary mb-1">{{ leader.name }}</h3>
-                                <h5 class="text-muted mb-3">{{ leader.position or 'Team Member' }}</h5>
-                                <div class="bio-text">
-                                    {{ leader.bio or 'Dedicated professional at 3G DESIGN, committed to delivering excellence in every project.' }}
-                                </div>
-                                <div class="social-links mt-4 d-flex align-items-center">
-                                    <div class="me-auto">
-                                        <a href="#" class="me-3 text-dark"><i class="fab fa-linkedin fa-lg"></i></a>
-                                        <a href="#" class="me-3 text-dark"><i class="fab fa-twitter fa-lg"></i></a>
-                                        <a href="mailto:info@3G DESIGNprinting.com" class="text-dark"><i class="fas fa-envelope fa-lg"></i></a>
+                        <div class="col-12 col-lg-10">
+                            <div class="executive-bio-panel p-3 p-sm-4 p-md-5">
+                                <div class="row align-items-center g-4">
+                                    <div class="col-12 col-md-5 col-xl-4 text-center">
+                                        <div class="leader-square-wrapper mx-auto shadow-sm animate__animated animate__zoomIn">
+                                            {% if leader.image %}
+                                            <img src="{{ url_for('static', filename='uploads/leaders/' + leader.image) }}" alt="{{ leader.name }}" class="leader-square-img">
+                                            {% else %}
+                                            <div class="d-flex align-items-center justify-content-center h-100 text-muted bg-light">
+                                                <i class="fas fa-user fa-4x opacity-50"></i>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     
-                                    {% if session.get('admin_logged_in') %}
-                                        {% set current_user = Admin.query.get(session.get('admin_id')) if Admin else None %}
-                                        {% if current_user and current_user.role == 'admin' %}
-                                        <div class="admin-controls ms-3 border-start ps-3">
-                                            <a href="{{ url_for('edit_leader', leader_id=leader.id) }}" class="btn btn-sm btn-outline-primary rounded-pill me-2">
-                                                <i class="fas fa-edit me-1"></i>Edit
-                                            </a>
-                                            <form action="{{ url_for('delete_leader', leader_id=leader.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this team member?');">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
-                                                    <i class="fas fa-trash me-1"></i>Delete
-                                                </button>
-                                            </form>
+                                    <div class="col-12 col-md-7 col-xl-8">
+                                        <div class="animate__animated animate__fadeInRight">
+                                            <h3 class="fw-bold text-dark mb-1">{{ leader.name }}</h3>
+                                            <h6 class="text-primary font-monospace text-uppercase tracking-wider mb-3">{{ leader.position or 'Team Member' }}</h6>
+                                            <div class="text-muted small lh-lg mb-4 bio-text-container">
+                                                {{ leader.bio or 'Dedicated professional at 3G DESIGN, committed to delivering excellence in every enterprise layout layer.' }}
+                                            </div>
+                                            
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <a href="#" class="social-link-icon"><i class="fab fa-linkedin-in"></i></a>
+                                                <a href="#" class="social-link-icon"><i class="fab fa-twitter"></i></a>
+                                                <a href="mailto:info@3gdesign.com" class="social-link-icon"><i class="far fa-envelope"></i></a>
+                                                
+                                                {% if session.get('admin_logged_in') %}
+                                                    {% set current_user = Admin.query.get(session.get('admin_id')) if Admin else None %}
+                                                    {% if current_user and current_user.role == 'admin' %}
+                                                    <div class="ms-md-3 border-start ps-3 d-flex gap-2 admin-controls mt-2 mt-md-0">
+                                                        <a href="{{ url_for('edit_leader', leader_id=leader.id) }}" class="btn btn-sm btn-outline-primary px-3 rounded-pill">
+                                                            <i class="fas fa-edit me-1"></i>Edit
+                                                        </a>
+                                                        <form action="{{ url_for('delete_leader', leader_id=leader.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm profile deletion sequence?');">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger px-3 rounded-pill">
+                                                                <i class="fas fa-trash me-1"></i>Delete
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        {% endif %}
-                                    {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -251,18 +482,18 @@
                 </div>
                 {% else %}
                 <div class="carousel-item active text-center py-5">
-                    <p class="text-muted">Team members coming soon.</p>
+                    <p class="text-muted font-monospace small">System administration profiles loading soon.</p>
                 </div>
                 {% endfor %}
             </div>
             
             {% if leaders|length > 1 %}
             <button class="carousel-control-prev" type="button" data-bs-target="#teamCarousel" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon bg-dark rounded-circle" aria-hidden="true"></span>
+                <span class="carousel-control-prev-icon bg-dark rounded-3" aria-hidden="true"></span>
                 <span class="visually-hidden">Previous</span>
             </button>
             <button class="carousel-control-next" type="button" data-bs-target="#teamCarousel" data-bs-slide="next">
-                <span class="carousel-control-next-icon bg-dark rounded-circle" aria-hidden="true"></span>
+                <span class="carousel-control-next-icon bg-dark rounded-3" aria-hidden="true"></span>
                 <span class="visually-hidden">Next</span>
             </button>
             {% endif %}

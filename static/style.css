@@ -24,32 +24,27 @@
     --dark-text: #0B1F3A;
     --muted-text: #546E7A;
     
-    /* Font Variables */
-    --title-font: 'Evil Empire', cursive, sans-serif;
-    --subtitle-font: 'Open Sans', sans-serif; /* Use font-weight: 700 for bold */
-    --body-font: 'Open Sans', sans-serif;
-    --business-font: 'Ethnocentric', sans-serif;
 }
 
 body {
-    font-family: var(--body-font);
+    font-family:'Open Sans', sans-serif;
     line-height: 1.6;
     color: var(--dark-text);
     background-color: var(--light-bg);
 }
 
 h1, h2, h3, .section-title {
-    font-family: var(--title-font);
+    font-family:'Evil Empire', cursive, sans-serif;
     letter-spacing: 1px;
 }
 
 h4, h5, h6, .subtitle, .fw-bold {
-    font-family: var(--subtitle-font);
+    font-family:'Open Sans Bold', sans-serif;
     font-weight: 700 !important;
 }
 
 .business-name {
-    font-family: var(--business-font);
+    font-family: 'Ethnocentric', 'Ethnocentric', serif;
     text-transform: uppercase;
 }
 
