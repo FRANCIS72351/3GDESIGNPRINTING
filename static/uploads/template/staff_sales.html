@@ -2,12 +2,14 @@
 
 {% block title %}My Sales History - 3G DESIGN{% endblock %}
 
+{% block body_class %}admin-page{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5">
     <div class="row">
         <div class="col-md-10 mx-auto">
-            <div class="card shadow-lg border-0 rounded-4 animate__animated animate__fadeIn">
-                <div class="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
+            <div class="admin-card animate__animated animate__fadeIn">
+                <div class="admin-card-header p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
                         <h2 class="mb-0"><i class="fas fa-history me-2"></i>My Sales History</h2>
                         <p class="mb-0 text-white-50">View all your recorded daily sales for follow-ups</p>
@@ -16,9 +18,9 @@
                         <i class="fas fa-arrow-left me-2"></i>Dashboard
                     </a>
                 </div>
-                <div class="card-body p-4">
+                <div class="admin-card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle admin-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>Date</th>
@@ -33,7 +35,7 @@
                                     <td class="fw-bold">{{ report.date_posted.strftime('%Y-%m-%d %H:%M') }}</td>
                                     <td><span class="text-success fw-bold">${{ "%.2f"|format(report.total_sales) }}</span></td>
                                     <td>
-                                        <div class="text-muted" style="max-width: 400px;">
+                                        <div class="text-muted notes-cell">
                                             {{ report.report_text }}
                                         </div>
                                     </td>

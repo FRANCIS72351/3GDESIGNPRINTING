@@ -1,33 +1,62 @@
-<div class="row mt-5">
-    <div class="col-md-8 mx-auto">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Quick Issue: Invoice/Receipt</h5>
+{% extends "layout.html" %}
+
+{% block title %}Management Portal - 3G DESIGN{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3">
+                <i class="fas fa-file-invoice fa-lg"></i>
             </div>
-            <div class="card-body">
-                <form action="{{ url_for('generate_order_pdf') }}" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Select Product</label>
-                        <select name="product_name" class="form-select">
-                            <option value="Squire Frame Original">Squire Frame Original - $15.00</option>
-                            <option value="Graphic Design Service">Graphic Design Service - Variable</option>
-                            <option value="3GDESIGN Print Job">3GDESIGN Print Job - Variable</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Customer Name</label>
-                        <input type="text" name="customer_name" class="form-control" placeholder="Enter customer name" required>
-                    </div>
-                    <div class="row">
-                        <div class="col">
-                            <button type="submit" name="doc_type" value="invoice" class="btn btn-primary w-100">Generate Invoice</button>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Management Portal</h1>
+                <p class="text-muted mb-0 small">Generate invoices, receipts, and corporate documents</p>
+            </div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="admin-card animate__animated animate__fadeInUp">
+                <div class="admin-card-header">
+                    <h5><i class="fas fa-bolt me-2 text-warning"></i>Quick Issue: Invoice / Receipt</h5>
+                </div>
+                <div class="admin-card-body">
+                    <form action="{{ url_for('billing.legacy_generate_order_pdf') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Select Product</label>
+                            <select name="product_name" class="form-select admin-form-control">
+                                <option value="Squire Frame Original">Squire Frame Original — $15.00</option>
+                                <option value="Graphic Design Service">Graphic Design Service — Variable</option>
+                                <option value="3GDESIGN Print Job">3GDESIGN Print Job — Variable</option>
+                            </select>
                         </div>
-                        <div class="col">
-                            <button type="submit" name="doc_type" value="receipt" class="btn btn-success w-100">Issue Receipt</button>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">Customer Name</label>
+                            <input type="text" name="customer_name" class="form-control admin-form-control admin-form-pill px-3" placeholder="Enter customer name" required>
                         </div>
-                    </div>
-                </form>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <button type="submit" name="doc_type" value="invoice" class="btn btn-primary w-100 rounded-pill">
+                                    <i class="fas fa-file-invoice me-2"></i>Generate Invoice
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="submit" name="doc_type" value="receipt" class="btn btn-success w-100 rounded-pill">
+                                    <i class="fas fa-receipt me-2"></i>Issue Receipt
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}

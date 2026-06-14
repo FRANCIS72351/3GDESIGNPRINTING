@@ -2,15 +2,30 @@
 
 {% block title %}Inventory Management - 3G DESIGN{% endblock %}
 
+{% block body_class %}admin-page{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-boxes fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Inventory Management</h1>
+                <p class="text-muted mb-0 small">Track stock levels, goods in/out, and product catalog</p>
+            </div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>Dashboard
+        </a>
+    </div>
+
     <div class="row">
         <div class="col-md-4">
-            <div class="card shadow border-0 rounded-4 animate__animated animate__fadeInLeft">
-                <div class="card-header bg-dark text-white">
-                    <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Log Goods In/Out</h4>
+            <div class="admin-card animate__animated animate__fadeInLeft">
+                <div class="admin-card-header">
+                    <h4><i class="fas fa-plus-circle me-2"></i>Log Goods In/Out</h4>
                 </div>
-                <div class="card-body">
+                <div class="admin-card-body">
                     <form action="{{ url_for('log_inventory') }}" method="POST">
                         <div class="mb-3">
                             <label class="form-label">Select Product</label>
@@ -37,7 +52,7 @@
                             <textarea name="notes" class="form-control" rows="3" placeholder="e.g. Supplier name, Customer order #, etc."></textarea>
                         </div>
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary rounded-pill">
                                 <i class="fas fa-save me-2"></i>Save Transaction
                             </button>
                         </div>
@@ -47,16 +62,16 @@
         </div>
 
         <div class="col-md-8">
-            <div class="card shadow border-0 rounded-4 animate__animated animate__fadeInRight">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <div class="admin-card animate__animated animate__fadeInRight">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 px-4 border-0">
                     <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-history me-2 text-primary"></i>Inventory History</h4>
                     <a href="{{ url_for('add_product') }}" class="btn btn-primary btn-sm rounded-pill px-3">
                         <i class="fas fa-plus me-2"></i>Add New Product
                     </a>
                 </div>
-                <div class="card-body">
+                <div class="admin-card-body pt-0">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle admin-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>Date</th>
@@ -100,13 +115,13 @@
                 </div>
             </div>
             
-            <div class="card shadow border-0 rounded-4 mt-4 animate__animated animate__fadeInUp">
-                <div class="card-header bg-white py-3">
+            <div class="admin-card mt-4 animate__animated animate__fadeInUp">
+                <div class="card-header bg-white py-3 px-4 border-0">
                     <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-box me-2 text-primary"></i>All Products</h4>
                 </div>
-                <div class="card-body">
+                <div class="admin-card-body pt-0">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle admin-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>Image</th>
@@ -122,9 +137,9 @@
                                 <tr>
                                     <td>
                                         {% if product.image %}
-                                        <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 5px;">
+                                        <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" class="thumb-40">
                                         {% else %}
-                                        <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="{{ product.name }}" style="width: 40px; height: 40px; object-fit: contain; background: #eee; border-radius: 5px;">
+                                        <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="{{ product.name }}" class="thumb-40 thumb-40-contain">
                                         {% endif %}
                                     </td>
                                     <td><strong>{{ product.name }}</strong></td>

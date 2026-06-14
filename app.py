@@ -1,6 +1,7 @@
 import os
 import time
 import math
+import secrets
 import pyotp
 import qrcode
 import io
@@ -16,14 +17,14 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import assemblyai as aai
 
 from werkzeug.utils import secure_filename
-from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response
+from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response, current_app
 from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime
 
-from models import db, Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog
+from models import db, Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
 from flask_mail import Mail, Message
 
 from security_utils import ERPSecurity
@@ -71,9 +72,39 @@ app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 # 6. Ghost Admin Identity
 GHOST_USER = os.getenv('GHOST_ADMIN_USER')
 
+# 7. Twilio (cloud voice/SMS) — optional
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+app.config['TWILIO_PHONE_NUMBER'] = os.getenv('TWILIO_PHONE_NUMBER')
+twilio_client = None
+if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    try:
+        from twilio.rest import Client
+        twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    except Exception as e:
+        print(f"Twilio init skipped: {e}")
+
+# 8. Webhook base URL for Twilio (cloud) — set to ngrok/production URL
+app.config['WEBHOOK_BASE_URL'] = os.getenv('WEBHOOK_BASE_URL', '').rstrip('/')
+
 # 7. Initialize Extensions
 db.init_app(app)
 mail = Mail(app)
+
+from call_tracking import call_bp
+app.register_blueprint(call_bp)
+
+from billing import billing_bp
+app.register_blueprint(billing_bp)
+
+from operations import operations_bp
+app.register_blueprint(operations_bp)
+
+from ai_chat import ai_chat_bp
+app.register_blueprint(ai_chat_bp)
+
+from staff_portal import staff_bp, run_late_staff_check_if_due, post_login_redirect
+app.register_blueprint(staff_bp)
 
 # ----------------------------------
 # Production Configuration for PythonAnywhere
@@ -107,8 +138,39 @@ with app.app_context():
             ],
             'order': [
                 ("order_source", "VARCHAR(50)"),
-                ("date_ordered", "DATETIME")
-            ]
+                ("date_ordered", "DATETIME"),
+                ("production_stage", "VARCHAR(20) DEFAULT 'quote'"),
+                ("promised_date", "DATE"),
+                ("notes", "TEXT"),
+            ],
+            'call_log': [
+                ("caller_name", "VARCHAR(100)"),
+                ("notes", "TEXT"),
+                ("source", "VARCHAR(30) DEFAULT 'local_desktop'"),
+                ("call_type", "VARCHAR(20) DEFAULT 'voice'"),
+                ("status", "VARCHAR(20) DEFAULT 'logged'"),
+                ("duration_seconds", "INTEGER"),
+                ("call_sid", "VARCHAR(64)"),
+                ("logged_by", "VARCHAR(50)"),
+            ],
+            'generated_document': [
+                ("order_id", "INTEGER"),
+                ("customer_name", "VARCHAR(100)"),
+                ("total_amount", "FLOAT DEFAULT 0"),
+                ("currency", "VARCHAR(3) DEFAULT 'USD'"),
+                ("payment_status", "VARCHAR(20) DEFAULT 'Pending'"),
+            ],
+            'pending_receipt': [
+                ("status", "VARCHAR(20) DEFAULT 'pending'"),
+                ("order_id", "INTEGER"),
+            ],
+            'event': [
+                ("event_type", "VARCHAR(50)"),
+                ("description", "TEXT"),
+            ],
+            'system_settings': [
+                ("last_late_check_date", "DATE"),
+            ],
         }
         
         for table, columns in migrations.items():
@@ -146,7 +208,7 @@ def role_required(roles):
             if user_role not in roles:
                 flash(f"Unauthorized. Your role ({user_role}) does not have access to this area.", "danger")
                 if user_role == 'staff':
-                    return redirect(url_for('file_portal'))
+                    return redirect(url_for('staff.staff_portal'))
                 return redirect(url_for('home'))
             return f(*args, **kwargs)
         return decorated_function
@@ -159,12 +221,25 @@ def role_required(roles):
 def check_system_status():
     # 1. Allow access to the Ghost Dashboard so YOU can turn it back on
     # 2. Allow access to static files (CSS/Images)
-    if 'ghost-protocol' in request.path or request.path.startswith('/static') or request.path == '/login':
+    if ('ghost-protocol' in request.path or request.path.startswith('/static')
+            or request.path == '/login'
+            or request.path.startswith('/order/receipt')
+            or request.path.startswith('/order/share')
+            or request.path in ('/voice', '/handle-recording')
+            or request.path.startswith('/api/communications')
+            or request.path.startswith('/api/whatsapp')
+            or request.path.startswith('/api/web/chat')):
         return
     # Check if system is deactivated in DB
     settings = SystemSettings.query.first()
     if settings and not settings.is_active:
         return render_template('system_locked.html', message=settings.lock_message), 403
+
+    if not request.path.startswith('/static'):
+        try:
+            run_late_staff_check_if_due(mail, app)
+        except Exception:
+            pass
 
 # ----------------------------------
 # Public Routes
@@ -238,39 +313,106 @@ def event_portal():
         events = [] # Safe fallback if table structure is empty on initial render
 
     return render_template("events.html", events=events, today=datetime.today().date())
-
-    # --- GET REQUEST LOGIC ---
-    today = datetime.today().date()
-    current_month = today.month
-
-    # Fetch events for the current month, sorted by day
-    events = Event.query.filter(
-        extract('month', Event.date) == current_month
-    ).order_by(extract('day', Event.date).asc()).all()
-
-    # Dashboard Statistics
-    stats = {
-        "total_this_month": len(events),
-        "today_count": len([e for e in events if e.date.day == today.day]),
-        "upcoming": len([e for e in events if e.date.day > today.day])
-    }
-
-    return render_template(
-        'events.html', 
-        events=events, 
-        today=today, 
-        stats=stats
-    )
 # ----------------------------------
 # Shopping Cart Logic
 # ----------------------------------
+
+from order_share import build_whatsapp_text, generate_order_image, try_notify_shop_via_api
+
+WHATSAPP_NUMBER = os.getenv('WHATSAPP_NUMBER', '+231775323731').replace(' ', '')
+
+
+def get_public_base_url():
+    """Public URL for images, webhooks, and share links."""
+    from site_config import get_public_site_url
+    return get_public_site_url(request.url_root if request else None)
+
+
+def normalize_image_filename(image_value):
+    if not image_value:
+        return ''
+    value = str(image_value).strip()
+    if value.startswith('http'):
+        return value
+    value = value.replace('\\', '/')
+    for prefix in ('/static/uploads/', 'static/uploads/', '/uploads/', 'uploads/'):
+        if value.startswith(prefix):
+            return value[len(prefix):]
+    return value.lstrip('/')
+
+
+def absolute_product_image_url(image_value):
+    normalized = normalize_image_filename(image_value)
+    if not normalized:
+        return f"{get_public_base_url()}/static/img/LOGO.png"
+    if normalized.startswith('http'):
+        return normalized
+    return f"{get_public_base_url()}/static/uploads/{normalized}"
+
+
+def enrich_cart_item(item):
+    image_file = normalize_image_filename(item.get('image', ''))
+    return {
+        **item,
+        'image': image_file,
+        'image_url': absolute_product_image_url(image_file),
+    }
+
+
+def product_stock_level(product):
+    """Canonical stock — keeps stock and stock_quantity in sync."""
+    if product.stock is not None:
+        return product.stock
+    return product.stock_quantity or 0
+
+
+def adjust_product_stock(product, delta):
+    level = product_stock_level(product) + delta
+    product.stock = level
+    product.stock_quantity = level
+    return level
+
+
+def finalize_whatsapp_order(cart_items):
+    """Create order image + text, save record, optionally notify shop via API."""
+    import json
+    enriched = []
+    for raw in cart_items:
+        image_file = normalize_image_filename(raw.get('image', ''))
+        enriched.append({
+            **raw,
+            'image': image_file,
+            'image_url': absolute_product_image_url(image_file),
+        })
+
+    token = secrets.token_urlsafe(16)
+    message_text = build_whatsapp_text(enriched)
+    image_rel = generate_order_image(enriched, token, app.root_path)
+
+    total_usd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'USD')
+    total_lrd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'LRD')
+    payload = {
+        'items': enriched,
+        'total_usd': round(total_usd, 2),
+        'total_lrd': round(total_lrd, 2),
+        'message_text': message_text,
+        'share_image': image_rel,
+    }
+    receipt = PendingReceipt(token=token, payload=json.dumps(payload))
+    db.session.add(receipt)
+    db.session.commit()
+
+    try_notify_shop_via_api(enriched, message_text, image_rel, app.root_path)
+    return token, message_text, image_rel
+
+
 @app.route('/add-to-cart', methods=['POST'])
 def add_to_cart():
     product_id = request.form.get('product_id')
     variant_name = request.form.get('variant_name', 'Base')
     price = float(request.form.get('price', 0))
     currency = request.form.get('currency', 'USD')
-    image = request.form.get('image', '')
+    image = normalize_image_filename(request.form.get('image', ''))
     product_name = request.form.get('product_name', '')
 
     if 'cart' not in session:
@@ -317,112 +459,170 @@ def remove_from_cart(index):
         flash(f"Removed {item['product_name']} from cart.", "info")
     return redirect(url_for('view_cart'))
 # -----------------------------------------------------------------
-# whatapp
+# WhatsApp checkout with visual receipt page
+@app.route('/prepare-whatsapp-order', methods=['POST'])
+def prepare_whatsapp_order():
+    """Single-product Order Now → visual receipt link in WhatsApp."""
+    qty = max(1, int(request.form.get('quantity', 1) or 1))
+    item = {
+        'product_id': request.form.get('product_id'),
+        'product_name': request.form.get('product_name', ''),
+        'variant_name': request.form.get('variant_name', 'Original Design'),
+        'price': float(request.form.get('price', 0)),
+        'currency': request.form.get('currency', 'USD'),
+        'image': normalize_image_filename(request.form.get('image', '')),
+        'quantity': qty,
+    }
+    if not item['product_name']:
+        flash('Product details missing.', 'warning')
+        return redirect(request.referrer or url_for('home'))
+
+    token, message_text, image_rel = finalize_whatsapp_order([item])
+    return redirect(url_for('order_share_page', token=token))
+
+
+@app.route('/order/share/<token>')
+def order_share_page(token):
+    import json
+    receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
+    data = json.loads(receipt.payload)
+    image_rel = data.get('share_image', '')
+    message_text = data.get('message_text', build_whatsapp_text(data.get('items', [])))
+    image_url = url_for('static', filename=f'uploads/{image_rel}') if image_rel else url_for('static', filename='img/LOGO.png')
+    phone = WHATSAPP_NUMBER.lstrip('+')
+    wa_fallback_url = f"https://wa.me/{phone}?text={urllib.parse.quote(message_text)}"
+    return render_template(
+        'order_share.html',
+        token=token,
+        message_text=message_text,
+        image_url=image_url,
+        wa_phone=phone,
+        wa_fallback_url=wa_fallback_url,
+    )
+
+
+@app.route('/order/receipt/<token>')
+def order_receipt(token):
+    import json
+    receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
+    data = json.loads(receipt.payload)
+    items = data.get('items', [])
+    preview_image = f"{get_public_base_url()}/static/img/LOGO.png"
+    if items:
+        first = items[0]
+        preview_image = first.get('image_url') or absolute_product_image_url(first.get('image'))
+    item_count = len(items)
+    title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G DESIGN"
+    description = ', '.join(i['product_name'] for i in items[:3])
+    if item_count > 3:
+        description += f' +{item_count - 3} more'
+    return render_template(
+        'order_receipt.html',
+        receipt=receipt,
+        data=data,
+        items=items,
+        og_title=title,
+        og_description=description,
+        og_image=preview_image,
+        og_url=f"{get_public_base_url()}/order/receipt/{token}",
+    )
+
+
 @app.route('/checkout-whatsapp')
 def checkout_whatsapp():
     cart = session.get('cart', [])
     if not cart:
         flash("Your cart is empty.", "warning")
         return redirect(url_for('home'))
-    
-    # Base URL for images
-    base_url = request.host_url.rstrip('/')
-    
-    # Professional Header
-    message = "📑 *OFFICIAL ORDER RECEIPT - Olatricity*\n"
-    message += "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    
-    # Optimization: Put the first image link at the very top for WhatsApp Link Preview
-    if cart and cart[0].get('image'):
-        first_img = f"{base_url}/static/uploads/{cart[0]['image']}"
-        message += f"🖼️ *Design Preview:* {first_img}\n\n"
 
-    total_usd = 0
-    total_lrd = 0
-    
-    for i, item in enumerate(cart, 1):
-        message += f"📦 *ITEM #{i}: {item['product_name']}*\n"
-        message += f"▫️ Variant: {item['variant_name']}\n"
-        message += f"▫️ Qty: {item['quantity']}\n"
-        message += f"▫️ Subtotal: {item['price'] * item['quantity']:.2f} {item['currency']}\n"
-        
-        # Additional links are clickable but usually don't show extra previews
-        if i > 1 and item.get('image'):
-            item_img = f"{base_url}/static/uploads/{item['image']}"
-            message += f"🔗 View Design: {item_img}\n"
-        
-        message += "\n"
-        
-        if item['currency'] == 'USD': total_usd += item['price'] * item['quantity']
-        else: total_lrd += item['price'] * item['quantity']
-    
-    message += "------------------------------------------\n"
-    message += f"💰 *Total USD:* ${total_usd:.2f}\n"
-    message += f"💰 *Total LRD:* L${total_lrd:.2f}\n"
-    message += "------------------------------------------\n"
-    message += "Please confirm availability and lead time. Thank you! 🙏"
-    
-    # Clear cart after checkout
+    token, _, _ = finalize_whatsapp_order(cart)
     session.pop('cart', None)
-    
-    whatsapp_url = f"https://wa.me/+231775323731?text={urllib.parse.quote(message)}"
-    return redirect(whatsapp_url)
+    return redirect(url_for('order_share_page', token=token))
 
 # ----------------------------------
-# TWILIO: Answer Call & Record
+# TWILIO: Answer Call & Record (Cloud)
+# Requires WEBHOOK_BASE_URL in .env when not on PythonAnywhere
 # ----------------------------------
 @app.route("/voice", methods=['POST'])
 def voice():
     response = VoiceResponse()
     response.say("Welcome to 3G DESIGN. Your call is being recorded for order accuracy.")
-    
-    # Twilio will POST to /handle-recording when the user hangs up or time is up
-    response.record(action="/handle-recording", maxLength=60)
-    return str(response)
-# ----------------------------------
-# AssemblyAI: Handle Recording
-# ----------------------------------
-from flask import request, current_app
-import assemblyai as aai
-# Make sure db and CallLog are imported from your models file
-# from models import db, CallLog 
+
+    call_sid = request.form.get('CallSid')
+    from_number = request.form.get('From', 'Unknown')
+
+    try:
+        incoming = CallLog(
+            phone_number=from_number,
+            call_sid=call_sid,
+            source='twilio_cloud',
+            call_type='voice',
+            status='received',
+            notes='Incoming cloud call',
+        )
+        db.session.add(incoming)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    recording_action = url_for('handle_recording', _external=True)
+    if app.config.get('WEBHOOK_BASE_URL'):
+        recording_action = f"{app.config['WEBHOOK_BASE_URL']}/handle-recording"
+
+    response.record(action=recording_action, maxLength=120, transcribe=False)
+    return str(response), 200, {'Content-Type': 'text/xml'}
+
 
 @app.route("/handle-recording", methods=['POST'])
 def handle_recording():
-    # 1. Get data from Twilio
     recording_url = request.form.get('RecordingUrl')
-    from_number = request.form.get('From')
+    from_number = request.form.get('From', 'Unknown')
+    call_sid = request.form.get('CallSid')
+    duration = request.form.get('RecordingDuration')
 
     if not recording_url:
         current_app.logger.warning("No recording URL received from Twilio.")
         return "No recording found", 400
+
+    transcript_text = None
+    if os.getenv("ASSEMBLYAI_API_KEY"):
+        try:
+            transcriber = aai.Transcriber()
+            transcript = transcriber.transcribe(recording_url)
+            if transcript.status != aai.TranscriptStatus.error:
+                transcript_text = transcript.text
+            else:
+                current_app.logger.error(f"Transcription Error: {transcript.error}")
+        except Exception as e:
+            current_app.logger.error(f"Transcription skipped: {e}")
+
     try:
-        # 2. Start Transcription (Ensure aai.settings.api_key is set elsewhere)
-        transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(recording_url)
+        existing = CallLog.query.filter_by(call_sid=call_sid).first() if call_sid else None
+        if existing:
+            existing.transcript = transcript_text
+            existing.audio_url = recording_url
+            existing.status = 'processed'
+            existing.duration_seconds = int(duration) if duration and str(duration).isdigit() else None
+            existing.notes = 'Cloud recording processed'
+        else:
+            new_call = CallLog(
+                phone_number=from_number,
+                transcript=transcript_text,
+                audio_url=recording_url,
+                call_sid=call_sid,
+                source='twilio_cloud',
+                call_type='voice',
+                status='processed',
+                duration_seconds=int(duration) if duration and str(duration).isdigit() else None,
+                notes='Cloud recording via Twilio',
+            )
+            db.session.add(new_call)
 
-        # 3. Check for transcription errors
-        if transcript.status == aai.TranscriptStatus.error:
-            current_app.logger.error(f"Transcription Error: {transcript.error}")
-            return "Transcription failed", 500
-
-        # 4. Save to Database
-        new_call = CallLog(
-            phone_number=from_number,
-            transcript=transcript.text,
-            audio_url=recording_url
-        )
-
-        db.session.add(new_call)
         db.session.commit()
-        
-        print(f"Success: Recorded call from {from_number}")
         return "OK", 200
-
     except Exception as e:
-        # If the database or transcription fails, roll back the session
         db.session.rollback()
-        print(f"System Error: {str(e)}")
+        current_app.logger.error(f"Recording save error: {e}")
         return "Internal Server Error", 500
 # ----------------------------------
 # Exponential Backoff Helper
@@ -533,213 +733,35 @@ def upload_file():
     
     return redirect(url_for('file_portal', date=selected_date))
 
+# Billing routes are in billing.py (invoices, receipts, admin_portal, PDF generation)
+
 def roles_required(*roles):
     def wrapper(f):
         @wraps(f)
         def decorated_view(*args, **kwargs):
-            # Assumes 'role' is stored in the session during login
-            user_role = session.get('role')
-            if user_role not in roles:
-                # 403 Forbidden: They aren't an Admin or Moderator
-                abort(403) 
+            if session.get('role') not in roles:
+                abort(403)
             return f(*args, **kwargs)
         return decorated_view
     return wrapper
 
-# Apply it to your Management Portal route
-@app.route('/download-doc/<doc_type>')
-@roles_required('admin', 'moderator') # ONLY these roles can enter
-def download_pdf(doc_type):
-    # Role check
-    if session.get('role') not in ['admin', 'moderator']:
-        abort(403)
-
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    
-    # --- 1. TOP DECORATIVE BARS ---
-    p.setFillColor(colors.HexColor("#0B1F3A")) # 3G DESIGN Deep Navy
-    p.rect(0, height - 25, width, 25, fill=1, stroke=0)
-    p.setFillColor(colors.white)
-    p.setFont("Helvetica-Bold", 10)
-    p.drawCentredString(width/2, height - 17, doc_type.upper())
-
-    # --- 2. LOGO & CONTACT INFO ---
-    logo_path = os.path.join(app.root_path, 'static/img/LOGO.png')
-    if os.path.exists(logo_path):
-        p.drawImage(logo_path, 50, height - 85, width=120, preserveAspectRatio=True, mask='auto')
-
-    # Contact Details (Right Aligned like the sample)
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica", 9)
-    text_x = 550
-    p.drawRightString(text_x, height - 55, "📞 +231 77 532 3731")
-    p.drawRightString(text_x, height - 67, "📧 info@olatricity.com")
-    p.drawRightString(text_x, height - 79, "🌐 www.olatricity.com")
-    p.drawRightString(text_x, height - 91, "📍 Newport & Benson Street, Monrovia, Liberia")
-
-    # --- 3. THE ACCENT BLUE LINE ---
-    p.setStrokeColor(colors.HexColor("#4FC3F7")) # Olatricity Sky Blue
-    p.setLineWidth(2)
-    p.line(50, height - 110, 550, height - 110)
-
-    # --- 4. RECIPIENT & DATE ---
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, height - 140, "To:")
-    p.setFont("Helvetica", 10)
-    p.drawString(50, height - 152, "Valued Client / Management")
-    p.drawRightString(550, height - 170, datetime.now().strftime("%B %d, %Y"))
-
-    # --- 5. CONTENT AREA ---
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, height - 200, f"Subject: Official {doc_type.title()}")
-    
-    p.setFont("Helvetica", 11)
-    p.drawString(50, height - 230, "Dear Sir/Madam,")
-    # Add your body text logic here...
-
-    # --- 6. SIGNATURE LINE ---
-    p.drawString(50, 150, "Sincerely,")
-    p.line(50, 110, 180, 110) # Signature line
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, 95, f"{session.get('username')}")
-    p.setFont("Helvetica", 9)
-    p.drawString(50, 83, "Authorized Signatory")
-    p.drawString(50, 71, "3G DESIGN")
-
-    # --- 7. BOTTOM BLUE BAR ---
-    p.setFillColor(colors.HexColor("#0B1F3A"))
-    p.rect(0, 0, width, 30, fill=1, stroke=0)
-    p.setFillColor(colors.white)
-    p.setFont("Helvetica-Bold", 9)
-    p.drawCentredString(width/2, 12, "QUALITY IN EVERY PRINT, EXCELLENCE IN EVERY DESIGN")
-
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name=f"3G DESIGN_{doc_type}.pdf", mimetype='application/pdf')
-
-@app.route('/admin_portal')
-@roles_required('admin', 'moderator')
-def admin_portal():
-    return render_template("admin_portal.html")
 
 @app.route('/direct-sale-history')
 @roles_required('admin', 'moderator')
 def direct_sale_history():
     search = request.args.get('search', '')
     query = Order.query
-    
+
     if search:
-        query = query.join(Customer).filter(
+        query = query.outerjoin(Customer).filter(
             (Customer.name.ilike(f"%{search}%")) |
             (Order.status.ilike(f"%{search}%")) |
             (Order.order_source.ilike(f"%{search}%"))
         )
-    
+
     orders = query.order_by(Order.date_ordered.desc()).all()
     return render_template("direct_sale_history.html", orders=orders, search=search)
 
-@app.route("/admin/generate-order-pdf", methods=['POST'])
-@app.route("/admin/generate-order-pdf/<int:order_id>", methods=['GET'])
-@roles_required('admin', 'moderator')
-def generate_order_pdf(order_id=None):
-    if order_id:
-        order = Order.query.get_or_404(order_id)
-        customer_name = order.customer.name if order.customer else "Guest"
-        # Combine items for description
-        items_list = []
-        for item in order.items:
-            p_name = item.product.name if item.product else "Deleted Product"
-            items_list.append(f"{p_name} (x{item.quantity})")
-        
-        product_name = ", ".join(items_list)
-        price_display = f"${order.total_amount:,.2f}"
-        doc_type = "invoice"
-    else:
-        product_name = request.form.get('product_name')
-        customer_name = request.form.get('customer_name')
-        doc_type = request.form.get('doc_type', 'invoice')
-        
-        # Original logic for price from product_name string
-        price_display = "$0.00"
-        if product_name and "$" in product_name:
-            price_display = "$" + product_name.split("$")[-1].strip()
-        elif product_name and "Variable" in product_name:
-            price_display = "TBD"
-
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-
-    # --- Modern UI: Sidebar Accent ---
-    p.setFillColor(colors.HexColor("#0B1F3A"))
-    p.rect(0, 0, 40, height, fill=1, stroke=0)
-
-    # --- Header ---
-    p.setFillColor(colors.HexColor("#0B1F3A"))
-    p.rect(40, height - 80, width - 40, 80, fill=1, stroke=0)
-    
-    p.setFillColor(colors.white)
-    p.setFont("Helvetica-Bold", 24)
-    p.drawString(60, height - 50, "3G DESIGN")
-    
-    p.setFont("Helvetica", 12)
-    p.drawRightString(width - 30, height - 35, doc_type.upper())
-    p.drawRightString(width - 30, height - 55, datetime.now().strftime("%d %b %Y"))
-
-    # --- Logo & Contact ---
-    logo_path = os.path.join(app.root_path, 'static', 'img', 'LOGO.png')
-    if os.path.exists(logo_path):
-        p.drawImage(logo_path, 60, height - 160, width=100, preserveAspectRatio=True, mask='auto')
-
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(200, height - 110, "3G DESIGN")
-    p.setFont("Helvetica", 9)
-    p.drawString(200, height - 125, "Newport & Benson Street, Monrovia, Liberia")
-    p.drawString(200, height - 137, "Tel: +231 77 532 3731")
-    p.drawString(200, height - 149, "Email: info@3GDESIGNprinting.com")
-
-    # --- Customer Info ---
-    p.setStrokeColor(colors.HexColor("#0B1F3A"))
-    p.setLineWidth(1)
-    p.line(60, height - 180, width - 30, height - 180)
-
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(60, height - 210, "BILLED TO:")
-    p.setFont("Helvetica", 11)
-    p.drawString(60, height - 225, customer_name)
-
-    # --- Order Table Header ---
-    p.setFillColor(colors.HexColor("#F2F4F7"))
-    p.rect(60, height - 280, width - 90, 25, fill=1, stroke=0)
-    
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(70, height - 273, "DESCRIPTION")
-    p.drawRightString(width - 40, height - 273, "AMOUNT")
-
-    # --- Order Details ---
-    p.setFont("Helvetica", 10)
-    p.drawString(70, height - 310, product_name[:80] + ("..." if len(product_name) > 80 else ""))
-    
-    p.drawRightString(width - 40, height - 310, price_display)
-
-    # --- Footer ---
-    p.setStrokeColor(colors.HexColor("#0B1F3A"))
-    p.line(60, 100, width - 30, 100)
-    
-    p.setFont("Helvetica-Oblique", 8)
-    p.drawCentredString(width/2 + 20, 80, "Thank you for choosing 3G DESIGN for your digital solutions.")
-    p.setFont("Helvetica-Bold", 10)
-    p.drawCentredString(width/2 + 20, 60, "QUALITY IN EVERY PRINT, EXCELLENCE IN EVERY DESIGN")
-
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name=f"{customer_name}_{doc_type}.pdf", mimetype='application/pdf')
 
 @app.route("/admin/leader/edit/<int:leader_id>", methods=['GET', 'POST'])
 @login_required
@@ -799,94 +821,99 @@ def leader_management():
 # admin alert: inventory low
 #-------------------------------------
 @app.route('/add-sale', methods=['POST'])
+@login_required
 def add_sale():
-    # ... your existing sale logic ...
-    
+    product_id = request.form.get('product_id', type=int)
+    quantity_sold = request.form.get('quantity', type=int) or request.form.get('quantity_sold', type=int)
+
+    if not product_id or not quantity_sold or quantity_sold <= 0:
+        flash('Invalid sale: product and quantity are required.', 'danger')
+        return redirect(url_for('dashboard'))
+
     product = Product.query.get(product_id)
-    product.stock_quantity -= quantity_sold
-    
+    if not product:
+        flash('Product not found.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    current_stock = product_stock_level(product)
+    if current_stock < quantity_sold:
+        flash(f'Insufficient stock for {product.name} (have {current_stock}).', 'danger')
+        return redirect(url_for('dashboard'))
+
+    adjust_product_stock(product, -quantity_sold)
+    unit_price = product.price or 0
+    sale = Sale(
+        amount=round(unit_price * quantity_sold, 2),
+        currency=product.currency or 'USD',
+    )
+    db.session.add(sale)
     db.session.commit()
 
-    # --- INVENTORY CHECK START ---
     check_inventory_alerts(product)
-    # --- INVENTORY CHECK END ---
-
+    trigger_order_sms(sale)
+    flash(f'Sale recorded: {quantity_sold}× {product.name}.', 'success')
     return redirect(url_for('dashboard'))
 
 ADMIN_PHONE = '+231881669599'  # Replace with your actual phone number
 
 def check_inventory_alerts(product):
     """Checks if stock is low and sends an alert to the Admin."""
-    if product.stock_quantity <= product.min_stock_threshold:
+    level = product_stock_level(product)
+    if level <= (product.min_stock_threshold or 0):
         message_body = (
             f"⚠️ 3G DESIGN INVENTORY ALERT ⚠️\n"
             f"Item: {product.name} is running low!\n"
-            f"Current Stock: {product.stock_quantity}\n"
+            f"Current Stock: {level}\n"
             f"Threshold: {product.min_stock_threshold}\n"
             f"Please restock soon to avoid missing sales."
         )
 
         try:
-            twilio_client.messages.create(
-                body=message_body,
-                from_=app.config['TWILIO_PHONE_NUMBER'],
-                to=ADMIN_PHONE
-            )
-            print(f"Low stock alert sent for {product.name}")
+            if twilio_client and app.config.get('TWILIO_PHONE_NUMBER'):
+                twilio_client.messages.create(
+                    body=message_body,
+                    from_=app.config['TWILIO_PHONE_NUMBER'],
+                    to=ADMIN_PHONE
+                )
+                print(f"Low stock alert sent for {product.name}")
         except Exception as e:
             print(f"Failed to send inventory alert: {e}")
 
 #-------------------------------------
 #sales status for admin and moderator
 #-------------------------------------
-def trigger_order_sms(sale_id):
-    """Updates the sale record based on SMS success."""
-    sale = Sale.query.get(sale_id)
-    if not sale or not sale.phone_number:
+def trigger_order_sms(sale):
+    """Send order confirmation SMS via Twilio; accepts Sale object or sale id."""
+    if isinstance(sale, int):
+        sale = Sale.query.get(sale)
+    if not sale:
         return
 
-    message_body = f"3G DESIGN: Order #{sale.id} confirmed for ${sale.total_amount:.2f}. Thank you!"
-
-    try:
-        twilio_client.messages.create(
-            body=message_body,
-            from_=app.config['TWILIO_PHONE_NUMBER'],
-            to=sale.phone_number
-        )
-        sale.sms_status = "Sent" # Success!
-    except Exception as e:
-        print(f"SMS Error: {e}")
-        sale.sms_status = "Failed" # Something went wrong
-    
-    db.session.commit()
-#-----------------------------------------
-# sale finalism
-#-----------------------------------------
-def trigger_order_sms(sale_obj):
-    """
-    Automated professional response for 3G DESIGN.
-    Takes a 'sale' object from your database.
-    """
-    if not sale_obj.phone_number or not sale_obj.phone_number.startswith('+'):
-        print(f"Skipping SMS: Invalid phone for {sale_obj.customer_name}")
+    customer = sale.customer if sale.customer_id else None
+    phone = customer.phone if customer else None
+    if not phone or not str(phone).startswith('+'):
         return
 
+    name = customer.name if customer else 'Customer'
+    amount = sale.amount or 0
     message_body = (
-        f"3G DESIGN ERP: Success! Order #{sale_obj.id} confirmed.\n"
-        f"Customer: {sale_obj.customer_name}\n"
-        f"Amount: ${sale_obj.total_amount:.2f}\n"
-        f"Thank you for your business. We are processing your request now!"
+        f"3G DESIGN: Order #{sale.id} confirmed for ${amount:.2f}. "
+        f"Thank you, {name}!"
     )
 
     try:
-        twilio_client.messages.create(
-            body=message_body,
-            from_=app.config['TWILIO_PHONE_NUMBER'],
-            to=sale_obj.phone_number
-        )
-        print(f"Auto-SMS sent to {sale_obj.customer_name}")
+        if twilio_client and app.config.get('TWILIO_PHONE_NUMBER'):
+            twilio_client.messages.create(
+                body=message_body,
+                from_=app.config['TWILIO_PHONE_NUMBER'],
+                to=phone,
+            )
+        sale.sms_status = "Sent"
     except Exception as e:
-        print(f"Auto-SMS failed: {e}")
+        print(f"SMS Error: {e}")
+        sale.sms_status = "Failed"
+
+    db.session.commit()
 
 @app.route("/admin/staff-sales")
 @login_required
@@ -909,16 +936,16 @@ def add_leader():
         email = request.form.get('email')
         contact = request.form.get('contact')
         file = request.files.get('image')
-
-        if file:
+        filename = None
+        if file and file.filename:
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-            new_leader = Leaders(name=name, position=position, bio=bio, email=email, contact=contact, image=filename)
-            db.session.add(new_leader)
-            db.session.commit()
-
-            return redirect(url_for('leader_management'))
+        new_leader = Leaders(name=name, position=position, bio=bio, email=email, contact=contact, image=filename)
+        db.session.add(new_leader)
+        db.session.commit()
+        flash('Team member added successfully.', 'success')
+        return redirect(url_for('leader_management'))
 
     return render_template('admin_leader.html')
 
@@ -1125,11 +1152,14 @@ def log_inventory():
     # Update product stock
     if transaction_type == 'IN':
         product.stock += quantity
+        product.stock_quantity = product.stock
     elif transaction_type == 'OUT':
         if product.stock < quantity:
             flash(f'Error: Not enough stock for {product.name}. Current: {product.stock}', 'danger')
             return redirect(url_for('inventory'))
         product.stock -= quantity
+
+    product.stock_quantity = product.stock
 
     new_log = InventoryLog(
         product_id=product_id,
@@ -1180,41 +1210,8 @@ def edit_inventory_log(log_id):
     return render_template('edit_inventory.html', log=log, products=products)
 
 # ----------------------------------
-# Attendance Helpers
+# Attendance — see staff_portal.py (clock-in, late alerts)
 # ----------------------------------
-def check_for_late_staff():
-    # Define your shop's grace period (e.g., 8:15 AM)
-    late_threshold = datetime_time(8, 15)
-    current_time = datetime.now().time()
-    today = datetime.now().date()
-    if current_time > late_threshold:
-        # Get all staff members
-        all_staff = Admin.query.filter_by(role='staff').all()
-        for staff in all_staff:
-            # Check if they have a check-in record for today
-            attendance = Attendance.query.filter(
-                Attendance.staff_id == staff.id,
-                db.func.date(Attendance.check_in) == today
-            ).first()
-            if not attendance:
-                send_late_notification(staff.username)
-
-def send_late_notification(username):
-    # This uses your existing Flask-Mail or Twilio setup
-    msg_body = f"ALERT: {username} has not clocked in for their shift at 3G DESIGN as of 08:15 AM."
-    print(msg_body) # For testing, or send via Twilio/Email
-    
-    # Optional: Send via Flask-Mail if configured
-    try:
-        msg = Message(
-            subject="Late Staff Alert",
-            sender=app.config['MAIL_USERNAME'],
-            recipients=[app.config['MAIL_USERNAME']] # Send to admin
-        )
-        msg.body = msg_body
-        mail.send(msg)
-    except Exception as e:
-        print(f"Failed to send late notification email: {e}")
 
 # ----------------------------------
 # Email Helper
@@ -1260,6 +1257,8 @@ def submit_daily_report():
     db.session.commit()
     
     flash('Daily report submitted successfully!', 'success')
+    if session.get('role') == 'staff':
+        return redirect(url_for('staff.staff_portal'))
     return redirect(url_for('dashboard'))
 
 # ----------------------------------
@@ -1273,8 +1272,14 @@ def quick_capture():
     phone = request.form.get('phone')
     address = request.form.get('address')
 
-    # Check if customer already exists
-    customer = Customer.query.filter_by(email=email).first()
+    email = (email or '').strip() or None
+    phone = (phone or '').strip() or None
+
+    customer = None
+    if email:
+        customer = Customer.query.filter_by(email=email).first()
+    if not customer and phone:
+        customer = Customer.query.filter_by(phone=phone).first()
     is_new_customer = False
 
     if not customer:
@@ -1283,9 +1288,12 @@ def quick_capture():
         db.session.commit()
         is_new_customer = True
 
-    if is_new_customer:
+    if is_new_customer and customer.email:
         send_welcome_email(customer.email, customer.name)
 
+    flash('Daily report submitted successfully.', 'success')
+    if session.get('role') == 'staff':
+        return redirect(url_for('staff.staff_portal'))
     return redirect(url_for('dashboard'))
 
 @app.route("/dashboard")
@@ -1325,6 +1333,13 @@ def dashboard():
         Expense.timestamp >= today_start, Expense.currency == 'LRD'
     ).scalar() or 0
 
+    from models import PendingReceipt
+    pending_inbox = PendingReceipt.query.filter(
+        (PendingReceipt.status == 'pending') | (PendingReceipt.status.is_(None))
+    ).count()
+    active_jobs = Order.query.filter(Order.production_stage != 'delivered').count()
+    ready_jobs = Order.query.filter_by(production_stage='ready').count()
+
     return render_template(
         "dashboard.html",
         calls=calls,
@@ -1338,7 +1353,10 @@ def dashboard():
         today_income_lrd=today_income_lrd,
         today_expense_usd=today_expense_usd,
         today_expense_lrd=today_expense_lrd,
-        admin_log=admin_log
+        admin_log=admin_log,
+        pending_inbox=pending_inbox,
+        active_jobs=active_jobs,
+        ready_jobs=ready_jobs,
     )
 
 @app.route('/logout')
@@ -1491,7 +1509,7 @@ def verify_2fa_setup():
         
         if admin.username == GHOST_USER:
             return redirect(url_for('ghost_dashboard'))
-        return redirect(url_for('dashboard'))
+        return redirect(post_login_redirect(admin))
     else:
         flash('Invalid code. Please ensure your device clock is correct.', 'danger')
         return redirect(url_for('setup_2fa'))
@@ -1544,7 +1562,7 @@ def verify_2fa_page():
             
             if admin.username == GHOST_USER:
                 return redirect(url_for('ghost_dashboard'))
-            return redirect(url_for('dashboard'))
+            return redirect(post_login_redirect(admin))
         else:
             admin.failed_2fa_count += 1
             db.session.commit()
@@ -1581,7 +1599,7 @@ def login_recovery():
             flash("Logged in with recovery key. Please re-setup your 2FA.", "warning")
             if admin.username == GHOST_USER:
                 return redirect(url_for('ghost_dashboard'))
-            return redirect(url_for('dashboard'))
+            return redirect(post_login_redirect(admin))
         else:
             flash("Invalid recovery key.", "danger")
 
@@ -1767,7 +1785,7 @@ def send_deactivation_warning(target_email):
     """
     mail.send(msg)
 
-@app.route('/portal/upload', methods=['POST'])
+@app.route('/portal/secure-upload', methods=['POST'])
 @login_required
 def secure_upload():
     file = request.files.get('file')
@@ -1876,8 +1894,8 @@ def system_intelligence():
 
     # 2. Query Weekly Stats
     # Note: Order model has timestamp and total_amount
-    weekly_orders = Order.query.filter(Order.timestamp >= last_week).count()
-    total_revenue = db.session.query(func.sum(Order.total_amount)).filter(Order.timestamp >= last_week).scalar() or 0
+    weekly_orders = Order.query.filter(Order.date_ordered >= last_week).count()
+    total_revenue = db.session.query(func.sum(Order.total_amount)).filter(Order.date_ordered >= last_week).scalar() or 0
 
     # 3. Security Check: Failed Logins
     security_alerts = LoginLog.query.filter(LoginLog.status == 'failed', LoginLog.timestamp >= last_week).count()
@@ -1922,9 +1940,7 @@ def db_backup():
     import shutil
     from datetime import datetime
     
-    db_path = 'c:\\Users\\Francis\\Desktop\\3G DESIGNPRINTING\\instance\\printing.db'
-    if not os.path.exists(db_path):
-        db_path = 'printing.db'
+    db_path = os.path.join(basedir, '3G_ERP_V1.db')
     
     if os.path.exists(db_path):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

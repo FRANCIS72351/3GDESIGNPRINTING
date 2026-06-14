@@ -1,24 +1,5 @@
 {% extends "layout.html" %}
 
-{% block head %}
-<style>
-    .v-grid-item:hover {
-        transform: scale(1.05);
-        border-color: #0d6efd !important;
-    }
-    .v-grid-item.active {
-        border-width: 2px !important;
-    }
-    .variant-grid::-webkit-scrollbar {
-        height: 5px;
-    }
-    .variant-grid::-webkit-scrollbar-thumb {
-        background: #ccc;
-        border-radius: 10px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <section class="hero-section">
     <div id="heroSlider" class="carousel slide carousel-fade" data-bs-ride="carousel">
@@ -43,24 +24,31 @@
     </div>
 
     <div class="container hero-container">
-        <div class="hero-content text-center">
-            <h1 class="animate__animated animate__fadeInDown">Welcome to<br style="font-size: 100px;"> 3G DESIGN</h1>
-            <p class="animate__animated animate__fadeInUp animate__delay-1s"> Creative Designs, Premium Prints, Powerful Impression.</p>
-            <a href="#products" class="btn btn-primary btn-lg animate__animated animate__fadeInUp animate__delay-2s">
+        <div class="hero-content text-center animate__animated animate__fadeIn">
+            <span class="hero-eyebrow">Monrovia's Premier Print House</span>
+            <h1 class="animate__animated animate__fadeInDown">Welcome to <span class="hero-brand">3G DESIGN</span></h1>
+            <p class="hero-tagline animate__animated animate__fadeInUp animate__delay-1s">Where craftsmanship meets creative vision.</p>
+            <div class="hero-divider"></div>
+            <p class="animate__animated animate__fadeInUp animate__delay-1s">Creative Designs, Premium Prints, Powerful Impression.</p>
+            <a href="#products" class="btn btn-primary btn-lg px-5 animate__animated animate__fadeInUp animate__delay-2s">
                 <i class="fas fa-eye me-2"></i>View Our Work
             </a>
         </div>
     </div>
 </section>
 
-<section id="products" class="py-5">
+<section id="products" class="products-section py-5">
     <div class="container">
-        <h2 class="text-center mb-4 animate__animated animate__fadeInUp">Our Products & Services</h2>
+        <div class="text-center mb-4 animate__animated animate__fadeInUp">
+            <span class="classic-heading-eyebrow">What We Offer</span>
+            <h2 class="classic-heading">Our Products & Services</h2>
+            <div class="classic-heading-divider"><span>◆</span></div>
+        </div>
         
         <!-- Category Search/Filter -->
         <div class="row justify-content-center mb-5 animate__animated animate__fadeInUp">
             <div class="col-md-6">
-                <form action="{{ url_for('home') }}#products" method="GET" class="d-flex shadow-sm rounded-pill overflow-hidden bg-white">
+                <form action="{{ url_for('home') }}#products" method="GET" class="d-flex search-bar-pill rounded-pill overflow-hidden bg-white">
                     <input type="text" name="category" class="form-control border-0 ps-4 py-2" placeholder="Search by category (e.g. T-Shirt)..." value="{{ current_category or '' }}">
                     <button type="submit" class="btn btn-primary px-4"><i class="fas fa-search me-2"></i>Filter</button>
                     {% if current_category %}
@@ -77,9 +65,9 @@
                     <!-- Product Main Image -->
 
                     {% if product.image %}
-                    <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" class="img-fluid w-100 product-img" style="height: 250px; object-fit: cover; cursor: pointer;" onclick="viewImage(this.src)">
+                    <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" class="img-fluid w-100 product-img" onclick="viewImage(this.src)">
                     {% else %}
-                    <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="{{ product.name }}" class="img-fluid w-100 p-5 bg-light product-img" style="height: 250px; object-fit: contain; cursor: pointer;" onclick="viewImage(this.src)">
+                    <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="{{ product.name }}" class="img-fluid w-100 p-5 bg-light product-img product-img-placeholder" onclick="viewImage(this.src)">
                     {% endif %}
                     <div class="product-info p-4">
                         <div class="d-flex justify-content-between align-items-start mb-2">
@@ -97,39 +85,47 @@
                         <div class="variant-grid d-flex flex-wrap gap-2 mb-4">
                             <!-- Base Option -->
                             <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative active" 
-                                 style="width: 70px; flex-shrink: 0; transition: transform 0.2s;"
                                  data-name="Original Design"
                                  data-price="{{ product.price }}"
                                  data-image="{{ url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png') }}"
                                  data-image-file="{{ product.image }}"
                                  onclick="selectVariantUI(this)">
                                 <img src="{{ url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png') }}" 
-                                     class="w-100 h-100 rounded-2" style="aspect-ratio: 1/1; object-fit: cover;">
-                                <div class="v-check position-absolute top-0 end-0 bg-primary text-white rounded-circle p-1" style="transform: translate(30%, -30%); width: 20px; height: 20px; font-size: 10px; display: flex; align-items: center; justify-content: center;">
+                                     class="w-100 h-100 rounded-2 variant-thumb">
+                                <div class="v-check position-absolute top-0 end-0 bg-primary text-white rounded-circle p-1">
                                     <i class="fas fa-check"></i>
                                 </div>
                             </div>
                             
                             {% for variant in product.variants %}
                             <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative" 
-                                 style="width: 70px; flex-shrink: 0; transition: transform 0.2s;"
                                  data-name="{{ variant.type_name }}: {{ variant.size or variant.type_value }}"
                                  data-price="{{ variant.price }}"
                                  data-image="{{ url_for('static', filename='uploads/' + variant.image) if variant.image else (url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png')) }}"
                                  data-image-file="{{ variant.image if variant.image else product.image }}"
                                  onclick="selectVariantUI(this)">
                                 <img src="{{ url_for('static', filename='uploads/' + variant.image) if variant.image else (url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png')) }}" 
-                                     class="w-100 h-100 rounded-2" style="aspect-ratio: 1/1; object-fit: cover;">
-                                <div class="v-check position-absolute top-0 end-0 bg-primary text-white rounded-circle p-1" style="transform: translate(30%, -30%); width: 20px; height: 20px; font-size: 10px; display: none; align-items: center; justify-content: center;">
+                                     class="w-100 h-100 rounded-2 variant-thumb">
+                                <div class="v-check v-check-hidden position-absolute top-0 end-0 bg-primary text-white rounded-circle p-1">
                                     <i class="fas fa-check"></i>
                                 </div>
-                                <div class="variant-label small text-center mt-1 text-truncate" style="font-size: 9px; width: 100%;">{{ variant.size or variant.type_value }}</div>
+                                <div class="variant-label small text-center mt-1 text-truncate">{{ variant.size or variant.type_value }}</div>
                             </div>
                             {% endfor %}
                         </div>
                         <input type="hidden" class="selected-variant-name" value="Original Design">
                         <input type="hidden" class="selected-variant-price" value="{{ product.price }}">
                         {% endif %}
+
+                        <div class="qty-tier-box mb-3 p-2 rounded" data-base-price="{{ product.price }}" data-currency="{{ product.currency or 'USD' }}">
+                            <label class="small fw-bold text-muted mb-1"><i class="fas fa-calculator me-1"></i>Bulk Price Estimator</label>
+                            <input type="range" class="form-range qty-tier-slider" min="1" max="200" value="1" oninput="updateQtyTier(this)">
+                            <div class="d-flex justify-content-between align-items-center small">
+                                <span class="qty-tier-qty text-muted">Qty: <strong>1</strong></span>
+                                <span class="qty-tier-discount badge bg-light text-dark border">Standard</span>
+                                <span class="qty-tier-total fw-bold text-primary">{% if product.currency == 'USD' %}${% else %}L${% endif %}{{ '%.2f'|format(product.price) }}</span>
+                            </div>
+                        </div>
 
                         <div class="d-flex flex-column gap-2 mt-auto">
                             <div class="d-flex justify-content-between align-items-center">
@@ -139,19 +135,27 @@
                                 <form action="{{ url_for('add_to_cart') }}" method="POST">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <input type="hidden" name="product_name" value="{{ product.name }}">
-                                    <input type="hidden" name="variant_name" class="selected-variant-name" value="Base">
+                                    <input type="hidden" name="variant_name" class="selected-variant-name" value="{% if product.variants %}Original Design{% else %}Base{% endif %}">
                                     <input type="hidden" name="price" class="selected-variant-price" value="{{ product.price }}">
                                     <input type="hidden" name="currency" value="{{ product.currency }}">
-                                    <input type="hidden" name="image" class="selected-variant-image" value="{{ product.image }}">
+                                    <input type="hidden" name="image" class="selected-variant-image" value="{{ product.image or '' }}">
                                     <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill px-3">
                                         <i class="fas fa-cart-plus me-1"></i>Add to Cart
                                     </button>
                                 </form>
                             </div>
-                            <a href="#" class="btn btn-success rounded-pill w-100 fw-bold whatsapp-btn" 
-                               onclick="sendWhatsAppOrder(this, '{{ product.name }}', '{{ product.currency }}')">
+                            <form action="{{ url_for('prepare_whatsapp_order') }}" method="POST" target="_blank">
+                                <input type="hidden" name="product_id" value="{{ product.id }}">
+                                <input type="hidden" name="product_name" value="{{ product.name }}">
+                                <input type="hidden" name="variant_name" class="selected-variant-name" value="{% if product.variants %}Original Design{% else %}Base{% endif %}">
+                                <input type="hidden" name="price" class="selected-variant-price" value="{{ product.price }}">
+                                <input type="hidden" name="currency" value="{{ product.currency }}">
+                                <input type="hidden" name="image" class="selected-variant-image" value="{{ product.image or '' }}">
+                                <input type="hidden" name="quantity" class="order-qty-input" value="1">
+                                <button type="submit" class="btn btn-success rounded-pill w-100 fw-bold">
                                 <i class="fab fa-whatsapp me-2"></i>Order Now
-                            </a>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -171,17 +175,19 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-6 animate__animated animate__fadeInLeft">
-                <h2 class="fw-bold mb-4">Why Choose 3G DESIGN?</h2>
-                <p class="lead">With years of experience in the printing industry, we combine traditional craftsmanship with cutting-edge technology to deliver exceptional results.</p>
+                <span class="classic-heading-eyebrow">The 3G Difference</span>
+                <h2 class="classic-heading text-start mb-4">Why Choose 3G DESIGN?</h2>
+                <div class="classic-heading-divider start mb-4"><span>◆</span></div>
+                <p class="lead text-muted">With years of experience in the printing industry, we combine traditional craftsmanship with cutting-edge technology to deliver exceptional results.</p>
                 <ul class="list-unstyled mt-4">
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>High-quality materials and finishes</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>Fast turnaround times</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>Competitive pricing</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>Custom design consultation</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>High-quality materials and finishes</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>Fast turnaround times</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>Competitive pricing</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>Custom design consultation</li>
                 </ul>
             </div>
             <div class="col-lg-6 animate__animated animate__fadeInRight">
-                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G DESIGN Workshop" class="img-fluid rounded-4 shadow-lg">
+                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G DESIGN Workshop" class="img-fluid rounded-4 about-showcase-img">
             </div>
         </div>
     </div>
@@ -197,14 +203,14 @@ function selectVariantUI(element) {
     // Update active state and checkmarks
     allItems.forEach(item => {
         item.classList.remove('active', 'border-primary');
-        item.style.borderColor = '#dee2e6';
+        item.style.borderColor = '';
         const check = item.querySelector('.v-check');
         if (check) check.style.display = 'none';
         item.style.transform = 'scale(1)';
     });
     
     element.classList.add('active', 'border-primary');
-    element.style.borderColor = '#0d6efd';
+    element.style.borderColor = '';
     element.style.transform = 'scale(1.05)';
     const currentCheck = element.querySelector('.v-check');
     if (currentCheck) currentCheck.style.display = 'flex';
@@ -229,20 +235,26 @@ function selectVariantUI(element) {
     imageInputs.forEach(input => input.value = element.getAttribute('data-image-file') || '');
 }
 
-function sendWhatsAppOrder(btnElement, productName, currency) {
-    const card = btnElement.closest('.product-card');
-    const nameInput = card.querySelector('.selected-variant-name');
-    const priceInput = card.querySelector('.selected-variant-price');
-    
-    let variantName = nameInput ? nameInput.value : "Base";
-    let price = priceInput ? priceInput.value : card.querySelector('.price-display').textContent.replace(/[^\d.]/g, '');
-    
-    let message = `Hello! I am interested in ordering: ${productName}`;
-    message += `\nDesign/Variant: ${variantName}`;
-    message += `\nPrice: ${price} ${currency}`;
-    
-    const whatsappUrl = `https://wa.me/+231775323731?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+function updateQtyTier(slider) {
+    const card = slider.closest('.product-card');
+    const box = slider.closest('.qty-tier-box');
+    const base = parseFloat(box.dataset.basePrice);
+    const currency = box.dataset.currency;
+    const sym = currency === 'USD' ? '$' : 'L$';
+    const qty = parseInt(slider.value, 10);
+    let discount = 0, label = 'Standard';
+    if (qty >= 100) { discount = 0.15; label = '15% bulk'; }
+    else if (qty >= 50) { discount = 0.10; label = '10% bulk'; }
+    else if (qty >= 10) { discount = 0.05; label = '5% bulk'; }
+    const unit = base * (1 - discount);
+    const total = unit * qty;
+    box.querySelector('.qty-tier-qty strong').textContent = qty;
+    box.querySelector('.qty-tier-discount').textContent = label;
+    box.querySelector('.qty-tier-total').textContent = sym + total.toFixed(2);
+    const priceInput = card.querySelector('form[action*="prepare-whatsapp"] .selected-variant-price, form[action*="add-to-cart"] .selected-variant-price');
+    if (priceInput) priceInput.value = unit.toFixed(2);
+    const qtyInput = card.querySelector('.order-qty-input');
+    if (qtyInput) qtyInput.value = qty;
 }
 
 function viewImage(src) {

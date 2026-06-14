@@ -1,0 +1,386 @@
+{% extends "layout.html" %}
+
+{% block title %}Communications Center - 3G DESIGN{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-headset fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Communications Center</h1>
+                <p class="text-muted mb-0 small">Track WhatsApp calls, voice recordings & local desktop interactions</p>
+            </div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>Dashboard
+        </a>
+        <a href="{{ url_for('communications.communications_quick_log') }}" class="btn btn-primary rounded-pill px-4" target="_blank">
+            <i class="fas fa-bolt me-2"></i>Quick Log
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center">
+                <div class="text-muted small text-uppercase">Today</div>
+                <div class="h3 fw-bold text-dark mb-0">{{ stats.today_total }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4 border-success">
+                <div class="text-muted small text-uppercase">WhatsApp</div>
+                <div class="h3 fw-bold text-success mb-0">{{ stats.today_whatsapp }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4" style="border-color: var(--brand-gold) !important;">
+                <div class="text-muted small text-uppercase">Local PC</div>
+                <div class="h3 fw-bold mb-0" style="color: var(--brand-gold-dark);">{{ stats.today_local }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4 border-primary">
+                <div class="text-muted small text-uppercase">Cloud (Twilio)</div>
+                <div class="h3 fw-bold text-primary mb-0">{{ stats.today_cloud }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-5">
+            <div class="admin-card">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h5 class="h6 mb-0"><i class="fab fa-whatsapp me-2"></i>Log WhatsApp / Phone Interaction</h5>
+                </div>
+                <div class="admin-card-body">
+                    <form action="{{ url_for('communications.manual_log_communication') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Phone Number *</label>
+                            <input type="tel" name="phone_number" class="form-control admin-form-control" placeholder="+231 77 532 3731" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Customer Name</label>
+                            <input type="text" name="caller_name" class="form-control admin-form-control" placeholder="John Doe">
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Type</label>
+                                <select name="call_type" class="form-select admin-form-control">
+                                    <option value="whatsapp_call">WhatsApp Call</option>
+                                    <option value="whatsapp_message">WhatsApp Message</option>
+                                    <option value="voice">Phone Call</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Status</label>
+                                <select name="status" class="form-select admin-form-control">
+                                    <option value="logged">Logged</option>
+                                    <option value="received">Received</option>
+                                    <option value="processed">Processed</option>
+                                    <option value="missed">Missed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Notes / Order Details</label>
+                            <textarea name="notes" class="form-control admin-form-control admin-textarea" rows="3" placeholder="What did the customer need?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 rounded-pill">
+                            <i class="fas fa-save me-2"></i>Log to System
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="admin-card mb-4">
+                <div class="admin-card-header admin-card-header-primary d-flex justify-content-between align-items-center">
+                    <h5 class="h6 mb-0"><i class="fab fa-whatsapp me-2"></i>WhatsApp Business API</h5>
+                    {% if whatsapp_status.connection_method == 'embedded_signup' %}
+                    <span class="badge bg-success rounded-pill">Connected via Meta</span>
+                    {% elif whatsapp_api_configured %}
+                    <span class="badge bg-success rounded-pill">Live</span>
+                    {% endif %}
+                </div>
+                <div class="admin-card-body">
+                    <p class="small text-muted">Connect your business WhatsApp securely via <strong>Meta Embedded Signup</strong>. Tokens are exchanged on the server and stored encrypted — never pasted in the browser.</p>
+
+                    {% if whatsapp_api_configured and whatsapp_status.display_phone %}
+                    <div class="alert alert-success small py-2 mb-3">
+                        <i class="fab fa-whatsapp me-1"></i>
+                        <strong>{{ whatsapp_status.business_name or '3G DESIGN' }}</strong>
+                        — {{ whatsapp_status.display_phone }}
+                        {% if whatsapp_status.connected_at %}
+                        <span class="text-muted">· connected {{ whatsapp_status.connected_at[:10] }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <div class="small text-muted">Public site URL</div>
+                            <code class="d-block p-2 bg-white rounded border small">{{ public_site_url }}</code>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="small text-muted">Webhook URL (Meta Console)</div>
+                            <code class="d-block p-2 bg-white rounded border small" id="webhookUrl">{{ whatsapp_webhook_url }}</code>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge rounded-pill {% if whatsapp_status.verify_token %}bg-success{% else %}bg-danger{% endif %} px-3 py-2">Verify Token</span>
+                        <span class="badge rounded-pill {% if whatsapp_status.access_token %}bg-success{% else %}bg-danger{% endif %} px-3 py-2">Access Token</span>
+                        <span class="badge rounded-pill {% if whatsapp_status.phone_number_id %}bg-success{% else %}bg-danger{% endif %} px-3 py-2">Phone Number ID</span>
+                        <span class="badge rounded-pill {% if whatsapp_api_configured %}bg-success{% else %}bg-secondary{% endif %} px-3 py-2" id="waApiBadge">
+                            {% if whatsapp_api_configured %}Auto-logging ON{% else %}Not connected{% endif %}
+                        </span>
+                    </div>
+
+                    {% if meta_app_id and embedded_config_id %}
+                    <div id="waConnectPanel" class="border rounded p-3 mb-3 bg-white">
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <button type="button" id="btnConnectWhatsApp" class="btn btn-success rounded-pill px-4">
+                                <i class="fab fa-whatsapp me-2"></i>Connect with Meta
+                            </button>
+                            {% if whatsapp_status.connection_method == 'embedded_signup' %}
+                            <button type="button" id="btnDisconnectWhatsApp" class="btn btn-outline-danger btn-sm rounded-pill">
+                                Disconnect
+                            </button>
+                            {% endif %}
+                            <span id="waConnectStatus" class="small text-muted"></span>
+                        </div>
+                        <p class="small text-muted mb-0 mt-2">Uses OAuth code flow — your access token never appears in the browser.</p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning small py-2 mb-3">
+                        Add <code>META_APP_ID</code>, <code>META_APP_SECRET</code>, and <code>WHATSAPP_EMBEDDED_CONFIG_ID</code> to <code>.env</code>
+                        to enable one-click connect. See <code>.env.example</code>.
+                    </div>
+                    {% endif %}
+
+                    <details class="small text-muted">
+                        <summary class="fw-semibold text-dark mb-2" style="cursor:pointer;">Manual setup (.env fallback)</summary>
+                        <ol class="ps-3 mb-0">
+                            <li>Set <code>WHATSAPP_VERIFY_TOKEN</code> in <code>.env</code></li>
+                            <li>Register webhook URL above in <a href="https://developers.facebook.com" target="_blank">Meta Console</a></li>
+                            <li>Subscribe to <strong>messages</strong> webhook field</li>
+                            <li>Or paste tokens manually: <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_PHONE_NUMBER_ID</code></li>
+                        </ol>
+                    </details>
+                </div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fas fa-plug me-2"></i>Local API Connection</h5>
+                </div>
+                <div class="admin-card-body">
+                    <p class="small text-muted mb-3">Run <code>python local_call_tracker.py</code> on your shop PC for manual logging.</p>
+                    <div class="upload-zone mb-3">
+                        <div class="small fw-bold text-muted mb-2">API Endpoint</div>
+                        <code class="d-block p-2 bg-white rounded border small">{{ local_api_url }}</code>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge rounded-pill {% if api_key_set %}bg-success{% else %}bg-warning text-dark{% endif %} px-3 py-2">
+                            API Key: {% if api_key_set %}Configured{% else %}Set LOCAL_API_KEY in .env{% endif %}
+                        </span>
+                        <span class="badge rounded-pill bg-soft-primary text-primary px-3 py-2" id="apiStatusBadge">Checking...</span>
+                    </div>
+                    <div class="small text-muted">
+                        <strong>POST body (JSON):</strong>
+                        <pre class="bg-white border rounded p-2 mt-1 mb-0" style="font-size:0.75rem;">{
+  "phone_number": "+231775323731",
+  "caller_name": "Customer Name",
+  "call_type": "whatsapp_message",
+  "notes": "Ordered 50 t-shirts",
+  "source": "local_desktop"
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0"><i class="fas fa-list me-2 text-primary"></i>Communication Log</h5>
+            <span class="badge bg-light text-dark border">{{ stats.all_total }} total records</span>
+        </div>
+        <div class="admin-card-body pt-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle admin-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Time</th>
+                            <th>Contact</th>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for call in calls %}
+                        <tr>
+                            <td class="small text-muted text-nowrap">{{ call.timestamp.strftime('%m/%d %H:%M') if call.timestamp else '—' }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ call.caller_name or 'Unknown' }}</div>
+                                <a href="{{ url_for('operations.customer_lookup', phone=call.phone_number) }}" class="small text-muted">{{ call.phone_number }}</a>
+                            </td>
+                            <td>
+                                {% if call.call_type == 'whatsapp_call' %}
+                                <span class="badge bg-success rounded-pill"><i class="fab fa-whatsapp me-1"></i>WA Call</span>
+                                {% elif call.call_type == 'whatsapp_message' %}
+                                <span class="badge bg-success rounded-pill"><i class="fab fa-whatsapp me-1"></i>WA Msg</span>
+                                {% else %}
+                                <span class="badge bg-primary rounded-pill"><i class="fas fa-phone me-1"></i>Voice</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if call.source == 'local_desktop' %}
+                                <span class="badge bg-warning text-dark rounded-pill">Local PC</span>
+                                {% elif call.source == 'twilio_cloud' %}
+                                <span class="badge bg-info text-dark rounded-pill">Cloud</span>
+                                {% elif call.source == 'whatsapp_api' %}
+                                <span class="badge bg-success rounded-pill"><i class="fab fa-whatsapp me-1"></i>WA API</span>
+                                {% elif call.source == 'whatsapp_manual' %}
+                                <span class="badge bg-secondary rounded-pill">Manual</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill">{{ call.source or 'Manual' }}</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-soft-success text-success rounded-pill badge-xs">{{ call.status or 'logged' }}</span></td>
+                            <td class="small text-muted" style="max-width:220px;">
+                                {% if call.audio_url and call.source == 'whatsapp_api' %}
+                                <img src="{{ url_for('static', filename='uploads/' + call.audio_url) }}" class="rounded mb-1" style="max-height:48px" alt="WA">
+                                {% endif %}
+                                {{ call.notes or call.transcript or '—' }}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('operations.quote_from_call', call_id=call.id) }}" class="btn btn-sm btn-outline-primary rounded-pill" title="Start quote">
+                                    <i class="fas fa-file-invoice"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-phone-slash fa-2x mb-3 d-block opacity-50"></i>
+                                No communications tracked yet. Log a WhatsApp call above or run the local tracker.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating quick-log button -->
+<a href="{{ url_for('communications.communications_quick_log') }}" target="_blank" class="comm-quick-fab" title="Open Quick Log">
+    <i class="fas fa-bolt"></i>
+</a>
+
+<script>
+{% if meta_app_id and embedded_config_id %}
+window.fbAsyncInit = function() {
+    FB.init({ appId: '{{ meta_app_id }}', cookie: true, xfbml: true, version: 'v21.0' });
+};
+(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = 'https://connect.facebook.net/en_US/sdk.js';
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+
+let waSignupData = {};
+
+window.addEventListener('message', function(event) {
+    if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return;
+    try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
+            waSignupData = data.data || {};
+        }
+    } catch (e) { /* ignore non-JSON messages */ }
+});
+
+function sendCodeToBackend(code) {
+    const status = document.getElementById('waConnectStatus');
+    status.textContent = 'Connecting…';
+    status.className = 'small text-primary';
+    fetch('/api/whatsapp/onboarding/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            code: code,
+            waba_id: waSignupData.waba_id || '',
+            phone_number_id: waSignupData.phone_number_id || ''
+        })
+    })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+        if (ok && d.status === 'success') {
+            status.textContent = 'Connected — ' + (d.display_phone || d.phone_number_id);
+            status.className = 'small text-success fw-semibold';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            status.textContent = d.error || 'Connection failed';
+            status.className = 'small text-danger';
+        }
+    })
+    .catch(() => {
+        status.textContent = 'Network error — try again';
+        status.className = 'small text-danger';
+    });
+}
+
+document.getElementById('btnConnectWhatsApp')?.addEventListener('click', function() {
+    if (typeof FB === 'undefined') {
+        document.getElementById('waConnectStatus').textContent = 'Facebook SDK loading… try again in a moment';
+        return;
+    }
+    FB.login(function(response) {
+        if (response.authResponse && response.authResponse.code) {
+            sendCodeToBackend(response.authResponse.code);
+        } else {
+            document.getElementById('waConnectStatus').textContent = 'Signup cancelled or incomplete';
+            document.getElementById('waConnectStatus').className = 'small text-muted';
+        }
+    }, {
+        config_id: '{{ embedded_config_id }}',
+        response_type: 'code',
+        override_default_response_type: true
+    });
+});
+
+document.getElementById('btnDisconnectWhatsApp')?.addEventListener('click', function() {
+    if (!confirm('Disconnect WhatsApp API? Incoming messages will stop auto-logging until reconnected.')) return;
+    fetch('/api/whatsapp/disconnect', { method: 'POST' })
+        .then(() => location.reload());
+});
+{% endif %}
+
+fetch('/api/communications/status')
+    .then(r => r.json())
+    .then(d => {
+        const el = document.getElementById('apiStatusBadge');
+        el.textContent = d.status === 'online' ? 'API Online' : 'Offline';
+        el.className = 'badge rounded-pill px-3 py-2 ' + (d.status === 'online' ? 'bg-success' : 'bg-danger');
+        const wa = document.getElementById('waApiBadge');
+        if (wa && d.whatsapp_api_configured !== undefined) {
+            wa.textContent = d.whatsapp_api_configured ? 'WhatsApp API: Ready' : 'WhatsApp API: Not configured';
+            wa.className = 'badge rounded-pill px-3 py-2 ' + (d.whatsapp_api_configured ? 'bg-success' : 'bg-secondary');
+        }
+    })
+    .catch(() => {
+        document.getElementById('apiStatusBadge').textContent = 'API Unreachable';
+    });
+</script>
+{% endblock %}

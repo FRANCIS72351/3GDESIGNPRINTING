@@ -2,6 +2,8 @@
 
 {% block title %}Dashboard - 3G DESIGN{% endblock %}
 
+{% block body_class %}admin-page dashboard-page{% endblock %}
+
 {% block content %}
 <div class="container mt-5 mb-5">
     
@@ -9,7 +11,7 @@
         <div class="d-flex align-items-center">
             <div class="logo-container me-4">
                 <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN Logo" class="img-fluid dashboard-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div class="logo-placeholder bg-primary text-white fw-bold align-items-center justify-content-center rounded-circle shadow-sm" style="display:none; width:65px; height:65px; font-size:1.5rem;">3G</div>
+                <div class="logo-placeholder logo-placeholder-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center rounded-circle shadow-sm" style="display:none;">3G</div>
             </div>
             <div>
                 <h1 class="fw-bold text-dark mb-0 h2 tracking-tight">Command Center</h1>
@@ -71,6 +73,23 @@
         </div>
 
         <div class="col-lg-3 col-md-6">
+            <a href="{{ url_for('operations.operations_hub') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 animate__animated animate__fadeInUp animate__delay-2s hover-lift bg-white border-start border-warning border-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="text-uppercase small fw-bold text-muted mb-0"><i class="fas fa-industry me-2 text-warning"></i>Operations</h6>
+                            {% if pending_inbox is defined and pending_inbox > 0 %}
+                            <span class="badge bg-danger rounded-pill">{{ pending_inbox }} new</span>
+                            {% endif %}
+                        </div>
+                        <h3 class="fw-bold mb-1">{{ active_jobs if active_jobs is defined else 0 }}</h3>
+                        <div class="small text-muted">Active print jobs · {{ ready_jobs if ready_jobs is defined else 0 }} ready</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
             <a href="{{ url_for('inventory') }}" class="text-decoration-none text-dark">
                 <div class="card border-0 shadow-sm h-100 animate__animated animate__fadeInUp animate__delay-2s hover-lift bg-white">
                     <div class="card-body p-4 d-flex flex-column justify-content-between">
@@ -117,13 +136,13 @@
 
         <div class="col-md-4">
             <div class="card border-0 shadow-sm p-4 h-100 text-center bg-white border-top border-5 border-info">
-                <div class="p-2 rounded-circle bg-soft-info text-info mx-auto mb-2" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                <div class="p-2 rounded-circle bg-soft-info text-info mx-auto mb-2 icon-circle-60">
                     <i class="fas fa-users fa-lg"></i>
                 </div>
                 <h4 class="fw-bold mb-0 text-dark">{{ leaders|length if leaders else 0 }}</h4>
                 <p class="text-muted small fw-medium mb-3">Active Team Members</p>
                 <div class="d-flex justify-content-center gap-2">
-                    <a href="{{ url_for('team_management') }}" class="btn btn-xs btn-outline-secondary rounded-pill py-1 px-3 small" style="font-size: 0.78rem;">View Team</a>
+                    <a href="{{ url_for('team_management') }}" class="btn btn-xs btn-outline-secondary rounded-pill py-1 px-3 small">View Team</a>
                 </div>
             </div>
         </div>
@@ -138,8 +157,8 @@
                         <div class="col-md-8">
                             <label for="total_sales" class="form-label small fw-bold text-muted">Total Sales Revenue</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0" style="border-radius: 50px 0 0 50px;"><i class="fas fa-coins text-muted"></i></span>
-                                <input type="number" step="0.01" class="form-control bg-light border-start-0" style="border-radius: 0 50px 50px 0;" id="total_sales" name="total_sales" required placeholder="0.00">
+                                <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="fas fa-coins text-muted"></i></span>
+                                <input type="number" step="0.01" class="form-control bg-light border-start-0 rounded-end-pill" id="total_sales" name="total_sales" required placeholder="0.00">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -151,7 +170,7 @@
                         </div>
                         <div class="col-12">
                             <label for="report_text" class="form-label small fw-bold text-muted">Daily Activities / Operational Notes</label>
-                            <textarea class="form-control bg-light" id="report_text" name="report_text" rows="4" style="border-radius: 16px;" required placeholder="Describe today's print jobs, finished designs, and completed workflows..."></textarea>
+                            <textarea class="form-control bg-light admin-textarea" id="report_text" name="report_text" rows="4" required placeholder="Describe today's print jobs, finished designs, and completed workflows..."></textarea>
                         </div>
                         <div class="col-12 text-end">
                             <button type="submit" class="btn btn-primary rounded-pill px-4 fw-medium">
@@ -199,53 +218,113 @@
 
         <div class="col-lg-5">
             <div class="card border-0 shadow-sm p-4 mb-4 bg-white">
-                <h5 class="fw-bold text-dark mb-3"><i class="fas fa-phone-volume text-primary me-2"></i>Recent Voice Tracking</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-user-clock text-success me-2"></i>Today's Attendance</h5>
+                    <div class="d-flex gap-1">
+                        <form action="{{ url_for('staff.clock_in') }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-success rounded-pill">Clock In</button>
+                        </form>
+                        <form action="{{ url_for('staff.clock_out') }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill">Out</button>
+                        </form>
+                    </div>
+                </div>
+                {% if today_attendance %}
+                <ul class="list-unstyled small mb-0">
+                    {% for a in today_attendance %}
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="fw-medium">{{ a.staff_name }}</span>
+                        <span class="text-muted">{{ a.check_in.strftime('%I:%M %p') if a.check_in else '—' }} · {{ a.status }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted small mb-0">No staff clocked in yet today.</p>
+                {% endif %}
+            </div>
+            <div class="card border-0 shadow-sm p-4 mb-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-phone-volume text-primary me-2"></i>Communications Tracking</h5>
+                    <a href="{{ url_for('communications.communications_portal') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        Open Center <i class="fas fa-arrow-right ms-1 small"></i>
+                    </a>
+                </div>
                 {% if calls %}
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <tbody>
-                            {% for call in calls[:4] %}
+                        <thead class="table-light">
                             <tr>
-                                <td class="p-2 border-0"><i class="fas fa-phone-incoming text-success small me-2"></i>{{ call.phone_number }}</td>
+                                <th class="small text-muted">Contact</th>
+                                <th class="small text-muted">Type</th>
+                                <th class="small text-muted text-end">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for call in calls[:5] %}
+                            <tr>
+                                <td class="p-2 border-0">
+                                    <div class="fw-medium text-dark small">{{ call.caller_name or call.phone_number }}</div>
+                                    {% if call.caller_name %}<div class="text-muted" style="font-size:0.72rem;">{{ call.phone_number }}</div>{% endif %}
+                                </td>
+                                <td class="p-2 border-0">
+                                    {% if call.call_type == 'whatsapp_call' %}
+                                    <span class="badge bg-success rounded-pill badge-xs"><i class="fab fa-whatsapp me-1"></i>WA</span>
+                                    {% elif call.source == 'local_desktop' %}
+                                    <span class="badge bg-warning text-dark rounded-pill badge-xs">Local</span>
+                                    {% elif call.source == 'twilio_cloud' %}
+                                    <span class="badge bg-info text-dark rounded-pill badge-xs">Cloud</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary rounded-pill badge-xs">{{ call.call_type or 'voice' }}</span>
+                                    {% endif %}
+                                </td>
                                 <td class="p-2 border-0 text-muted small text-end">{{ call.timestamp.strftime('%m/%d %H:%M') if call.timestamp else '' }}</td>
-                                <td class="p-2 border-0 text-end"><span class="badge bg-soft-success text-success rounded-pill px-2" style="font-size:0.7rem">Processed</span></td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
                 {% else %}
-                <p class="text-muted small text-center my-3">No system-tracked voice interactions.</p>
+                <p class="text-muted small text-center my-3">No tracked communications yet. <a href="{{ url_for('communications.communications_portal') }}">Log a WhatsApp call</a> or run the local tracker.</p>
                 {% endif %}
             </div>
 
-            <div class="card border-0 shadow-sm bg-dark text-white p-4 mb-4" style="border-radius: 20px;">
+            <div class="admin-console card border-0 shadow-sm p-4 mb-4">
                 <h5 class="fw-bold mb-4 tracking-wide"><i class="fas fa-layer-group text-warning me-2"></i>Quick Console Links</h5>
                 <div class="row g-2">
                     <div class="col-6">
-                        <a href="{{ url_for('add_product') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                        <a href="{{ url_for('add_product') }}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
                             <i class="fas fa-plus-circle text-warning d-block mb-2 fa-lg"></i>Post Product
                         </a>
                     </div>
                     <div class="col-6">
-                        <a href="{{ url_for('inventory') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                        <a href="{{ url_for('inventory') }}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
                             <i class="fas fa-boxes text-info d-block mb-2 fa-lg"></i>Inventory Mgmt
                         </a>
                     </div>
                     <div class="col-6">
-                        <a href="{{ url_for('file_portal') }}" class="btn btn-outline-light border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                        <a href="{{ url_for('file_portal') }}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
                             <i class="fas fa-folder-open text-primary d-block mb-2 fa-lg"></i>File Portal
                         </a>
                     </div>
                     <div class="col-6">
-                        <a href="{{ url_for('leader_management')}}" class="btn btn-outline border-opacity-25 w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;">
+                        <a href="{{ url_for('leader_management')}}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
                             <i class="fas fa-users text-info d-block mb-2 fa-lg"></i>Leader Management
                         </a>
                     </div>
                     <div class="col-6">
-                        <button type="button" class="btn btn-outline-success w-100 py-3 text-start px-3 rounded-3" style="font-size: 0.82rem;" data-bs-toggle="modal" data-bs-target="#quickCaptureModal">
+                        <button type="button" class="btn btn-outline-success w-100 admin-console-btn" data-bs-toggle="modal" data-bs-target="#quickCaptureModal">
                             <i class="fas fa-user-plus text-success d-block mb-2 fa-lg"></i>Quick Capture
                         </button>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('operations.operations_hub') }}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
+                            <i class="fas fa-industry text-warning d-block mb-2 fa-lg"></i>Operations
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('communications.communications_portal') }}" class="btn btn-outline-light border-opacity-25 w-100 admin-console-btn">
+                            <i class="fas fa-headset text-warning d-block mb-2 fa-lg"></i>Comm Center
+                        </a>
                     </div>
                 </div>
 
@@ -259,17 +338,17 @@
 
             {% if session.get('role') in ['admin', 'moderator'] %}
             <div class="card border-0 shadow-lg p-4 border-start border-primary border-5 bg-white">
-                <h5 class="fw-bold text-dark mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Documentation Portal</h5>
-                <p class="small text-muted mb-4">Authorized access configuration level.</p>
+                <h5 class="fw-bold text-dark mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Billing & Documents</h5>
+                <p class="small text-muted mb-4">Issue numbered invoices and receipts with PDF download.</p>
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('download_pdf', doc_type='invoice') }}" class="btn btn-primary text-start px-3 rounded-pill">
-                        <i class="fas fa-file-invoice me-2"></i>Issue Official Invoice
+                    <a href="{{ url_for('billing.billing_portal') }}" class="btn btn-primary text-start px-3 rounded-pill">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Open Billing Center
                     </a>
-                    <a href="{{ url_for('download_pdf', doc_type='receipt') }}" class="btn btn-success text-start px-3 rounded-pill">
-                        <i class="fas fa-receipt me-2"></i>Issue Receipt Voucher
+                    <a href="{{ url_for('billing.billing_history') }}" class="btn btn-outline-primary text-start px-3 rounded-pill">
+                        <i class="fas fa-history me-2"></i>Document History
                     </a>
-                    <a href="{{ url_for('download_pdf', doc_type='letterhead') }}" class="btn btn-dark text-start px-3 rounded-pill">
-                        <i class="fas fa-heading me-2"></i>Corporate Letterhead
+                    <a href="{{ url_for('direct_sale_history') }}" class="btn btn-outline-secondary text-start px-3 rounded-pill">
+                        <i class="fas fa-shopping-bag me-2"></i>Order History
                     </a>
                 </div>
             </div>
@@ -286,11 +365,11 @@
 <div class="container mb-5">
     <div class="row">
         <div class="col-md-4">
-            <div class="card border-0 bg-primary text-white shadow-sm" style="border-radius: 16px;">
+            <div class="admin-card border-0 bg-primary text-white shadow-sm">
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-1">Management Portal</h5>
-                    <p class="small text-white-50 mb-3">Generate automated Invoices & Corporate Letterheads</p>
-                    <a href="{{ url_for('admin_portal') }}" class="btn btn-light btn-sm rounded-pill px-3 fw-medium text-primary">Open Portal</a>
+                    <h5 class="fw-bold mb-1">Billing Center</h5>
+                    <p class="small text-white-50 mb-3">Issue invoices, receipts & track document history</p>
+                    <a href="{{ url_for('billing.billing_portal') }}" class="btn btn-light btn-sm rounded-pill px-3 fw-medium text-primary">Open Billing</a>
                 </div>
             </div>
         </div>
@@ -299,8 +378,8 @@
 
 <div class="modal fade" id="quickCaptureModal" tabindex="-1" aria-labelledby="quickCaptureModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
-            <div class="modal-header bg-success text-white px-4 py-3" style="border-radius: 20px 20px 0 0;">
+        <div class="modal-content border-0 shadow-lg admin-modal">
+            <div class="modal-header bg-success text-white px-4 py-3">
                 <h5 class="modal-title fw-bold" id="quickCaptureModalLabel"><i class="fas fa-user-plus me-2"></i>Quick Customer Capture</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -320,7 +399,7 @@
                     </div>
                     <div class="mb-0">
                         <label for="address" class="form-label small fw-bold text-muted">Business/Billing Address</label>
-                        <textarea class="form-control bg-light" id="address" name="address" rows="2" style="border-radius:12px;" placeholder="Monrovia, Liberia"></textarea>
+                        <textarea class="form-control bg-light admin-textarea" id="address" name="address" rows="2" placeholder="Monrovia, Liberia"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
@@ -332,63 +411,4 @@
     </div>
 </div>
 
-<style>
-    body {
-        background-color: #f8f9fa;
-    }
-    .dashboard-header {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 20px;
-        border: 1px solid rgba(0,0,0,0.04);
-    }
-    .dashboard-logo {
-        height: 65px;
-        max-width: 140px;
-        object-fit: contain;
-        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08));
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .dashboard-logo:hover {
-        transform: scale(1.06) rotate(-1deg);
-    }
-    .card-gradient-green {
-        background: linear-gradient(135deg, #1f945d, #146c43);
-    }
-    .card-gradient-crimson {
-        background: linear-gradient(135deg, #e03e52, #b02a37);
-    }
-    .card-gradient-red {
-        background: linear-gradient(135deg, #ea4335, #c53023);
-    }
-    .bg-soft-primary {
-        background-color: rgba(13, 110, 253, 0.08);
-    }
-    .bg-soft-info {
-        background-color: rgba(13, 202, 240, 0.08);
-    }
-    .bg-soft-success {
-        background-color: rgba(25, 135, 84, 0.1);
-    }
-    .bg-soft-dark {
-        background-color: #f1f3f5;
-    }
-    .hover-lift {
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-    .hover-lift:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 24px rgba(0,0,0,0.06) !important;
-    }
-    .hover-white:hover {
-        color: #ffffff !important;
-    }
-    .tracking-tight {
-        letter-spacing: -0.025em;
-    }
-    .tracking-wide {
-        letter-spacing: 0.03em;
-    }
-</style>
 {% endblock %}

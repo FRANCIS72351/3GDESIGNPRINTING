@@ -1,83 +1,161 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 
-{% block title %}3G DESIGN ERP | Staff Dashboard{% endblock %}
+{% block title %}Staff Portal - 3G DESIGN{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3">Staff Operations Portal</h1>
-            <p class="text-muted">Logged in as: <strong>{{ session['username'] }}</strong></p>
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-user-tie fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Staff Operations Portal</h1>
+                <p class="text-muted mb-0 small">Logged in as <strong>{{ session['username'] }}</strong></p>
+            </div>
         </div>
-        <span class="badge bg-secondary">Standard Staff Access</span>
+        <span class="role-badge bg-secondary text-white">Staff</span>
     </div>
 
-    <hr>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
 
-    {% if not user.two_factor_enabled %}
-    <div class="alert alert-warning d-flex align-items-center" role="alert">
+    {% if not user.two_fa_enabled %}
+    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center rounded-3 mb-4">
         <i class="fas fa-shield-alt me-3 fa-2x"></i>
         <div>
-            <strong>Security Recommendation:</strong> Please enable Two-Factor Authentication to keep your account secure.
-            <br><a href="{{url_for('setup_2factor')}}" class="btn btn-sm btn-primary mt-2">Setup 2FA Now</a>
+            <strong>Enable Two-Factor Authentication</strong> to secure your account.
+            <a href="{{ url_for('setup_2fa') }}" class="btn btn-sm btn-primary rounded-pill mt-2">Setup 2FA</a>
         </div>
     </div>
     {% endif %}
 
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="admin-stat-card card p-4 text-center h-100 border-start border-4 border-success">
+                <div class="text-muted small text-uppercase">Today's Status</div>
+                {% if is_clocked_in %}
+                <div class="h4 fw-bold text-success mb-1"><i class="fas fa-check-circle me-1"></i>On Shift</div>
+                <div class="small text-muted">In at {{ check_in_time }}{% if is_late %} <span class="badge bg-warning text-dark">Late</span>{% endif %}</div>
+                {% elif today_record %}
+                <div class="h4 fw-bold text-secondary mb-1">Shift Ended</div>
+                <div class="small text-muted">Clocked out</div>
+                {% else %}
+                <div class="h4 fw-bold text-muted mb-1">Not Clocked In</div>
+                <div class="small text-muted">Grace until {{ late_threshold }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-stat-card card p-4 text-center h-100">
+                <div class="text-muted small text-uppercase">Active Print Jobs</div>
+                <div class="h3 fw-bold text-primary mb-0">{{ active_jobs }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-stat-card card p-4 text-center h-100">
+                <div class="text-muted small text-uppercase">My Reports</div>
+                <div class="h3 fw-bold mb-0" style="color: var(--brand-gold-dark);">{{ my_reports|length }}</div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm border-0 bg-light">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fas fa-folder-open me-2 text-primary"></i> Production Files</h5>
+        <div class="col-lg-5">
+            <div class="admin-card h-100">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h5 class="h6 mb-0"><i class="fas fa-user-clock me-2"></i>Time & Attendance</h5>
                 </div>
-                <div class="card-body">
+                <div class="admin-card-body">
+                    <p class="small text-muted">Clock in when you arrive. Late after <strong>{{ late_threshold }}</strong>.</p>
                     <div class="d-grid gap-2">
-                        <a href="{{url_for('file_portal')}}" class="btn btn-outline-primary text-start px-3 py-2">
-                            <i class="fas fa-external-link-alt me-2"></i> File Share Portal
-                        </a>
-                        <a href="{{url_for('upload_file')}}" class="btn btn-outline-primary text-start px-3 py-2">
-                            <i class="fas fa-upload me-2"></i> Upload New Design
-                        </a>
-                        <a href="{{url_for('file_download')}}" class="btn btn-outline-primary text-start px-3 py-2">
-                            <i class="fas fa-download me-2"></i> Download Client Assets
-                        </a>
+                        {% if is_clocked_in %}
+                        <form action="{{ url_for('staff.clock_out') }}" method="POST">
+                            <button type="submit" class="btn btn-outline-secondary w-100 rounded-pill py-3">
+                                <i class="fas fa-sign-out-alt me-2"></i>Clock Out
+                            </button>
+                        </form>
+                        {% else %}
+                        <form action="{{ url_for('staff.clock_in') }}" method="POST">
+                            <button type="submit" class="btn btn-success w-100 rounded-pill py-3">
+                                <i class="fas fa-fingerprint me-2"></i>Clock In Now
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% if recent_attendance %}
+                    <hr>
+                    <div class="small fw-bold text-muted mb-2">Recent attendance</div>
+                    <ul class="list-unstyled small mb-0">
+                        {% for a in recent_attendance %}
+                        <li class="d-flex justify-content-between py-1 border-bottom">
+                            <span>{{ a.check_in.strftime('%b %d') if a.check_in else '—' }}</span>
+                            <span>{{ a.check_in.strftime('%I:%M %p') if a.check_in else '' }} · {{ a.status }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="admin-card mb-4">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fas fa-clipboard-list me-2"></i>End-of-Day Report</h5>
+                </div>
+                <div class="admin-card-body">
+                    <form action="{{ url_for('submit_daily_report') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Summary</label>
+                            <textarea name="report_text" class="form-control admin-textarea" rows="3" placeholder="What did you complete today?" required></textarea>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Sales total</label>
+                                <input type="number" step="0.01" name="total_sales" class="form-control admin-form-control" value="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Currency</label>
+                                <select name="currency" class="form-select admin-form-control">
+                                    <option value="USD">USD</option>
+                                    <option value="LRD">LRD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4">Submit Report</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="admin-card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('file_portal') }}" class="admin-action-link"><i class="fas fa-folder-open me-2"></i>Production File Portal</a>
+                        <a href="{{ url_for('communications.communications_quick_log') }}" class="admin-action-link" target="_blank"><i class="fab fa-whatsapp me-2"></i>Log WhatsApp / Call</a>
+                        <a href="{{ url_for('staff_sales_history') }}" class="admin-action-link"><i class="fas fa-chart-line me-2"></i>My Sales Reports</a>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm border-0 bg-light">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fas fa-user-clock me-2 text-success"></i> Time & Attendance</h5>
-                </div>
-                <div class="card-body d-flex flex-column justify-content-center">
-                    <p class="card-text text-muted small mb-4">Note: Your attendance logs are used for monthly performance reviews.</p>
-                    <a href="{{url_for('Attending_for_staff')}}" class="btn btn-success py-3 shadow-sm">
-                        <i class="fas fa-calendar-check me-2"></i> Log Daily Attendance
-                    </a>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="p-3 bg-white border rounded shadow-sm">
-                <small class="text-muted">
-                    <i class="fas fa-info-circle me-1"></i> 
-                    Administrative documents (Invoices/Receipts) are restricted. Please contact a <strong>Moderator</strong> or <strong>Admin</strong> for document issuance.
-                </small>
-            </div>
-        </div>
+    <div class="admin-card mt-4 p-3">
+        <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Invoices and receipts require a <strong>Moderator</strong> or <strong>Admin</strong>.
+        </small>
     </div>
 </div>
-
-<style>
-    .card { border-radius: 12px; transition: transform 0.2s; }
-    .card:hover { transform: translateY(-3px); }
-    .btn-outline-primary:hover { background-color: #f8f9fa; color: #0d6efd; border-color: #0d6efd; }
-</style>
 {% endblock %}
-
-

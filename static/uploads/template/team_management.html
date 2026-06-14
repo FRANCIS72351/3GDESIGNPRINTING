@@ -1,18 +1,31 @@
 {% extends "layout.html" %}
 
-{% block title %}Team Management{% endblock %}
+{% block title %}Team Management - 3G DESIGN{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-users-cog fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Team Management</h1>
+                <p class="text-muted mb-0 small">Create and manage staff accounts and roles</p>
+            </div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>Dashboard
+        </a>
+    </div>
+
     <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0">
-                        <i class="fas fa-users me-2"></i>Team Management
-                    </h3>
+        <div class="col-md-10 mx-auto">
+            <div class="admin-card">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h3 class="h5 mb-0"><i class="fas fa-users me-2"></i>Staff Accounts</h3>
                 </div>
-                <div class="card-body">
+                <div class="admin-card-body">
                     <div class="form-section mb-4">
                         <h4>Create New Staff Account</h4>
                         <form method="POST" class="row g-3">
@@ -30,7 +43,7 @@
                                 </select>
                             </div>
                             <div class="col-md-1">
-                                <button type="submit" class="btn btn-success">Add User</button>
+                                <button type="submit" class="btn btn-success rounded-pill">Add User</button>
                             </div>
                         </form>
                     </div>
@@ -44,7 +57,7 @@
                     </div>
                     {% endif %}
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                        <table class="table table-hover admin-table">
                             <thead>
                                 <tr>
                                     <th>Username</th>
@@ -71,13 +84,13 @@
                                     </td>
                                     <td>
                                         {% if session.get('admin_id') != user.id %}
-                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');" style="display:inline;">
+                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                                 <i class="fas fa-trash"></i> Delete
                                             </button>
                                         </form>
                                         {% if session.get('username') == GHOST_USER %}
-                                        <form action="{{ url_for('reset_user_password', user_id=user.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to reset this user\'s password? They will need to set up 2FA again.');" style="display:inline;">
+                                        <form action="{{ url_for('reset_user_password', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to reset this user\'s password? They will need to set up 2FA again.');">
                                             <button type="submit" class="btn btn-sm btn-outline-warning ms-1">
                                                 <i class="fas fa-key"></i> Reset Password
                                             </button>

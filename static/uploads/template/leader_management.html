@@ -2,16 +2,25 @@
 
 {% block title %}Leader Management - 3G DESIGN{% endblock %}
 
+{% block body_class %}admin-page{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="text-primary"><i class="fas fa-users me-2"></i>Team Member Management</h2>
-                <a href="{{ url_for('add_leader') }}" class="btn btn-primary">
-                    <i class="fas fa-plus me-2"></i>Add New Member
-                </a>
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-id-badge fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Team Member Management</h1>
+                <p class="text-muted mb-0 small">Manage leadership profiles shown on the About page</p>
             </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+            <a href="{{ url_for('add_leader') }}" class="btn btn-primary rounded-pill px-4">
+                <i class="fas fa-plus me-2"></i>Add Member
+            </a>
         </div>
     </div>
 
@@ -29,23 +38,21 @@
     <div class="row">
         {% for leader in leaders %}
         <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm border-0">
+            <div class="admin-card role-portal-card h-100">
                 <div class="card-body text-center p-4">
                     {% if leader.image %}
                         <img src="{{ url_for('static', filename='uploads/leaders/' + leader.image) }}" 
                              alt="{{ leader.name }}" 
-                             class="rounded-circle mb-3 shadow" 
-                             style="width: 100px; height: 100px; object-fit: cover;">
+                             class="thumb-100 mb-3 shadow">
                     {% else %}
-                        <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
-                             style="width: 100px; height: 100px;">
+                        <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3 leader-avatar-placeholder">
                             <i class="fas fa-user fa-2x text-white"></i>
                         </div>
                     {% endif %}
                     
                     <h5 class="card-title fw-bold text-primary">{{ leader.name }}</h5>
                     <h6 class="card-subtitle mb-2 text-muted">{{ leader.position or 'Team Member' }}</h6>
-                    <p class="card-text text-truncate" style="max-height: 60px; overflow: hidden;">
+                    <p class="card-text text-clamp-bio">
                         {{ leader.bio or 'Dedicated professional committed to excellence.' }}
                     </p>
                 </div>
@@ -81,17 +88,10 @@
     </div>
     {% endif %}
 
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between">
-                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                </a>
-                <a href="{{ url_for('about') }}" class="btn btn-outline-info">
-                    <i class="fas fa-eye me-2"></i>View Public Page
-                </a>
-            </div>
-        </div>
+    <div class="admin-back-bar">
+        <a href="{{ url_for('about') }}" class="btn btn-outline-primary rounded-pill">
+            <i class="fas fa-eye me-2"></i>View Public Page
+        </a>
     </div>
 </div>
 {% endblock %}

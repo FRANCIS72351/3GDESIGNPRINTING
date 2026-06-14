@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Log — 3G DESIGN</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body.quick-log-page {
+            background: linear-gradient(160deg, var(--brand-navy-deep) 0%, var(--brand-navy) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .quick-log-card {
+            background: #fff;
+            border-radius: 20px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+            border-top: 4px solid var(--brand-gold);
+            overflow: hidden;
+        }
+        .quick-log-header {
+            background: var(--brand-navy);
+            color: #fff;
+            padding: 1.25rem 1.5rem;
+            text-align: center;
+        }
+        .quick-type-btn {
+            border: 2px solid var(--brand-border);
+            border-radius: 14px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fff;
+        }
+        .quick-type-btn:hover, .quick-type-btn.active {
+            border-color: var(--brand-gold);
+            background: rgba(201, 168, 76, 0.08);
+            transform: translateY(-2px);
+        }
+        .quick-type-btn i { font-size: 1.5rem; display: block; margin-bottom: 0.35rem; }
+        .quick-type-btn.wa i { color: #25d366; }
+        .quick-type-btn.phone i { color: var(--brand-navy); }
+        .quick-submit {
+            font-size: 1.1rem;
+            padding: 0.85rem;
+            font-weight: 700;
+        }
+        .quick-toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            min-width: 280px;
+            display: none;
+        }
+        .quick-toast.show { display: block; animation: fadeInUp 0.4s ease; }
+        .recent-chip {
+            font-size: 0.78rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50px;
+            background: var(--brand-surface);
+            border: 1px solid var(--brand-border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .recent-chip:hover { background: rgba(201,168,76,0.15); }
+    </style>
+</head>
+<body class="quick-log-page">
+    <div class="quick-log-card">
+        <div class="quick-log-header">
+            <div class="small text-white-50 text-uppercase tracking-wider mb-1">3G DESIGN</div>
+            <h1 class="h5 mb-0 fw-bold">Quick Call Logger</h1>
+            <div class="small mt-1 opacity-75">Log WhatsApp & phone interactions in one tap</div>
+        </div>
+
+        <div class="p-4">
+            <form id="quickLogForm" action="{{ url_for('communications.quick_log_communication') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">Phone Number *</label>
+                    <input type="tel" name="phone_number" id="phoneInput" class="form-control form-control-lg admin-form-control" placeholder="+231 77 532 3731" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">Customer Name</label>
+                    <input type="text" name="caller_name" id="nameInput" class="form-control admin-form-control" placeholder="Optional">
+                </div>
+
+                <label class="form-label small fw-bold text-muted">Interaction Type</label>
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <div class="quick-type-btn wa active" data-type="whatsapp_call" onclick="selectType(this)">
+                            <i class="fab fa-whatsapp"></i>
+                            <span class="small fw-semibold">WA Call</span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="quick-type-btn wa" data-type="whatsapp_message" onclick="selectType(this)">
+                            <i class="fab fa-whatsapp"></i>
+                            <span class="small fw-semibold">WA Msg</span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="quick-type-btn phone" data-type="voice" onclick="selectType(this)">
+                            <i class="fas fa-phone"></i>
+                            <span class="small fw-semibold">Phone</span>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="call_type" id="callTypeInput" value="whatsapp_call">
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">Quick Note</label>
+                    <input type="text" name="notes" id="notesInput" class="form-control admin-form-control" placeholder="e.g. Ordered 20 shirts">
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 quick-submit rounded-pill" id="submitBtn">
+                    <i class="fas fa-check-circle me-2"></i>Log Now
+                </button>
+            </form>
+
+            <div id="recentSection" class="mt-3 d-none">
+                <div class="small text-muted mb-2">Recent numbers:</div>
+                <div id="recentChips" class="d-flex flex-wrap gap-1"></div>
+            </div>
+
+            <div class="text-center mt-3">
+                <a href="{{ url_for('communications.communications_portal') }}" class="small text-muted">← Full Communications Center</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="quickToast" class="quick-toast alert alert-success shadow-lg text-center mb-0">
+        <i class="fas fa-check-circle me-1"></i> <span id="toastMsg">Logged!</span>
+    </div>
+
+    <script>
+    const STORAGE_KEY = '3g_recent_phones';
+
+    function selectType(el) {
+        document.querySelectorAll('.quick-type-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('callTypeInput').value = el.dataset.type;
+    }
+
+    function loadRecent() {
+        const recent = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        if (!recent.length) return;
+        document.getElementById('recentSection').classList.remove('d-none');
+        const container = document.getElementById('recentChips');
+        container.innerHTML = recent.map(p =>
+            `<span class="recent-chip" onclick="document.getElementById('phoneInput').value='${p}'">${p}</span>`
+        ).join('');
+    }
+
+    function saveRecent(phone) {
+        let recent = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        recent = [phone, ...recent.filter(p => p !== phone)].slice(0, 5);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(recent));
+        loadRecent();
+    }
+
+    function showToast(msg, ok = true) {
+        const t = document.getElementById('quickToast');
+        t.className = 'quick-toast alert shadow-lg text-center mb-0 show ' + (ok ? 'alert-success' : 'alert-danger');
+        document.getElementById('toastMsg').textContent = msg;
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    document.getElementById('quickLogForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        const formData = new FormData(this);
+        try {
+            const res = await fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+            const data = await res.json();
+            if (res.ok) {
+                saveRecent(formData.get('phone_number'));
+                showToast(`Logged #${data.id} — ${formData.get('phone_number')}`);
+                document.getElementById('notesInput').value = '';
+                document.getElementById('phoneInput').focus();
+            } else {
+                showToast(data.error || 'Failed to log', false);
+            }
+        } catch (err) {
+            showToast('Server unreachable — is run.py running?', false);
+        }
+        btn.disabled = false;
+    });
+
+    loadRecent();
+    </script>
+</body>
+</html>

@@ -10,195 +10,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block head %}{% endblock %}
-
-    <style>
-        /* ==========================================================================
-           NAVBAR CONTINUOUS BACKGROUND MARQUEE
-           ========================================================================== */
-        .navbar {
-            position: relative;
-            overflow: hidden; /* Prevents text bleeding out of the viewport */
-            background-color: #161819 !important;
-            padding-top: 0.65rem;
-            padding-bottom: 0.65rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        /* Continuous text rail running behind elements */
-        .navbar-marquee-track {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            transform: translateY(-50%);
-            width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            pointer-events: none; /* Allows mouse clicks to pass through to links */
-            z-index: 1;
-            opacity: 0.04; /* Very subtle texture overlay */
-        }
-
-        .navbar-marquee-content {
-            display: inline-block;
-            font-size: 3rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            color: #ffffff;
-            letter-spacing: 0.25em;
-            animation: continuousLogoloop 28s linear infinite;
-        }
-
-        @keyframes continuousLogoloop {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-33.33%, 0, 0); }
-        }
-
-        /* Forcing navigation content to float clearly over marquee layer */
-        .navbar .container {
-            position: relative;
-            z-index: 2;
-        }
-
-        .navbar-brand {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-decoration: none;
-            padding: 0;
-        }
-
-        .navbar-brand img {
-            height: 42px !important;
-            width: auto;
-            margin-right: 0 !important;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .navbar-brand:hover img {
-            transform: scale(1.05);
-        }
-
-        .brand-subtext {
-            font-size: 0.65rem;
-            font-weight: 800;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-            color: #ffffff;
-            margin-top: 5px;
-            line-height: 1;
-        }
-        
-        .navbar-dark .navbar-nav .nav-link {
-            color: rgba(255, 255, 255, 0.75);
-            font-weight: 500;
-            font-size: 0.95rem;
-            padding: 0.5rem 1rem !important;
-            transition: color 0.2s ease;
-        }
-
-        .navbar-dark .navbar-nav .nav-link:hover {
-            color: #ffffff !important;
-        }
-
-        .cart-badge {
-            font-size: 0.65rem !important;
-            padding: 0.25em 0.5em !important;
-            border: 2px solid #161819;
-        }
-
-        /* ==========================================================================
-           HYPER-ORGANIZED INDUSTRIAL FOOTER
-           ========================================================================== */
-        .classic-footer {
-            background-color: #0b0c0d !important;
-            color: #8a94a0;
-            font-size: 0.9rem;
-            border-top: 1px solid #1e2224;
-        }
-
-        .footer-heading {
-            color: #ffffff;
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            margin-bottom: 1.5rem;
-            position: relative;
-            padding-bottom: 0.6rem;
-        }
-
-        /* Clean Underline Accent Indicator */
-        .footer-heading::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            width: 25px;
-            height: 2px;
-            background-color: #0d6efd; /* Theme Primary Accent */
-        }
-
-        .footer-brand-title {
-            color: #ffffff;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            font-size: 1.3rem;
-        }
-
-        .footer-link {
-            color: #8a94a0;
-            text-decoration: none;
-            transition: color 0.2s ease, transform 0.2s ease;
-            display: inline-block;
-        }
-
-        .footer-link:hover {
-            color: #ffffff;
-            transform: translateX(4px);
-        }
-
-        .contact-list li {
-            margin-bottom: 0.85rem;
-            display: flex;
-            align-items: flex-start;
-            line-height: 1.5;
-        }
-
-        .contact-icon {
-            color: #0d6efd;
-            width: 24px;
-            margin-top: 2px;
-            flex-shrink: 0;
-            font-size: 0.95rem;
-        }
-
-        .social-btn {
-            width: 38px;
-            height: 38px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #141719;
-            color: #8a94a0;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            border: 1px solid #1e2224;
-        }
-
-        .social-btn:hover {
-            background-color: #0d6efd;
-            color: #ffffff;
-            border-color: #0d6efd;
-            transform: translateY(-2px);
-        }
-
-        .footer-hr {
-            border-top: 1px solid #1e2224;
-        }
-    </style>
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm">
         <div class="navbar-marquee-track">
@@ -247,7 +60,7 @@
                     
                     {% if session.get('admin_logged_in') %}
                     <li class="nav-item ms-lg-2">
-                        <a class="nav-link btn btn-sm btn-outline-light text-white px-3 py-1 my-1 my-lg-0 animate__animated animate__fadeInRight" href="{{ url_for('dashboard') }}">
+                        <a class="nav-link btn btn-sm btn-outline-light text-white px-3 py-1 my-1 my-lg-0 animate__animated animate__fadeInRight" href="{% if session.get('role') == 'staff' %}{{ url_for('staff.staff_portal') }}{% else %}{{ url_for('dashboard') }}{% endif %}">
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
@@ -268,7 +81,7 @@
         </div>
     </nav>
 
-    <main style="min-height: 75vh;">
+    <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="container mt-4">
@@ -294,7 +107,7 @@
                 
                 <div class="col-lg-4 col-md-6 animate__animated animate__fadeInUp">
                     <div class="footer-brand-title mb-3">3G DESIGN</div>
-                    <p class="text-muted small lh-base mb-4">
+                    <p class="text-white small lh-base mb-4">
                         Premium printing blueprints, dynamic brand architecture layouts, and high-fidelity graphic production matrices. Delivering precision workflow optimization across Monrovia and beyond.
                     </p>
                     <div class="d-flex gap-2">
@@ -316,7 +129,7 @@
 
                 <div class="col-6 col-lg-2 animate__animated animate__fadeInUp animate__delay-1s">
                     <div class="footer-heading">Our Core Line</div>
-                    <ul class="list-unstyled d-flex flex-column gap-2 small text-muted">
+                    <ul class="list-unstyled d-flex flex-column gap-2 small text-white">
                         <li>Premium Printing</li>
                         <li>Identity Design</li>
                         <li>Corporate Branding</li>
@@ -326,7 +139,7 @@
 
                 <div class="col-lg-3 col-md-6 animate__animated animate__fadeInUp animate__delay-2s">
                     <div class="footer-heading">Contact Info</div>
-                    <ul class="list-unstyled contact-list small text-muted">
+                    <ul class="list-unstyled contact-list small text-white">
                         <li>
                             <i class="fas fa-map-marker-alt contact-icon"></i>
                             <span>Newport & Benson Street,<br>Monrovia, Liberia</span>
@@ -346,12 +159,12 @@
             
             <div class="footer-hr my-4"></div>
             
-            <div class="row align-items-center small text-muted animate__animated animate__fadeInUp animate__delay-3s">
+            <div class="row align-items-center small text-white animate__animated animate__fadeInUp animate__delay-3s">
                 <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
-                    <p class="mb-0">&copy; 2026 <span class="text-white fw-semibold">3G DESIGN</span>. All rights reserved.</p>
+                    <p class="mb-0">&copy; 2026 <span class="fw-semibold">3G DESIGN</span>. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
-                    <p class="mb-0 opacity-75">Engineered for absolute operational excellence and layout performance.</p>
+                    <p class="mb-0">Engineered for absolute operational excellence and layout performance.</p>
                 </div>
             </div>
         </div>                  

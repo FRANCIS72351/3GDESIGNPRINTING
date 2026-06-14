@@ -2,221 +2,6 @@
 
 {% block title %}About Us - 3G DESIGN{% endblock %}
 
-{% block head %}
-<style>
-    /* ==========================================================================
-       HERO CAROUSEL LUXURY FRAME
-       ========================================================================== */
-    .about-hero-carousel {
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    }
-    .carousel-image-wrapper {
-        position: relative;
-        height: 500px;
-        overflow: hidden;
-        background-color: #0b0c0d;
-    }
-    .carousel-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.65;
-        transition: transform 6s ease;
-    }
-    .carousel-item.active .carousel-img {
-        transform: scale(1.08);
-    }
-    .carousel-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(180deg, rgba(15,17,18,0.2) 0%, rgba(15,17,18,0.85) 100%);
-    }
-    .carousel-caption {
-        bottom: 15%;
-        text-align: center;
-        z-index: 3;
-    }
-    .carousel-caption h2 {
-        font-size: 3.5rem;
-        font-weight: 900;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        text-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-    .carousel-caption p {
-        font-size: 1.25rem;
-        font-weight: 300;
-        letter-spacing: 0.02em;
-        color: rgba(255, 255, 255, 0.9);
-        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-
-    /* ==========================================================================
-       THE BRAND STORY (GLASS PANEL CARD)
-       ========================================================================== */
-    .section-heading-block {
-        margin-bottom: 2.5rem;
-    }
-    .classic-section-title {
-        font-size: 2rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        position: relative;
-        padding-bottom: 0.75rem;
-        display: inline-block;
-    }
-    .classic-section-title::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 50px;
-        height: 3px;
-        background-color: #0d6efd;
-    }
-    .glass-show-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.04);
-        border-radius: 12px;
-        transition: transform 0.3s ease;
-    }
-    .story-body-text p {
-        color: #4a5568;
-        line-height: 1.8;
-        font-size: 1.05rem;
-    }
-
-    /* ==========================================================================
-       GEOMETRIC SERVICE PROFILES BLOCK
-       ========================================================================== */
-    .premium-service-card {
-        background-color: #141617;
-        border: 1px solid #222629;
-        border-radius: 10px;
-        padding: 2rem 1.5rem;
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        height: 100%;
-    }
-    .premium-service-card:hover {
-        border-color: #0d6efd;
-        transform: translateY(-5px);
-        background-color: #191b1d;
-    }
-    .square-img-frame {
-        width: 100px;
-        height: 100px;
-        margin: 0 auto 1.5rem auto;
-        overflow: hidden;
-        border-radius: 12px;
-        border: 2px solid #2d3236;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        transition: border-color 0.3s ease;
-    }
-    .premium-service-card:hover .square-img-frame {
-        border-color: #0d6efd;
-    }
-    .square-frame-src {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform 0.4s ease;
-    }
-    .premium-service-card:hover .square-frame-src {
-        transform: scale(1.1);
-    }
-    .premium-service-card h4 {
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 1.15rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        margin-bottom: 0.5rem;
-    }
-
-    /* ==========================================================================
-       STRATEGIC MAP MATRIX CARDS
-       ========================================================================== */
-    .matrix-strategy-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 2.25rem 2rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-    }
-    .matrix-strategy-card:hover {
-        box-shadow: 0 15px 35px rgba(0,0,0,0.07);
-        transform: translateY(-3px);
-    }
-    .icon-square-container {
-        width: 50px;
-        height: 50px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        margin-bottom: 1.25rem;
-    }
-    .matrix-strategy-card h4 {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #0f1112;
-        margin-bottom: 0.85rem;
-    }
-
-    /* ==========================================================================
-       EXECUTIVE TEAM CAROUSEL PANELS (MOBILE FIX APPLIED)
-       ========================================================================== */
-    .executive-bio-panel {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        box-shadow: 0 15px 40px rgba(0,0,0,0.04);
-        overflow: hidden;
-        height: auto !important; /* Forces layout to grow naturally vertically */
-    }
-    .leader-square-wrapper {
-        width: 240px;
-        height: 240px;
-        overflow: hidden;
-        border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        background-color: #f7fafc;
-    }
-    .leader-square-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .social-link-icon {
-        width: 36px;
-        height: 36px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background-color: #f1f5f9;
-        color: #4a5568;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-        text-decoration: none;
-    }
-    .social-link-icon:hover {
-        background-color: #0d6efd;
-        color: #ffffff;
-    }
-    .bio-text-container {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div id="aboutCarousel" class="carousel slide carousel-fade about-hero-carousel mb-5" data-bs-ride="carousel">
     <div class="carousel-inner">
@@ -318,7 +103,7 @@
                         <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom Shirt Printing" class="square-frame-src">
                     </div>
                     <h4>Shirts</h4>
-                    <p class="small text-muted mb-0">DTF & Industrial Screen Prints</p>
+                    <p class="small text-white mb-0">DTF & Industrial Screen Prints</p>
                 </div>
             </div>
             
@@ -328,7 +113,7 @@
                         <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom Mug Printing" class="square-frame-src">
                     </div>
                     <h4>Mugs</h4>
-                    <p class="small text-muted mb-0">Sublimation Thermal Customization</p>
+                    <p class="small text-white mb-0">Sublimation Thermal Customization</p>
                 </div>
             </div>
 
@@ -338,7 +123,7 @@
                         <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large Format Banners" class="square-frame-src">
                     </div>
                     <h4>Banners</h4>
-                    <p class="small text-muted mb-0">Flex & Heavy Duty Outdoor Vinyl</p>
+                    <p class="small text-white mb-0">Flex & Heavy Duty Outdoor Vinyl</p>
                 </div>
             </div>
 
@@ -348,7 +133,7 @@
                         <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business Flyers" class="square-frame-src">
                     </div>
                     <h4>Flyers</h4>
-                    <p class="small text-muted mb-0">High-Volume Digital & Offset Media</p>
+                    <p class="small text-white mb-0">High-Volume Digital & Offset Media</p>
                 </div>
             </div>
         </div>

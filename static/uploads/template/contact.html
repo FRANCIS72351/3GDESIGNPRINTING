@@ -3,12 +3,17 @@
 {% block title %}Contact Us - 3G DESIGN{% endblock %}
 
 {% block content %}
-<section class="contact-section">
+<section class="contact-section pt-5">
     <div class="container">
+        <div class="text-center mb-5 animate__animated animate__fadeInUp">
+            <span class="classic-heading-eyebrow">Reach Out</span>
+            <h2 class="classic-heading">Get In Touch</h2>
+            <div class="classic-heading-divider"><span>◆</span></div>
+        </div>
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="contact-card animate__animated animate__fadeInUp">
-                    <h3>Get In Touch</h3>
+                    <h3 class="d-none">Get In Touch</h3>
                     <p class="text-muted mb-4">Ready to bring your printing project to life? Contact us today for a free consultation and quote.</p>
 
                     <div class="contact-info">
@@ -26,23 +31,40 @@
                     <div class="mt-4 text-center">
                         <p class="text-muted">For urgent orders or bulk inquiries, WhatsApp is the fastest way to reach us!</p>
                     </div>
+
+                    <div class="mt-4 border rounded-3 overflow-hidden shadow-sm" id="webChatPanel">
+                        <div class="px-3 py-2 text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, var(--brand-navy), #1a3a5c);">
+                            <i class="fas fa-robot"></i>
+                            <span class="fw-semibold small">3G DESIGN Assistant</span>
+                            <span class="badge bg-success ms-auto">Online</span>
+                        </div>
+                        <div id="webChatMessages" class="p-3 bg-white" style="height: 220px; overflow-y: auto; font-size: 0.9rem;"></div>
+                        <div class="p-2 border-top bg-light d-flex gap-2">
+                            <input type="text" id="webChatInput" class="form-control form-control-sm" placeholder="Ask about prices, hours, orders…" maxlength="500">
+                            <button type="button" id="webChatSend" class="btn btn-sm btn-primary rounded-pill px-3">Send</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="py-5 bg-light">
+<section class="py-5 bg-classic-surface">
     <div class="container">
-        <h2 class="text-center mb-5 animate__animated animate__fadeInUp">Visit Our Workshop</h2>
+        <div class="text-center mb-5 animate__animated animate__fadeInUp">
+            <span class="classic-heading-eyebrow">Our Location</span>
+            <h2 class="classic-heading">Visit Our Workshop</h2>
+            <div class="classic-heading-divider"><span>◆</span></div>
+        </div>
         <div class="row align-items-center">
             <div class="col-lg-6 animate__animated animate__fadeInLeft">
                 <h4>Why Visit Us?</h4>
                 <ul class="list-unstyled">
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>View our equipment and capabilities</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>See samples of our work</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>Get personalized design consultation</li>
-                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>Discuss bulk pricing and custom projects</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>View our equipment and capabilities</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>See samples of our work</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>Get personalized design consultation</li>
+                    <li class="mb-3"><i class="fas fa-check-circle feature-check me-2"></i>Discuss bulk pricing and custom projects</li>
                 </ul>
             </div>
             <div class="col-lg-6 animate__animated animate__fadeInRight">
@@ -53,6 +75,60 @@
         </div>
     </div>
 </section>
+
+<script>
+(function() {
+    const STORAGE_KEY = '3g_design_chat_session';
+    const box = document.getElementById('webChatMessages');
+    const input = document.getElementById('webChatInput');
+    const btn = document.getElementById('webChatSend');
+    if (!box || !input || !btn) return;
+
+    function append(role, text) {
+        const div = document.createElement('div');
+        div.className = 'mb-2 ' + (role === 'user' ? 'text-end' : '');
+        div.innerHTML = role === 'user'
+            ? '<span class="badge bg-primary rounded-pill px-3 py-2">' + text.replace(/</g,'&lt;') + '</span>'
+            : '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text.replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>') + '</span>';
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function getSession() {
+        let t = localStorage.getItem(STORAGE_KEY);
+        if (!t) {
+            t = 'web_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem(STORAGE_KEY, t);
+        }
+        return t;
+    }
+
+    async function send() {
+        const msg = input.value.trim();
+        if (!msg) return;
+        input.value = '';
+        append('user', msg);
+        btn.disabled = true;
+        try {
+            const r = await fetch('/api/web/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_token: getSession(), message: msg })
+            });
+            const d = await r.json();
+            append('assistant', d.reply || d.error || 'Sorry, try again.');
+        } catch (e) {
+            append('assistant', 'Connection error — please try WhatsApp instead.');
+        }
+        btn.disabled = false;
+        input.focus();
+    }
+
+    btn.addEventListener('click', send);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+    append('assistant', 'Hello! I\'m the 3G DESIGN assistant. Ask about printing, prices, hours, or orders.');
+})();
+</script>
 {% endblock %}
 
 

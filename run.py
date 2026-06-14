@@ -77,10 +77,7 @@ if __name__ == '__main__':
             print("Save the recovery code in a safe place!")
         # --- END OF YOUR ORIGINAL LOGIC ---
 
-    # WAITRESS REPLACEMENT FOR app.run()
-    # This serves the app professionally on port 5000
-    print("Starting Production Server with Waitress...")
-    print("Server running on http://localhost:5001")
-    
-    serve(app, host='127.0.0.1', port=5001, threads=1)
-    # app.run(debug=True, host='127.0.0.1', port=5001)
+    port = int(os.getenv('APP_PORT', '5001'))
+    print(f"Starting Production Server with Waitress...")
+    print(f"Server running on http://0.0.0.0:{port}")
+    serve(app, host='0.0.0.0', port=port, threads=4)

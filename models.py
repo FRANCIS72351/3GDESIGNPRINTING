@@ -47,8 +47,16 @@ class Leaders(db.Model):
 class CallLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(20))
-    transcript = db.Column(db.Text)        # Transcription from AssemblyAI
-    audio_url = db.Column(db.String(255))  # Twilio recording link
+    caller_name = db.Column(db.String(100))
+    transcript = db.Column(db.Text)
+    audio_url = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+    source = db.Column(db.String(30), default='local_desktop')  # twilio_cloud, local_desktop, whatsapp_manual
+    call_type = db.Column(db.String(20), default='voice')       # voice, whatsapp_call, whatsapp_message
+    status = db.Column(db.String(20), default='logged')         # received, processed, missed, logged
+    duration_seconds = db.Column(db.Integer)
+    call_sid = db.Column(db.String(64))
+    logged_by = db.Column(db.String(50))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Admin(db.Model):
@@ -100,10 +108,13 @@ class Sale(db.Model):
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'))
-    status = db.Column(db.String(20), default='Pending') # Pending, Processing, Shipped, Delivered, Cancelled
+    status = db.Column(db.String(20), default='Pending')  # Pending, Processing, Delivered, Cancelled
+    production_stage = db.Column(db.String(20), default='quote')  # quote → delivered
+    promised_date = db.Column(db.Date, nullable=True)
+    notes = db.Column(db.Text)
     total_amount = db.Column(db.Float, default=0.0)
-    currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
-    order_source = db.Column(db.String(50)) # e.g., 'WhatsApp Direct', 'In-Store'
+    currency = db.Column(db.String(3), default='USD')
+    order_source = db.Column(db.String(50))
     date_ordered = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship('OrderItem', backref='order', lazy=True)
     customer = db.relationship('Customer', backref='orders', lazy=True)
@@ -148,14 +159,19 @@ class InventoryLog(db.Model):
 # generate document
 class GeneratedDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    doc_type = db.Column(db.String(20)) # 'invoice', 'receipt', 'letterhead'
+    doc_type = db.Column(db.String(20))  # 'invoice', 'receipt', 'letterhead'
     doc_number = db.Column(db.String(50), unique=True)
-    content = db.Column(db.Text) # JSON or formatted string of items
-    issued_by = db.Column(db.Integer, db.ForeignKey('admin.id')) # TRACKING KEY
+    content = db.Column(db.Text)  # JSON snapshot of line items and customer
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
+    customer_name = db.Column(db.String(100))
+    total_amount = db.Column(db.Float, default=0.0)
+    currency = db.Column(db.String(3), default='USD')
+    payment_status = db.Column(db.String(20), default='Pending')  # Paid, Pending
+    issued_by = db.Column(db.Integer, db.ForeignKey('admin.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationship to get the name easily
+
     creator = db.relationship('Admin', backref='documents')
+    order = db.relationship('Order', backref='documents', lazy=True)
 
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -168,12 +184,12 @@ class Expense(db.Model):
     admin = db.relationship('Admin', backref='expenses')
 # halidays
 class Event(db.Model):
-    __tablename__ = 'event' # or 'events'
+    __tablename__ = 'event'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     date = db.Column(db.Date, nullable=False)
-    
-
+    event_type = db.Column(db.String(50))
+    description = db.Column(db.Text)
 class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50))
@@ -185,3 +201,43 @@ class SystemSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     is_active = db.Column(db.Boolean, default=True)  # True = Running, False = Locked
     lock_message = db.Column(db.String(255), default="System Maintenance: Please contact the Architect.")
+    last_late_check_date = db.Column(db.Date, nullable=True)
+
+
+class WhatsAppIntegration(db.Model):
+    """Meta WhatsApp Business API credentials (Embedded Signup or manual import)."""
+    __tablename__ = 'whatsapp_integration'
+    id = db.Column(db.Integer, primary_key=True)
+    waba_id = db.Column(db.String(32))
+    phone_number_id = db.Column(db.String(32), nullable=False)
+    display_phone = db.Column(db.String(20))
+    business_name = db.Column(db.String(120))
+    access_token_enc = db.Column(db.Text, nullable=False)
+    connection_method = db.Column(db.String(30), default='embedded_signup')
+    connected_by = db.Column(db.String(50))
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+
+
+class AIChatMessage(db.Model):
+    """Per-session AI conversation history (phone or web session token)."""
+    __tablename__ = 'ai_chat_message'
+    id = db.Column(db.Integer, primary_key=True)
+    session_token = db.Column(db.String(80), nullable=False, index=True)
+    role = db.Column(db.String(20), nullable=False)  # user, assistant
+    content = db.Column(db.Text, nullable=False)
+    channel = db.Column(db.String(30), default='unknown')  # web, whatsapp_api, twilio_whatsapp
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class PendingReceipt(db.Model):
+    """WhatsApp order receipts awaiting shop intake."""
+    __tablename__ = 'pending_receipt'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    payload = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, converted
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    order = db.relationship('Order', backref='pending_receipt', lazy=True)

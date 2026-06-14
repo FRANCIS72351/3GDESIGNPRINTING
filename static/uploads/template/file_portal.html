@@ -2,19 +2,21 @@
 
 {% block title %}File Share Portal - 3GDESIGN{% endblock %}
 
+{% block body_class %}admin-page{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5">
     <div class="row">
         <div class="col-md-10 mx-auto">
-            <div class="card shadow-lg border-0 rounded-4">
-                <div class="card-header bg-dark text-white p-4">
-                    <h2 class="mb-0"><i class="fas fa-folder-open me-2"></i>Team File Share Portal{% if selected_date %} - {{ selected_date }}{% endif %}</h2>
-                    <p class="mb-0 text-white-50">Upload and manage internal files and designs{% if selected_date %} for {{ selected_date }}{% endif %}</p>
+            <div class="admin-card">
+                <div class="admin-card-header p-4">
+                    <h2 class="h4 mb-1"><i class="fas fa-folder-open me-2"></i>Team File Share Portal{% if selected_date %} — {{ selected_date }}{% endif %}</h2>
+                    <p class="mb-0 text-white-50 small">Upload and manage internal files and designs{% if selected_date %} for {{ selected_date }}{% endif %}</p>
                 </div>
-                <div class="card-body p-4">
+                <div class="admin-card-body">
                     <!-- Search Bar -->
                     <div class="search-section mb-4">
-                        <form action="{{ url_for('file_portal') }}" method="GET" class="d-flex shadow-sm rounded-pill overflow-hidden border">
+                        <form action="{{ url_for('file_portal') }}" method="GET" class="d-flex search-bar-pill rounded-pill overflow-hidden border bg-white">
                             <input type="text" name="search" class="form-control border-0 ps-4 py-3" placeholder="Search files by name..." value="{{ search_query }}">
                             <button type="submit" class="btn btn-primary px-4 rounded-0">
                                 <i class="fas fa-search"></i> Search
@@ -50,7 +52,7 @@
 
                     {% if selected_date %}
                     <!-- Upload Section -->
-                    <div class="upload-section mb-5 p-4 bg-light rounded-4">
+                    <div class="upload-zone mb-5">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h4><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload to {{ selected_date }}</h4>
                             <a href="{{ url_for('file_portal') }}" class="btn btn-sm btn-outline-primary">
@@ -89,7 +91,7 @@
                     <h4><i class="fas fa-list me-2 text-primary"></i>Files in {{ selected_date }}</h4>
                     {% else %}
                     <!-- Upload Section -->
-                    <div class="upload-section mb-5 p-4 bg-light rounded-4">
+                    <div class="upload-zone mb-5">
                         <h4><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload New Files/Folders</h4>
                         <div class="row">
                             <div class="col-md-6">
@@ -128,7 +130,7 @@
                     {% endif %}
 
                     <div class="table-responsive mt-3">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle admin-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>File Name</th>

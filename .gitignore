@@ -38,6 +38,10 @@ static/uploads/portal/*
 !static/uploads/portal/.gitkeep
 static/uploads/leaders/*
 !static/uploads/leaders/.gitkeep
+static/uploads/orders/*
+!static/uploads/orders/.gitkeep
+static/uploads/whatsapp/*
+!static/uploads/whatsapp/.gitkeep
 
 # IDEs
 .vscode/

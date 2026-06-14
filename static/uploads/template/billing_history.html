@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+
+{% block title %}Document History — 3G DESIGN{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-folder-open fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3">Invoice & Receipt History</h1>
+                <p class="text-muted mb-0 small">All issued documents with numbers and audit trail</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('billing.billing_portal') }}" class="btn btn-primary rounded-pill px-4">
+                <i class="fas fa-plus me-1"></i>New Document
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3">Dashboard</a>
+        </div>
+    </div>
+
+    <form class="row g-2 mb-4" method="GET">
+        <div class="col-md-5">
+            <input type="text" name="search" class="form-control admin-form-control" placeholder="Search doc number or customer..." value="{{ search }}">
+        </div>
+        <div class="col-md-3">
+            <select name="type" class="form-select admin-form-control">
+                <option value="">All types</option>
+                <option value="invoice" {% if doc_type == 'invoice' %}selected{% endif %}>Invoices only</option>
+                <option value="receipt" {% if doc_type == 'receipt' %}selected{% endif %}>Receipts only</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100 rounded-pill">Filter</button>
+        </div>
+    </form>
+
+    <div class="admin-card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle admin-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Document</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Issued</th>
+                        <th>By</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in docs %}
+                    <tr>
+                        <td>
+                            <span class="badge {% if doc.doc_type == 'receipt' %}bg-success{% else %}bg-primary{% endif %} rounded-pill me-1">{{ doc.doc_type|upper }}</span>
+                            <span class="fw-semibold">{{ doc.doc_number }}</span>
+                        </td>
+                        <td>{{ doc.customer_name or '—' }}</td>
+                        <td class="fw-semibold">
+                            {% if doc.currency == 'LRD' %}L${% else %}${% endif %}{{ '%.2f'|format(doc.total_amount or 0) }}
+                        </td>
+                        <td><span class="badge bg-soft-success text-success rounded-pill">{{ doc.payment_status or '—' }}</span></td>
+                        <td class="small text-muted text-nowrap">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '—' }}</td>
+                        <td class="small">{{ doc.creator.username if doc.creator else '—' }}</td>
+                        <td class="text-nowrap">
+                            <a href="{{ url_for('billing.document_preview', doc_id=doc.id) }}" class="btn btn-sm btn-outline-primary" target="_blank" title="Preview">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('billing.document_pdf', doc_id=doc.id) }}" class="btn btn-sm btn-outline-danger" title="PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">No documents found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

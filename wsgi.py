@@ -15,10 +15,10 @@ from app import app as application
 
 # PythonAnywhere sets this environment variable
 if 'PYTHONANYWHERE_DOMAIN' in os.environ:
-    # Production settings for PythonAnywhere
     application.config['PREFERRED_URL_SCHEME'] = 'https'
-    # Ensure static files are served correctly
     application.config['DEBUG'] = False
+    pa_domain = os.environ['PYTHONANYWHERE_DOMAIN']
+    if not os.getenv('PUBLIC_SITE_URL') and not os.getenv('WEBHOOK_BASE_URL'):
+        os.environ['PUBLIC_SITE_URL'] = f'https://{pa_domain}'
 else:
-    # Development settings
     application.config['DEBUG'] = True

@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+{% block title %}Operations Center — 3G DESIGN{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-industry fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3">Operations Center</h1>
+                <p class="text-muted mb-0 small">WhatsApp inbox · Print production pipeline · Live job board</p>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('operations.customer_lookup') }}" class="btn btn-outline-primary rounded-pill px-3">
+                <i class="fas fa-user-circle me-1"></i>Customer 360
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3">Dashboard</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4 border-warning">
+                <div class="small text-muted text-uppercase">WhatsApp Inbox</div>
+                <div class="h3 fw-bold mb-0">{{ stats.pending_inbox }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4 border-primary">
+                <div class="small text-muted text-uppercase">Active Jobs</div>
+                <div class="h3 fw-bold mb-0">{{ stats.active_jobs }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4" style="border-color:#C9A84C!important">
+                <div class="small text-muted text-uppercase">On Press Now</div>
+                <div class="h3 fw-bold mb-0">{{ stats.printing_now }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="admin-stat-card card p-3 text-center border-start border-4 border-success">
+                <div class="small text-muted text-uppercase">Ready Pickup</div>
+                <div class="h3 fw-bold text-success mb-0">{{ stats.ready_pickup }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-5">
+            <div class="admin-card">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h5 class="h6 mb-0"><i class="fab fa-whatsapp me-2"></i>WhatsApp Order Inbox</h5>
+                </div>
+                <div class="admin-card-body p-0">
+                    {% for po in pending_orders %}
+                    <div class="inbox-order-item p-3 border-bottom">
+                        <div class="d-flex gap-3">
+                            {% if po.share_image %}
+                            <img src="{{ url_for('static', filename='uploads/' + po.share_image) }}" class="inbox-thumb rounded" alt="Order">
+                            {% else %}
+                            <div class="inbox-thumb rounded bg-light d-flex align-items-center justify-content-center"><i class="fas fa-image text-muted"></i></div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <div class="small text-muted">{{ po.receipt.created_at.strftime('%d %b %H:%M') if po.receipt.created_at else '' }}</div>
+                                {% for item in po.line_items[:2] %}
+                                <div class="small fw-semibold">{{ item.product_name }} ×{{ item.quantity }}</div>
+                                {% endfor %}
+                                {% if po.line_items|length > 2 %}
+                                <div class="small text-muted">+{{ po.line_items|length - 2 }} more</div>
+                                {% endif %}
+                                <div class="mt-1 fw-bold text-primary">
+                                    {% if po.total_usd %}${{ '%.2f'|format(po.total_usd) }}{% endif %}
+                                    {% if po.total_lrd %} L${{ '%.2f'|format(po.total_lrd) }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <form action="{{ url_for('operations.convert_pending_order', token=po.receipt.token) }}" method="POST" class="flex-fill">
+                                <button type="submit" class="btn btn-primary btn-sm w-100 rounded-pill">
+                                    <i class="fas fa-file-invoice me-1"></i>Convert & Invoice
+                                </button>
+                            </form>
+                            <a href="{{ url_for('order_share_page', token=po.receipt.token) }}" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted small">No pending WhatsApp orders — inbox is clear.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fas fa-stream me-2"></i>Print Production Pipeline</h5>
+                </div>
+                <div class="admin-card-body">
+                    <div class="production-board">
+                        {% for label, key, color in stages %}
+                        <div class="production-lane">
+                            <div class="production-lane-header bg-{{ color }} {% if color in ['warning','light'] %}text-dark{% else %}text-white{% endif %}">
+                                {{ label }}
+                                <span class="badge bg-white text-dark ms-1">{{ board[key]|length }}</span>
+                            </div>
+                            <div class="production-lane-body">
+                                {% for order in board[key] %}
+                                <div class="production-job-card">
+                                    <div class="fw-semibold small">#{{ order.id }} · {{ order.customer.name if order.customer else 'Walk-in' }}</div>
+                                    <div class="text-muted" style="font-size:0.72rem">
+                                        {% if order.promised_date %}Due {{ order.promised_date.strftime('%d %b') }} · {% endif %}
+                                        {{ order.currency or 'USD' }} {{ '%.2f'|format(order.total_amount) }}
+                                    </div>
+                                    <form action="{{ url_for('operations.update_production_stage', order_id=order.id) }}" method="POST" class="mt-2">
+                                        <select name="production_stage" class="form-select form-select-sm" onchange="this.form.submit()">
+                                            {% for sl, sk, sc in stages %}
+                                            <option value="{{ sk }}" {% if order.production_stage == sk %}selected{% endif %}>{{ sl }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <div class="text-muted small text-center py-2">—</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

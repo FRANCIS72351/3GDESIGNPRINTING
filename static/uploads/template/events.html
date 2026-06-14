@@ -2,10 +2,12 @@
 
 {% block title %}Milestones & Holidays Portal - 3G DESIGN{% endblock %}
 
+{% block body_class %}admin-page{% endblock %}
+
 {% block content %}
 <div class="container mt-5 mb-5">
 
-    <div class="portal-header p-4 mb-5 shadow-sm d-flex align-items-center justify-content-between animate__animated animate__fadeIn">
+    <div class="portal-header admin-page-header p-4 mb-5 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
         <div class="d-flex align-items-center">
             <div class="icon-box bg-soft-primary text-primary rounded-3 p-3 me-3">
                 <i class="fas fa-calendar-check fa-2x"></i>
@@ -95,8 +97,8 @@
 
 <div class="modal fade" id="addEventModal" tabindex="-1" aria-labelledby="addEventModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg animate__animated animate__zoomIn animate__faster" style="border-radius: 20px;">
-            <div class="modal-header bg-dark text-white px-4 py-3" style="border-radius: 20px 20px 0 0;">
+        <div class="modal-content border-0 shadow-lg animate__animated animate__zoomIn animate__faster admin-modal">
+            <div class="modal-header bg-dark text-white px-4 py-3">
                 <h5 class="modal-title fw-bold h6 mb-0" id="addEventModalLabel"><i class="fas fa-pen-to-square me-2 text-warning"></i>Register New Milestone</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -122,7 +124,7 @@
                     </div>
                     <div class="mb-0">
                         <label class="form-label fw-bold small text-muted text-uppercase tracking-wider">Brief Description / Operational Notes</label>
-                        <textarea name="description" class="form-control bg-light border-0" rows="4" style="border-radius: 16px;" placeholder="Add print production schedules, discount programs, or office closure information..."></textarea>
+                        <textarea name="description" class="form-control bg-light border-0 admin-textarea" rows="4" placeholder="Add print production schedules, discount programs, or office closure information..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
@@ -134,48 +136,4 @@
     </div>
 </div>
 
-<style>
-    body {
-        background-color: #f8f9fa;
-    }
-    .portal-header {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 20px;
-        border: 1px solid rgba(0,0,0,0.03);
-    }
-    .bg-soft-primary { background-color: rgba(13, 110, 253, 0.08); }
-    .bg-soft-success { background-color: rgba(25, 135, 84, 0.08); }
-    .bg-soft-danger { background-color: rgba(220, 53, 69, 0.08); }
-    
-    .milestone-card {
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
-    }
-    .milestone-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 30px rgba(0,0,0,0.07) !important;
-    }
-    .type-ribbon {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-    }
-    .card-title-limit {
-        max-width: 70%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .card-desc-limit {
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    .tracking-tight { letter-spacing: -0.025em; }
-    .tracking-wider { letter-spacing: 0.06em; }
-</style>
 {% endblock %}

@@ -1,0 +1,274 @@
+{% extends "layout.html" %}
+
+{% block title %}Billing Center — 3G DESIGN{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-file-invoice-dollar fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3">Billing Center</h1>
+                <p class="text-muted mb-0 small">Issue professional invoices & receipts with numbered records</p>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('billing.billing_history') }}" class="btn btn-outline-secondary rounded-pill px-3">
+                <i class="fas fa-history me-1"></i>History
+            </a>
+            <a href="{{ url_for('direct_sale_history') }}" class="btn btn-outline-primary rounded-pill px-3">
+                <i class="fas fa-shopping-bag me-1"></i>Orders
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-3">
+                <i class="fas fa-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="admin-card">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h5 class="h6 mb-0"><i class="fas fa-pen-to-square me-2"></i>Issue Invoice or Receipt</h5>
+                </div>
+                <div class="admin-card-body">
+                    <form id="billingForm" action="{{ url_for('billing.issue_document') }}" method="POST">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Customer Name *</label>
+                                <input type="text" name="customer_name" class="form-control admin-form-control" placeholder="John Doe" required value="{{ prefill.customer_name if prefill is defined else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Phone / WhatsApp</label>
+                                <input type="tel" name="customer_phone" class="form-control admin-form-control" placeholder="+231 77 000 0000" value="{{ prefill.customer_phone if prefill is defined else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Email</label>
+                                <input type="email" name="customer_email" class="form-control admin-form-control" placeholder="customer@email.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Address</label>
+                                <input type="text" name="customer_address" class="form-control admin-form-control" placeholder="Monrovia, Liberia">
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label small fw-bold text-muted mb-0">Line Items *</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addLineItem()">
+                                <i class="fas fa-plus me-1"></i>Add Row
+                            </button>
+                        </div>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle billing-lines-table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="min-width:180px">Product / Description</th>
+                                        <th class="text-center" style="width:70px">Qty</th>
+                                        <th class="text-end" style="width:100px">Unit Price</th>
+                                        <th class="text-end" style="width:90px">Total</th>
+                                        <th style="width:36px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lineItemsBody">
+                                    <tr class="line-item-row">
+                                        <td>
+                                            <select class="form-select form-select-sm product-select" onchange="fillProductPrice(this)">
+                                                <option value="">— Custom description —</option>
+                                                {% for p in products %}
+                                                <option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}" data-currency="{{ p.currency or 'USD' }}">{{ p.name }} ({{ p.currency or 'USD' }} {{ '%.2f'|format(p.price) }})</option>
+                                                {% endfor %}
+                                            </select>
+                                            <input type="hidden" name="product_id[]" value="">
+                                            <input type="text" name="description[]" class="form-control form-control-sm mt-1 desc-input" placeholder="Item description" required>
+                                        </td>
+                                        <td><input type="number" name="quantity[]" class="form-control form-control-sm text-center qty-input" value="1" min="1" oninput="recalcRow(this)"></td>
+                                        <td><input type="number" name="unit_price[]" class="form-control form-control-sm text-end price-input" value="0" min="0" step="0.01" oninput="recalcRow(this)"></td>
+                                        <td class="text-end fw-semibold line-total">$0.00</td>
+                                        <td><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeLine(this)" title="Remove"><i class="fas fa-times"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Currency</label>
+                                <select name="currency" id="currencySelect" class="form-select admin-form-control">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="LRD">LRD (L$)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Discount</label>
+                                <input type="number" name="discount" id="discountInput" class="form-control admin-form-control" value="0" min="0" step="0.01" oninput="recalcGrandTotal()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">Payment Status</label>
+                                <select name="payment_status" class="form-select admin-form-control">
+                                    <option value="Pending">Pending (Invoice)</option>
+                                    <option value="Paid">Paid (Receipt)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="w-100 p-3 rounded billing-grand-total text-end">
+                                    <div class="small text-muted">Grand Total</div>
+                                    <div class="h4 fw-bold mb-0" id="grandTotal">$0.00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">Notes / Payment Terms</label>
+                            <textarea name="notes" class="form-control admin-form-control admin-textarea" rows="2" placeholder="e.g. 50% deposit required. Balance due on delivery.">{{ prefill.notes if prefill is defined else '' }}</textarea>
+                        </div>
+
+                        <input type="hidden" name="save_order" id="saveOrderInput" value="1">
+                        <input type="hidden" name="action" id="actionInput" value="download">
+
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <button type="submit" name="doc_type" value="invoice" class="btn btn-primary w-100 rounded-pill py-2" onclick="setAction('download')">
+                                    <i class="fas fa-file-invoice me-2"></i>Issue Invoice (PDF)
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" name="doc_type" value="receipt" class="btn btn-success w-100 rounded-pill py-2" onclick="setAction('download')">
+                                    <i class="fas fa-receipt me-2"></i>Issue Receipt (PDF)
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-outline-dark w-100 rounded-pill py-2" onclick="previewBeforeIssue()">
+                                    <i class="fas fa-eye me-2"></i>Preview & Print
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="admin-card mb-4">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fas fa-clock-rotate-left me-2"></i>Recently Issued</h5>
+                </div>
+                <div class="admin-card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for doc in recent_docs %}
+                        <a href="{{ url_for('billing.document_preview', doc_id=doc.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3" target="_blank">
+                            <div>
+                                <span class="badge {% if doc.doc_type == 'receipt' %}bg-success{% else %}bg-primary{% endif %} me-2">{{ doc.doc_type|upper }}</span>
+                                <span class="fw-semibold small">{{ doc.doc_number }}</span>
+                                <div class="text-muted small">{{ doc.customer_name or '—' }}</div>
+                            </div>
+                            <span class="small fw-bold">{{ doc.currency or 'USD' }} {{ '%.2f'|format(doc.total_amount or 0) }}</span>
+                        </a>
+                        {% else %}
+                        <div class="p-4 text-center text-muted small">No documents issued yet.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h5 class="h6 mb-0"><i class="fab fa-whatsapp me-2 text-success"></i>Quick Tips</h5>
+                </div>
+                <div class="admin-card-body small text-muted">
+                    <ul class="mb-0 ps-3">
+                        <li class="mb-2"><strong>Invoice</strong> — use when payment is pending; includes due terms.</li>
+                        <li class="mb-2"><strong>Receipt</strong> — use when customer has paid; marks status as Paid.</li>
+                        <li class="mb-2">Each document gets a unique number (e.g. INV-2026-00001).</li>
+                        <li>Orders are saved automatically so you can reprint from Order History.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const productRowTemplate = document.querySelector('.line-item-row').outerHTML;
+
+function currencySymbol() {
+    return document.getElementById('currencySelect').value === 'LRD' ? 'L$' : '$';
+}
+
+function recalcRow(el) {
+    const row = el.closest('tr');
+    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const price = parseFloat(row.querySelector('.price-input').value) || 0;
+    row.querySelector('.line-total').textContent = currencySymbol() + (qty * price).toFixed(2);
+    recalcGrandTotal();
+}
+
+function recalcGrandTotal() {
+    let sub = 0;
+    document.querySelectorAll('.line-item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+        const price = parseFloat(row.querySelector('.price-input').value) || 0;
+        sub += qty * price;
+    });
+    const disc = parseFloat(document.getElementById('discountInput').value) || 0;
+    document.getElementById('grandTotal').textContent = currencySymbol() + Math.max(sub - disc, 0).toFixed(2);
+}
+
+function fillProductPrice(sel) {
+    const row = sel.closest('tr');
+    const opt = sel.options[sel.selectedIndex];
+    const pidInput = row.querySelector('input[name="product_id[]"]');
+    const descInput = row.querySelector('.desc-input');
+    if (opt.value) {
+        pidInput.value = opt.value;
+        descInput.value = opt.dataset.name;
+        row.querySelector('.price-input').value = parseFloat(opt.dataset.price || 0).toFixed(2);
+        if (opt.dataset.currency) document.getElementById('currencySelect').value = opt.dataset.currency;
+    } else {
+        pidInput.value = '';
+    }
+    recalcRow(sel);
+}
+
+function addLineItem() {
+    const tbody = document.getElementById('lineItemsBody');
+    const temp = document.createElement('tbody');
+    temp.innerHTML = productRowTemplate;
+    const row = temp.querySelector('tr');
+    row.querySelector('.desc-input').value = '';
+    row.querySelector('.qty-input').value = 1;
+    row.querySelector('.price-input').value = 0;
+    row.querySelector('input[name="product_id[]"]').value = '';
+    row.querySelector('.product-select').selectedIndex = 0;
+    tbody.appendChild(row);
+    recalcGrandTotal();
+}
+
+function removeLine(btn) {
+    const rows = document.querySelectorAll('.line-item-row');
+    if (rows.length <= 1) return;
+    btn.closest('tr').remove();
+    recalcGrandTotal();
+}
+
+function setAction(a) {
+    document.getElementById('actionInput').value = a;
+}
+
+function previewBeforeIssue() {
+    setAction('preview');
+    const form = document.getElementById('billingForm');
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'doc_type';
+    hidden.value = document.querySelector('[name=payment_status]').value === 'Paid' ? 'receipt' : 'invoice';
+    form.appendChild(hidden);
+    form.submit();
+}
+
+document.getElementById('currencySelect').addEventListener('change', () => {
+    document.querySelectorAll('.qty-input').forEach(el => recalcRow(el));
+});
+recalcGrandTotal();
+</script>
+{% endblock %}
