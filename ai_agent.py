@@ -1,5 +1,5 @@
 """
-3G DESIGN — Customer AI assistant.
+3G Design — Customer AI assistant.
 Session token = phone number (WhatsApp) or browser localStorage UUID (web chat).
 Conversation history persisted in SQLite for continuity across sessions.
 """
@@ -12,7 +12,7 @@ import requests
 from models import db, AIChatMessage, Product, Customer, Order
 
 MAX_HISTORY = 16
-BUSINESS_NAME = '3G DESIGN'
+BUSINESS_NAME = '3G Design'
 BUSINESS_PHONE = '+231 775 323 731'
 BUSINESS_ADDRESS = 'Newport & Benson Street, Monrovia, Liberia'
 BUSINESS_HOURS = 'Monday–Saturday, 8:00 AM – 6:00 PM'

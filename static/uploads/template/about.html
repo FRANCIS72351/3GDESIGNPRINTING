@@ -1,6 +1,6 @@
-{% extends "layout.html" %}
+﻿{% extends "layout.html" %}
 
-{% block title %}About Us - 3G DESIGN{% endblock %}
+{% block title %}About Us - 3G Design{% endblock %}
 
 {% block content %}
 <div id="aboutCarousel" class="carousel slide carousel-fade about-hero-carousel mb-5" data-bs-ride="carousel">
@@ -8,11 +8,11 @@
         {% if content and content.slider1 %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="carousel-img" alt="3G DESIGN">
+                <img src="{{ url_for('static', filename='img/' + content.slider1) }}" class="carousel-img" alt="3G Design">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="animate__animated animate__fadeInDown">3G DESIGN</h2>
+                <h2 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'brand-wordmark--hero') }}</h2>
                 <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
                 <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
             </div>
@@ -20,11 +20,11 @@
         {% else %}
         <div class="carousel-item active">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="carousel-img" alt="3G DESIGN">
+                <img src="{{ url_for('static', filename='img/slider.1.jpg') }}" class="carousel-img" alt="3G Design">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="animate__animated animate__fadeInDown">3G DESIGN</h2>
+                <h2 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'brand-wordmark--hero') }}</h2>
                 <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
                 <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
             </div>
@@ -80,8 +80,8 @@
                         {% if content and content.description %}
                             {{ content.description | safe }}
                         {% else %}
-                            <p class="mb-0">3G DESIGN is not just a printing business—it is a brand-building partner dedicated to helping clients communicate, influence, and stand out in competitive markets. 3G DESIGN is a forward-thinking creative and print solutions company committed to delivering high-quality, visually compelling, and results-driven design products.</p>
-                            <p class="mt-3 mb-0">3G DESIGN specializes in transforming ideas into tangible brand assets through innovative graphic design, premium printing, and customized merchandise production. With a strong focus on precision, creativity, and customer satisfaction, 3G DESIGN serves Individuals, Businesses, Schools, Organizations and Companies seeking to elevate their visual identity and market presence. By combining modern design principles with cutting-edge production techniques, the company ensures consistency, quality, and timely delivery across all projects.</p>
+                            <p class="mb-0">{{ '3G Design is not just a printing business—it is a brand-building partner dedicated to helping clients communicate, influence, and stand out in competitive markets. 3G Design is a forward-thinking creative and print solutions company committed to delivering high-quality, visually compelling, and results-driven design products.'|brandify }}</p>
+                            <p class="mt-3 mb-0">{{ '3G Design specializes in transforming ideas into tangible brand assets through innovative graphic design, premium printing, and customized merchandise production. With a strong focus on precision, creativity, and customer satisfaction, 3G Design serves Individuals, Businesses, Schools, Organizations and Companies seeking to elevate their visual identity and market presence. By combining modern design principles with cutting-edge production techniques, the company ensures consistency, quality, and timely delivery across all projects.'|brandify }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -234,13 +234,13 @@
                                             <h3 class="fw-bold text-dark mb-1">{{ leader.name }}</h3>
                                             <h6 class="text-primary font-monospace text-uppercase tracking-wider mb-3">{{ leader.position or 'Team Member' }}</h6>
                                             <div class="text-muted small lh-lg mb-4 bio-text-container">
-                                                {{ leader.bio or 'Dedicated professional at 3G DESIGN, committed to delivering excellence in every enterprise layout layer.' }}
+                                                {{ (leader.bio or 'Dedicated professional at 3G Design, committed to delivering excellence in every enterprise layout layer.')|brandify }}
                                             </div>
                                             
                                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                                 <a href="#" class="social-link-icon"><i class="fab fa-linkedin-in"></i></a>
                                                 <a href="#" class="social-link-icon"><i class="fab fa-twitter"></i></a>
-                                                <a href="mailto:info@3gdesign.com" class="social-link-icon"><i class="far fa-envelope"></i></a>
+                                                <a href="mailto:info@3GDESIGNprinting.com" class="social-link-icon"><i class="far fa-envelope"></i></a>
                                                 
                                                 {% if session.get('admin_logged_in') %}
                                                     {% set current_user = Admin.query.get(session.get('admin_id')) if Admin else None %}

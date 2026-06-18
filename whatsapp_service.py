@@ -1,5 +1,5 @@
 """
-3G DESIGN — WhatsApp Business Cloud API service.
+3G Design — WhatsApp Business Cloud API service.
 Works locally (with port-forward URL) and on cloud (PythonAnywhere, custom domain).
 Credentials: DB (Embedded Signup) with .env fallback.
 """
@@ -94,7 +94,7 @@ def send_text(to_phone, body):
 def send_auto_reply(to_phone, customer_name=''):
     name_bit = f' {customer_name}' if customer_name else ''
     body = (
-        f"Thank you{name_bit} for contacting *3G DESIGN*!\n\n"
+        f"Thank you{name_bit} for contacting *3G Design*!\n\n"
         "We received your message and logged it in our system. "
         "Our team will respond shortly.\n\n"
         "Quality in Every Print — Excellence in Every Design."

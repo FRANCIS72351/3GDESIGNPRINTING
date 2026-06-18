@@ -220,7 +220,7 @@ def customer_lookup():
         customer = Customer.query.filter(Customer.phone.ilike(f'%{phone}%')).first()
         calls = CallLog.query.filter(CallLog.phone_number.ilike(f'%{phone}%')).order_by(CallLog.timestamp.desc()).limit(30).all()
         if customer:
-            orders = Order.query.filter_by(customer_id=customer.id).order_by(Order.date_ordered.desc()).all()
+            orders = Order.query.filter_by(customer_id=customer.id).order_by(Order.date_ordered.desc()).limit(50).all()
             documents = GeneratedDocument.query.filter_by(customer_name=customer.name).order_by(GeneratedDocument.created_at.desc()).limit(20).all()
     elif q:
         customer = Customer.query.filter(
@@ -229,7 +229,7 @@ def customer_lookup():
         if customer:
             phone = customer.phone or ''
             calls = CallLog.query.filter(CallLog.phone_number.ilike(f'%{phone}%')).order_by(CallLog.timestamp.desc()).limit(30).all() if phone else []
-            orders = Order.query.filter_by(customer_id=customer.id).order_by(Order.date_ordered.desc()).all()
+            orders = Order.query.filter_by(customer_id=customer.id).order_by(Order.date_ordered.desc()).limit(50).all()
             documents = GeneratedDocument.query.filter_by(customer_name=customer.name).order_by(GeneratedDocument.created_at.desc()).limit(20).all()
     else:
         recent_whatsapp = (

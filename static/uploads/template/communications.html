@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Communications Center - 3G DESIGN{% endblock %}
+{% block title %}Communications Center - 3G Design{% endblock %}
 
 {% block body_class %}admin-page{% endblock %}
 
@@ -112,7 +112,7 @@
                     {% if whatsapp_api_configured and whatsapp_status.display_phone %}
                     <div class="alert alert-success small py-2 mb-3">
                         <i class="fab fa-whatsapp me-1"></i>
-                        <strong>{{ whatsapp_status.business_name or '3G DESIGN' }}</strong>
+                        <strong>{{ brand_name(whatsapp_status.business_name or '3G Design', 'light', 'brand-wordmark--on-dark') }}</strong>
                         — {{ whatsapp_status.display_phone }}
                         {% if whatsapp_status.connected_at %}
                         <span class="text-muted">· connected {{ whatsapp_status.connected_at[:10] }}</span>

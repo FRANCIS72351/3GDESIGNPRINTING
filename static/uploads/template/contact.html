@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Contact Us - 3G DESIGN{% endblock %}
+{% block title %}Contact Us - 3G Design{% endblock %}
 
 {% block content %}
 <section class="contact-section pt-5">
@@ -35,7 +35,7 @@
                     <div class="mt-4 border rounded-3 overflow-hidden shadow-sm" id="webChatPanel">
                         <div class="px-3 py-2 text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, var(--brand-navy), #1a3a5c);">
                             <i class="fas fa-robot"></i>
-                            <span class="fw-semibold small">3G DESIGN Assistant</span>
+                            {{ brand_wordmark('light', 'brand-wordmark--on-dark small') }}<span class="small text-white-50"> Assistant</span>
                             <span class="badge bg-success ms-auto">Online</span>
                         </div>
                         <div id="webChatMessages" class="p-3 bg-white" style="height: 220px; overflow-y: auto; font-size: 0.9rem;"></div>
@@ -84,12 +84,16 @@
     const btn = document.getElementById('webChatSend');
     if (!box || !input || !btn) return;
 
-    function append(role, text) {
+    function append(role, text, asHtml) {
         const div = document.createElement('div');
         div.className = 'mb-2 ' + (role === 'user' ? 'text-end' : '');
-        div.innerHTML = role === 'user'
-            ? '<span class="badge bg-primary rounded-pill px-3 py-2">' + text.replace(/</g,'&lt;') + '</span>'
-            : '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text.replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>') + '</span>';
+        if (role === 'user') {
+            div.innerHTML = '<span class="badge bg-primary rounded-pill px-3 py-2">' + text.replace(/</g,'&lt;') + '</span>';
+        } else if (asHtml) {
+            div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text + '</span>';
+        } else {
+            div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text.replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>') + '</span>';
+        }
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
     }
@@ -126,7 +130,8 @@
 
     btn.addEventListener('click', send);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    append('assistant', 'Hello! I\'m the 3G DESIGN assistant. Ask about printing, prices, hours, or orders.');
+    const brandGreeting = {{ brand_wordmark('navy', 'brand-wordmark--inline')|tojson }};
+    append('assistant', 'Hello! I\\'m the ' + brandGreeting + ' assistant. Ask about printing, prices, hours, or orders.', true);
 })();
 </script>
 {% endblock %}

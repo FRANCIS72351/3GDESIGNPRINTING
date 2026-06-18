@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Dashboard - 3G DESIGN{% endblock %}
+{% block title %}Dashboard - 3G Design{% endblock %}
 
 {% block body_class %}admin-page dashboard-page{% endblock %}
 
@@ -9,9 +9,8 @@
     
     <div class="dashboard-header animate__animated animate__fadeIn p-4 mb-5 shadow-sm d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center">
-            <div class="logo-container me-4">
-                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN Logo" class="img-fluid dashboard-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div class="logo-placeholder logo-placeholder-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center rounded-circle shadow-sm" style="display:none;">3G</div>
+            <div class="me-4 d-none d-sm-block">
+                {{ brand_wordmark('navy', 'brand-wordmark--dashboard') }}
             </div>
             <div>
                 <h1 class="fw-bold text-dark mb-0 h2 tracking-tight">Command Center</h1>

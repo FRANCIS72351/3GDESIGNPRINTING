@@ -7,6 +7,8 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 
+from brand_mark import paste_brand_header_pil
+
 
 BRAND_NAVY = '#0B1F3A'
 BRAND_GOLD = '#C9A84C'
@@ -34,13 +36,17 @@ def _load_font(size, bold=False):
     return ImageFont.load_default()
 
 
+def _paste_brand_header(canvas, draw, app_root, x, y, img_height=22):
+    paste_brand_header_pil(canvas, draw, app_root, x, y, variant='gold', img_height=img_height)
+
+
 def build_whatsapp_text(cart_items):
     """Plain professional order text — no URLs, for WhatsApp chat body."""
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
 
     lines = [
-        '🛒 NEW ORDER — 3G DESIGN',
+        '🛒 NEW ORDER — 3G Design',
         '━━━━━━━━━━━━━━━━━━━━',
         '',
     ]
@@ -79,13 +85,12 @@ def generate_order_image(cart_items, token, app_root):
 
     canvas = Image.new('RGB', (width, height), BRAND_CREAM)
     draw = ImageDraw.Draw(canvas)
-    title_font = _load_font(22, bold=True)
     body_font = _load_font(16)
     small_font = _load_font(13)
     gold_font = _load_font(14, bold=True)
 
     draw.rectangle([0, 0, width, header_h], fill=BRAND_NAVY)
-    draw.text((pad, 22), '3G DESIGN', fill=BRAND_GOLD, font=title_font)
+    _paste_brand_header(canvas, draw, app_root, pad, 18, img_height=24)
     draw.text((pad, 48), 'ORDER RECEIPT', fill='#FFFFFF', font=small_font)
 
     y = header_h + pad // 2

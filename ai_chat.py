@@ -1,5 +1,5 @@
 """
-3G DESIGN — AI chat routes (web widget + Twilio WhatsApp gateway).
+3G Design — AI chat routes (web widget + Twilio WhatsApp gateway).
 Meta Cloud API AI replies are handled in whatsapp_service.process_incoming_message.
 """
 import os
@@ -62,7 +62,7 @@ def twilio_whatsapp_webhook():
 
     if not _ai_enabled():
         ai_reply = (
-            "Thank you for contacting 3G DESIGN! We received your message and will respond shortly."
+            "Thank you for contacting 3G Design! We received your message and will respond shortly."
         )
     else:
         try:

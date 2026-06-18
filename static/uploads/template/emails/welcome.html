@@ -1,10 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Welcome to 3G DESIGN!</title>
+    <title>Welcome to 3G Design!</title>
+    <style>
+        @font-face {
+            font-family: 'Ethnocentric';
+            src: url('{{ brand_base_url.rstrip("/") }}/static/fonts/Ethnocentric.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        .brand-wordmark { display: inline-flex; align-items: baseline; gap: 4px; vertical-align: middle; font-family: 'Ethnocentric', 'Arial Black', sans-serif; }
+        .brand-3g { font-family: 'Ethnocentric', 'Arial Black', sans-serif; letter-spacing: 0.04em; color: #0B1F3A; }
+        .brand-design { font-family: 'Ethnocentric', 'Arial Black', sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #0B1F3A; }
+    </style>
 </head>
 <body>
-    <h1>Welcome to 3G DESIGN, {{ name }}!</h1>
+    <h1>Welcome to {{ brand_wordmark_email(brand_base_url, 'navy') }}, {{ name }}!</h1>
     <p>Thank you for joining our community. We're excited to help you with all your printing needs.</p>
     <p>Our services include:</p>
     <ul>
@@ -14,8 +25,6 @@
         <li>And much more!</li>
     </ul>
     <p>If you have any questions, feel free to contact us.</p>
-    <p>Best regards,<br>The 3G DESIGN Team</p>
+    <p>Best regards,<br>The {{ brand_wordmark_email(brand_base_url, 'navy') }} Team</p>
 </body>
 </html>
-
-

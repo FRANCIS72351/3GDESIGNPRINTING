@@ -1,5 +1,5 @@
 /* ==========================================================================
-   3G DESIGN — Unified Design System
+   3G Design — Unified Design System
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
@@ -15,7 +15,8 @@
 
 @font-face {
     font-family: 'Ethnocentric';
-    src: url('fonts/Ethnocentric.ttf') format('truetype');
+    src: url('fonts/Ethnocentric.otf') format('opentype'),
+         url('fonts/Ethnocentric.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -57,8 +58,8 @@
     --radius-pill: 50px;
 
     --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-display: 'Cormorant Garamond', 'Evil Empire', Georgia, serif;
-    --font-brand: 'Cormorant Garamond', 'Ethnocentric', Georgia, serif;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-brand: 'Ethnocentric', 'Evil Empire', 'Arial Black', sans-serif;
 
     /* Bootstrap overrides for brand consistency */
     --bs-primary: var(--brand-gold);
@@ -110,10 +111,188 @@ h4, h5, h6, .subtitle {
     font-weight: 700;
 }
 
-.business-name {
+.business-name,
+.brand-name {
     font-family: var(--font-brand);
-    text-transform: uppercase;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--brand-navy);
+    text-transform: none;
+}
+
+/* Ethnocentric "3G" + " Design" wordmark (text, not PNG) */
+.brand-wordmark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.12em;
+    white-space: nowrap;
+    vertical-align: middle;
+    line-height: 1;
+    font-family: var(--font-brand);
+}
+
+.brand-3g {
+    font-family: var(--font-brand);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    font-size: 1em;
+    color: inherit;
+}
+
+.brand-design {
+    font-family: var(--font-brand);
+    font-weight: 400;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 1em;
+    color: inherit;
+    align-self: center;
+}
+
+.brand-wordmark--lockup .brand-3g,
+.brand-wordmark--lockup .brand-design {
+    font-size: 2.4rem;
+}
+
+.brand-wordmark--admin .brand-3g,
+.brand-wordmark--admin .brand-design {
+    font-size: 1.75rem;
+}
+
+.brand-wordmark--dashboard .brand-3g,
+.brand-wordmark--dashboard .brand-design {
+    font-size: 2rem;
+}
+
+.brand-wordmark--navy .brand-3g,
+.brand-wordmark--navy .brand-design {
+    color: var(--brand-navy);
+}
+
+.brand-wordmark--light .brand-3g,
+.brand-wordmark--light .brand-design,
+.brand-wordmark--white .brand-3g,
+.brand-wordmark--white .brand-design {
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--gold .brand-3g,
+.brand-wordmark--gold .brand-design {
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--nav {
+    margin-top: 5px;
+}
+
+.brand-wordmark--nav .brand-3g,
+.brand-wordmark--nav .brand-design {
+    font-size: 1.35rem;
+}
+
+.brand-wordmark--nav .brand-design {
+    letter-spacing: 0.16em;
+}
+
+.brand-wordmark--hero {
+    display: inline-flex;
+    justify-content: center;
+    align-items: baseline;
+    margin-top: 0.15rem;
+}
+
+.brand-wordmark--hero .brand-3g,
+.brand-wordmark--hero .brand-design {
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+}
+
+.brand-wordmark--hero .brand-design {
+    letter-spacing: 0.18em;
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--login .brand-3g,
+.brand-wordmark--login .brand-design {
+    font-size: 1.65rem;
+}
+
+.brand-wordmark--login .brand-design {
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--footer .brand-3g,
+.brand-wordmark--footer .brand-design {
+    font-size: 1.75rem;
+}
+
+.brand-wordmark--footer .brand-design {
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--receipt .brand-3g,
+.brand-wordmark--receipt .brand-design {
+    font-size: 1.4rem;
+}
+
+.brand-wordmark--receipt .brand-design {
+    color: var(--brand-navy);
+}
+
+.brand-wordmark--doc .brand-3g,
+.brand-wordmark--doc .brand-design {
+    font-size: 1.25rem;
+}
+
+.brand-wordmark--doc .brand-design {
+    color: var(--brand-navy);
+}
+
+.brand-wordmark--on-dark .brand-3g,
+.brand-wordmark--on-dark .brand-design {
+    color: var(--brand-gold-light);
+}
+
+.brand-wordmark--inline .brand-3g,
+.brand-wordmark--inline .brand-design {
+    font-size: 0.92em;
+}
+
+.brand-wordmark--inline .brand-design {
+    letter-spacing: 0.12em;
+}
+
+.brand-wordmark--marquee {
+    vertical-align: middle;
+}
+
+.brand-wordmark--marquee .brand-3g,
+.brand-wordmark--marquee .brand-design {
+    font-size: 2.6rem;
+}
+
+.brand-wordmark--marquee .brand-design {
+    letter-spacing: 0.2em;
+    color: #ffffff;
+}
+
+.brand-name--gold {
+    background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold), var(--brand-gold-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.brand-name--light {
+    color: var(--brand-gold-light);
+}
+
+.brand-name--on-dark {
+    color: #ffffff;
+}
+
+.business-name {
+    text-transform: none;
 }
 
 main {
@@ -256,14 +435,8 @@ img {
 }
 
 .brand-subtext {
-    font-family: var(--font-body);
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--brand-gold-light);
-    margin-top: 5px;
     line-height: 1;
+    text-transform: none;
 }
 
 .navbar-dark .navbar-nav .nav-link {
@@ -345,9 +518,6 @@ img {
 
 .footer-brand-title {
     color: #ffffff;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    font-size: 1.3rem;
 }
 
 .footer-link {
@@ -513,14 +683,11 @@ img {
 
 .hero-section h1 .hero-brand {
     display: block;
-    font-size: 1.15em;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold), var(--brand-gold-dark));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: 0.06em;
     margin-top: 0.15rem;
+}
+
+.receipt-brand {
+    line-height: 1;
 }
 
 .hero-tagline {
@@ -1129,10 +1296,28 @@ img {
     margin-bottom: 30px;
 }
 
+.login-logo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1.35rem;
+    margin: 0 auto 1.25rem;
+    background: linear-gradient(165deg, var(--brand-navy-deep) 0%, var(--brand-navy) 55%, #122a45 100%);
+    border: 2px solid var(--brand-gold);
+    border-radius: var(--radius-lg);
+    box-shadow:
+        0 10px 28px rgba(11, 31, 58, 0.28),
+        inset 0 1px 0 rgba(232, 213, 163, 0.12);
+}
+
+.login-logo-badge img,
 .login-header img {
     width: 150px;
     height: auto;
-    margin-bottom: 20px;
+    margin-bottom: 0;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
 }
 
 .login-header h2 {
@@ -1193,13 +1378,15 @@ img {
     margin-top: 20px;
 }
 
-.login-footer a {
+.login-footer a,
+.login-footer-link {
     color: var(--secondary-color);
     text-decoration: none;
     font-weight: 600;
 }
 
-.login-footer a:hover {
+.login-footer a:hover,
+.login-footer-link:hover {
     text-decoration: underline;
 }
 

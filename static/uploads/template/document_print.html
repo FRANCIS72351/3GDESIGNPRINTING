@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ doc.doc_number }} — 3G DESIGN</title>
+    <title>{{ doc.doc_number }} — 3G Design</title>
+    {% include '_favicon.html' %}
+    {% include '_brand_font.html' %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
@@ -50,6 +52,24 @@
             gap: 0.5rem;
             justify-content: center;
         }
+        .doc-logo-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.65rem 1rem;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(165deg, #071525 0%, var(--brand-navy) 55%, #122a45 100%);
+            border: 2px solid var(--brand-gold);
+            border-radius: 10px;
+            box-shadow: 0 8px 22px rgba(11, 31, 58, 0.22);
+        }
+        .doc-logo-badge img {
+            height: 52px;
+            width: auto;
+            display: block;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+        }
         @media print {
             body { background: #fff; }
             .doc-actions, .no-print { display: none !important; }
@@ -70,14 +90,16 @@
 
     <div class="doc-sheet">
         <div class="doc-header-bar">
-            <span>{{ company.name }}</span>
+            <span>{{ brand_wordmark('light', 'brand-wordmark--on-dark') }}</span>
             <span>{{ doc.doc_type|upper }}</span>
         </div>
         <div class="doc-body">
             <div class="row mb-4">
                 <div class="col-7">
-                    <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN" style="height:56px" onerror="this.style.display='none'">
-                    <h2 class="h4 fw-bold mt-2 mb-1" style="color:var(--brand-navy)">{{ company.name }}</h2>
+                    <div class="doc-logo-badge">
+                        <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G Design" onerror="this.style.display='none'">
+                    </div>
+                    <h2 class="h4 mb-1">{{ brand_wordmark('navy', 'brand-wordmark--doc') }}</h2>
                     <div class="small text-muted">
                         {{ company.address }}<br>
                         Tel: {{ company.phone }} · {{ company.email }}<br>
@@ -116,7 +138,7 @@
                 </thead>
                 <tbody>
                     {% set sym = 'L$' if (payload.currency or doc.currency) == 'LRD' else '$' %}
-                    {% for item in payload.items %}
+                    {% for item in payload['items'] %}
                     <tr>
                         <td>{{ loop.index }}</td>
                         <td>{{ item.description }}</td>
@@ -156,7 +178,7 @@
                     <div class="small text-muted">Authorized by</div>
                     <div style="border-bottom:1px solid #ccc;width:180px;margin:2rem 0 0.5rem"></div>
                     <div class="fw-semibold small">{{ payload.issued_by_name or 'Staff' }}</div>
-                    <div class="small text-muted">{{ company.name }}</div>
+                    <div class="small text-muted">{{ brand_wordmark('navy', 'brand-wordmark--doc') }}</div>
                 </div>
             </div>
         </div>

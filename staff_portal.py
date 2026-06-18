@@ -1,5 +1,5 @@
 """
-3G DESIGN — Staff portal, attendance clock-in/out, late-staff alerts.
+3G Design — Staff portal, attendance clock-in/out, late-staff alerts.
 """
 import os
 from datetime import datetime, time as datetime_time
@@ -7,8 +7,10 @@ from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for, current_app
 from flask_mail import Message
+from sqlalchemy import text
 
 from models import db, Admin, Attendance, DailyReport, Order, SystemSettings
+from server_stability import commit_with_retry
 
 staff_bp = Blueprint('staff', __name__)
 
@@ -48,6 +50,26 @@ def today_attendance_for(staff_id):
     ).order_by(Attendance.check_in.desc()).first()
 
 
+def _claim_late_staff_check(today):
+    """Only one worker runs the daily late-staff alert."""
+    settings = SystemSettings.query.first()
+    if not settings:
+        settings = SystemSettings(is_active=True)
+        db.session.add(settings)
+        commit_with_retry(db)
+
+    result = db.session.execute(
+        text(
+            'UPDATE system_settings '
+            'SET last_late_check_date = :today '
+            'WHERE id = :sid AND (last_late_check_date IS NULL OR last_late_check_date != :today)'
+        ),
+        {'today': today, 'sid': settings.id},
+    )
+    commit_with_retry(db)
+    return result.rowcount > 0
+
+
 def run_late_staff_check_if_due(mail, app):
     """Run at most once per business day after the grace period."""
     now = datetime.now()
@@ -56,18 +78,13 @@ def run_late_staff_check_if_due(mail, app):
     if now.time() < LATE_THRESHOLD:
         return
 
-    settings = SystemSettings.query.first()
-    if not settings:
-        settings = SystemSettings(is_active=True)
-        db.session.add(settings)
-        db.session.commit()
-
-    if settings.last_late_check_date == now.date():
+    if not _claim_late_staff_check(now.date()):
         return
 
-    check_for_late_staff(mail, app)
-    settings.last_late_check_date = now.date()
-    db.session.commit()
+    try:
+        check_for_late_staff(mail, app)
+    except Exception as exc:
+        current_app.logger.error(f'Late staff check failed: {exc}')
 
 
 def check_for_late_staff(mail, app):
@@ -86,7 +103,7 @@ def check_for_late_staff(mail, app):
 
 def send_late_notification(username, mail, app):
     msg_body = (
-        f"ALERT: {username} has not clocked in at 3G DESIGN as of "
+        f"ALERT: {username} has not clocked in at 3G Design as of "
         f"{LATE_THRESHOLD.strftime('%H:%M')}."
     )
     current_app.logger.warning(msg_body)
@@ -95,7 +112,7 @@ def send_late_notification(username, mail, app):
     if admin_email:
         try:
             mail.send(Message(
-                subject='3G DESIGN — Late Staff Alert',
+                subject='3G Design — Late Staff Alert',
                 sender=admin_email,
                 recipients=[admin_email],
                 body=msg_body,
@@ -174,7 +191,7 @@ def clock_in():
             status='Active',
         )
         db.session.add(record)
-        db.session.commit()
+        commit_with_retry(db)
         local_time = datetime.now().strftime('%I:%M %p')
         if datetime.now().time() > LATE_THRESHOLD:
             flash(f'Clocked in at {local_time} — marked as late.', 'warning')
@@ -195,7 +212,7 @@ def clock_out():
         flash('No active clock-in found for today.', 'warning')
     else:
         record.status = 'Logged Out'
-        db.session.commit()
+        commit_with_retry(db)
         flash('Clocked out. See you next shift!', 'success')
 
     if session.get('role') == 'staff':

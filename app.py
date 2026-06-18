@@ -18,6 +18,7 @@ import assemblyai as aai
 
 from werkzeug.utils import secure_filename
 from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response, current_app
+from markupsafe import Markup, escape
 from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -44,9 +45,13 @@ aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 
 # 3. Database Alignment
 # This points exactly to /home/FRANCIS72351/3G DESIGNPRINTING/3G_ERP_V1.db
-# Updated for 3G DESIGN Branding
+# Updated for 3G Design Branding
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, '3G_ERP_V1.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'connect_args': {'timeout': 30, 'check_same_thread': False},
+    'pool_pre_ping': True,
+}
 
 # ----------------------------------
 # 4. Folder Architecture
@@ -91,6 +96,9 @@ app.config['WEBHOOK_BASE_URL'] = os.getenv('WEBHOOK_BASE_URL', '').rstrip('/')
 db.init_app(app)
 mail = Mail(app)
 
+from server_stability import configure_sqlite, get_cached_system_settings, invalidate_settings_cache, run_in_background
+configure_sqlite(app, db)
+
 from call_tracking import call_bp
 app.register_blueprint(call_bp)
 
@@ -105,6 +113,47 @@ app.register_blueprint(ai_chat_bp)
 
 from staff_portal import staff_bp, run_late_staff_check_if_due, post_login_redirect
 app.register_blueprint(staff_bp)
+
+
+def _run_late_staff_check_safe(app_obj):
+    run_late_staff_check_if_due(mail, app_obj)
+
+
+def _static_url(filename):
+    from flask import url_for
+    return url_for('static', filename=filename)
+
+
+@app.template_global()
+def brand_lockup(variant='navy', extra_class=''):
+    from brand_mark import brand_wordmark_markup
+    return brand_wordmark_markup(_static_url, variant, extra_class, suffix=True, lockup=True)
+
+
+@app.template_global()
+def brand_wordmark(variant='navy', extra_class='', suffix=True):
+    from brand_mark import brand_wordmark_markup
+    return brand_wordmark_markup(_static_url, variant, extra_class, suffix)
+
+
+@app.template_global()
+def brand_name(name, variant='navy', extra_class=''):
+    from brand_mark import brand_name_markup
+    return brand_name_markup(name, _static_url, variant, extra_class)
+
+
+@app.template_global()
+def brand_wordmark_email(base_url, variant='navy', extra_class='', suffix=True):
+    from brand_mark import brand_wordmark_email_markup
+    return brand_wordmark_email_markup(base_url, variant, extra_class, suffix)
+
+
+@app.template_filter('brandify')
+def brandify_filter(text, variant='navy'):
+    """Replace 3G Design with Ethnocentric wordmark markup."""
+    from brand_mark import brandify_html
+    return brandify_html(text, _static_url, variant=variant)
+
 
 # ----------------------------------
 # Production Configuration for PythonAnywhere
@@ -217,6 +266,16 @@ def role_required(roles):
 # ----------------------------------
 # System Status Check
 # ----------------------------------
+@app.errorhandler(500)
+def handle_internal_error(error):
+    db.session.rollback()
+    current_app.logger.exception('Unhandled server error')
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    flash('Something went wrong. Please try again.', 'danger')
+    return redirect(request.referrer or url_for('home')), 302
+
+
 @app.before_request
 def check_system_status():
     # 1. Allow access to the Ghost Dashboard so YOU can turn it back on
@@ -230,16 +289,13 @@ def check_system_status():
             or request.path.startswith('/api/whatsapp')
             or request.path.startswith('/api/web/chat')):
         return
-    # Check if system is deactivated in DB
-    settings = SystemSettings.query.first()
-    if settings and not settings.is_active:
-        return render_template('system_locked.html', message=settings.lock_message), 403
+    # Check if system is deactivated in DB (cached to avoid a query on every hit)
+    settings = get_cached_system_settings(SystemSettings)
+    if settings and not settings.get('is_active', True):
+        return render_template('system_locked.html', message=settings.get('lock_message')), 403
 
     if not request.path.startswith('/static'):
-        try:
-            run_late_staff_check_if_due(mail, app)
-        except Exception:
-            pass
+        run_in_background(app, _run_late_staff_check_safe, app)
 
 # ----------------------------------
 # Public Routes
@@ -262,8 +318,11 @@ def contact():
 #----------------------------------
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'),
-                               'favicon.ico', mimetype='image/favicon.icon')
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon',
+    )
 #-----------------------------------
 # event route for the system
 #----------------------------------
@@ -402,7 +461,8 @@ def finalize_whatsapp_order(cart_items):
     db.session.add(receipt)
     db.session.commit()
 
-    try_notify_shop_via_api(enriched, message_text, image_rel, app.root_path)
+    app_obj = app._get_current_object()
+    run_in_background(app_obj, try_notify_shop_via_api, enriched, message_text, image_rel, app_obj.root_path)
     return token, message_text, image_rel
 
 
@@ -512,7 +572,7 @@ def order_receipt(token):
         first = items[0]
         preview_image = first.get('image_url') or absolute_product_image_url(first.get('image'))
     item_count = len(items)
-    title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G DESIGN"
+    title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
     description = ', '.join(i['product_name'] for i in items[:3])
     if item_count > 3:
         description += f' +{item_count - 3} more'
@@ -546,7 +606,7 @@ def checkout_whatsapp():
 @app.route("/voice", methods=['POST'])
 def voice():
     response = VoiceResponse()
-    response.say("Welcome to 3G DESIGN. Your call is being recorded for order accuracy.")
+    response.say("Welcome to 3G Design. Your call is being recorded for order accuracy.")
 
     call_sid = request.form.get('CallSid')
     from_number = request.form.get('From', 'Unknown')
@@ -584,6 +644,11 @@ def handle_recording():
         current_app.logger.warning("No recording URL received from Twilio.")
         return "No recording found", 400
 
+    run_in_background(app._get_current_object(), _process_call_recording, recording_url, from_number, call_sid, duration)
+    return "OK", 200
+
+
+def _process_call_recording(recording_url, from_number, call_sid, duration):
     transcript_text = None
     if os.getenv("ASSEMBLYAI_API_KEY"):
         try:
@@ -619,11 +684,10 @@ def handle_recording():
             db.session.add(new_call)
 
         db.session.commit()
-        return "OK", 200
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Recording save error: {e}")
-        return "Internal Server Error", 500
+        current_app.logger.error(f"Failed to save recording log: {e}")
+
 # ----------------------------------
 # Exponential Backoff Helper
 # ----------------------------------
@@ -691,9 +755,12 @@ def file_portal():
                          search_query=search_query, 
                          selected_date=selected_date)
 
-@app.route('/portal/upload', methods=['POST'])
+@app.route('/portal/upload', methods=['GET', 'POST'])
 @login_required
 def upload_file():
+    if request.method == 'GET':
+        return redirect(url_for('file_portal'))
+
     if 'files' not in request.files:
         flash('No files selected', 'error')
         return redirect(url_for('file_portal'))
@@ -759,7 +826,7 @@ def direct_sale_history():
             (Order.order_source.ilike(f"%{search}%"))
         )
 
-    orders = query.order_by(Order.date_ordered.desc()).all()
+    orders = query.order_by(Order.date_ordered.desc()).limit(150).all()
     return render_template("direct_sale_history.html", orders=orders, search=search)
 
 
@@ -861,7 +928,7 @@ def check_inventory_alerts(product):
     level = product_stock_level(product)
     if level <= (product.min_stock_threshold or 0):
         message_body = (
-            f"⚠️ 3G DESIGN INVENTORY ALERT ⚠️\n"
+            f"⚠️ 3G Design INVENTORY ALERT ⚠️\n"
             f"Item: {product.name} is running low!\n"
             f"Current Stock: {level}\n"
             f"Threshold: {product.min_stock_threshold}\n"
@@ -897,7 +964,7 @@ def trigger_order_sms(sale):
     name = customer.name if customer else 'Customer'
     amount = sale.amount or 0
     message_body = (
-        f"3G DESIGN: Order #{sale.id} confirmed for ${amount:.2f}. "
+        f"3G Design: Order #{sale.id} confirmed for ${amount:.2f}. "
         f"Thank you, {name}!"
     )
 
@@ -1132,7 +1199,7 @@ def reset_user_password(user_id):
 @login_required
 def inventory():
     products = Product.query.all()
-    logs = InventoryLog.query.order_by(InventoryLog.timestamp.desc()).all()
+    logs = InventoryLog.query.order_by(InventoryLog.timestamp.desc()).limit(200).all()
     admin_user = Admin.query.get(session.get('admin_id'))
     return render_template('inventory.html', products=products, logs=logs, admin=admin_user)
 
@@ -1217,15 +1284,19 @@ def edit_inventory_log(log_id):
 # Email Helper
 # ----------------------------------
 def send_welcome_email(customer_email, customer_name):
+    from site_config import get_public_site_url
+    from flask import request
+
     msg = Message(
-        subject="Welcome to 3G DESIGN!",
+        subject="Welcome to 3G Design!",
         sender=app.config['MAIL_USERNAME'],
         recipients=[customer_email]
     )
 
     msg.html = render_template(
         'emails/welcome.html',
-        name=customer_name
+        name=customer_name,
+        brand_base_url=get_public_site_url(request.url_root if request else None),
     )
 
     try:
@@ -1296,11 +1367,31 @@ def quick_capture():
         return redirect(url_for('staff.staff_portal'))
     return redirect(url_for('dashboard'))
 
+
+@app.route('/admin')
+def admin_root():
+    """Common shortcut — send staff to the right portal."""
+    if 'admin_logged_in' not in session:
+        return redirect(url_for('login'))
+    if session.get('role') == 'staff':
+        return redirect(url_for('staff.staff_portal'))
+    if session.get('role') == 'moderator':
+        return redirect(url_for('moderator_portal'))
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/moderator')
+@role_required(['moderator'])
+def moderator_portal():
+    user = Admin.query.get(session.get('admin_id'))
+    return render_template('moderator.html', user=user)
+
+
 @app.route("/dashboard")
 @role_required(['admin', 'moderator'])
 def dashboard():
-    calls = CallLog.query.order_by(CallLog.timestamp.desc()).all()
-    sales = Sale.query.all()
+    calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(50).all()
+    sales = Sale.query.order_by(Sale.timestamp.desc()).limit(100).all()
     products = Product.query.all()
     leaders = Leaders.query.all()
     reports = DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(5).all()
@@ -1392,7 +1483,7 @@ def login():
                 session['temp_admin_id'] = admin.id 
 
                 # Check if 2FA is set up
-                if not admin.two_fa_enabled:
+                if not admin.two_fa_enabled or not admin.otp_secret:
                     print("Redirecting to setup_2fa")  # Debug
                     return redirect(url_for('setup_2fa'))
                 
@@ -1413,14 +1504,22 @@ def login():
             
     return render_template('login.html')
 
+
+def resolve_2fa_admin():
+    """Resolve the account in an active 2FA setup/login flow."""
+    admin_id = session.get('temp_admin_id') or session.get('admin_id')
+    if not admin_id:
+        return None
+    return Admin.query.get(admin_id)
+
+
 @app.route('/setup-2fa')
 def setup_2fa():
-    if 'temp_admin_id' not in session:
-        return redirect(url_for('login'))
-        
-    admin = Admin.query.get(session['temp_admin_id'])
+    admin = resolve_2fa_admin()
     if not admin:
         return redirect(url_for('login'))
+
+    session['temp_admin_id'] = admin.id
     
     # Generate OTP secret if it doesn't exist
     if not admin.otp_secret:
@@ -1429,7 +1528,7 @@ def setup_2fa():
 
     # Generate TOTP URI for QR code
     totp = pyotp.TOTP(admin.otp_secret)
-    uri = totp.provisioning_uri(name="3G DESIGN Admin", issuer_name="3G DESIGN")
+    uri = totp.provisioning_uri(name="3G Design Admin", issuer_name="3G Design")
     
     # Generate QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -1457,36 +1556,71 @@ def setup_2fa():
 # ----------------------------------
 # 2FA Drift Helper
 # ----------------------------------
+def normalize_totp_token(token):
+    if token is None:
+        return None
+    digits = ''.join(ch for ch in str(token).strip() if ch.isdigit())
+    return digits if len(digits) == 6 else None
+
+
 def verify_totp_with_drift(admin, token, setup_mode=False):
-    totp = pyotp.TOTP(admin.otp_secret)
-    
-    # 1. Check with existing drift
-    if totp.verify(token, for_time=time.time() + (admin.time_drift or 0), valid_window=1):
+    if not admin or not admin.otp_secret:
+        return False
+
+    token = normalize_totp_token(token)
+    if not token:
+        return False
+
+    totp = pyotp.TOTP(admin.otp_secret.strip())
+    window = 10
+
+    # Standard check at server time (±5 minutes)
+    if totp.verify(token, valid_window=window):
         return True
-    
-    # 2. If setup or failed, scan for drift (up to 24 hours)
-    # This ensures "Auto-Sync" for any user on any device
-    search_range = 2880 # 24 hours in 30s steps
-    for i in range(-search_range, search_range):
-        offset = i * 30
-        if totp.verify(token, for_time=time.time() + offset):
-            admin.time_drift = offset
-            db.session.commit()
-            return True
-            
+
+    # Check using any drift saved from a previous successful sync
+    drift = admin.time_drift or 0
+    if drift and totp.verify(token, for_time=time.time() + drift, valid_window=window):
+        return True
+
+    # During setup, scan nearby intervals to auto-sync device clock drift
+    if setup_mode:
+        for i in range(-40, 41):
+            offset = i * 30
+            if totp.verify(token, for_time=time.time() + offset, valid_window=0):
+                admin.time_drift = offset
+                db.session.commit()
+                return True
+
     return False
+
+@app.route('/setup-2fa/reset', methods=['POST'])
+def setup_2fa_reset():
+    """Generate a fresh TOTP secret when the authenticator no longer matches."""
+    admin = resolve_2fa_admin()
+    if not admin:
+        return redirect(url_for('login'))
+
+    session['temp_admin_id'] = admin.id
+
+    admin.otp_secret = pyotp.random_base32()
+    admin.time_drift = 0
+    admin.two_fa_enabled = False
+    db.session.commit()
+    flash('Scan the new QR code with your authenticator app, then enter the code to finish setup.', 'info')
+    return redirect(url_for('setup_2fa'))
+
 
 @app.route('/verify-2fa-setup', methods=['POST'])
 def verify_2fa_setup():
-    if 'temp_admin_id' not in session:
-        return redirect(url_for('login'))
-        
     token = request.form.get('token')
-    admin = Admin.query.get(session['temp_admin_id'])
-    
+    admin = resolve_2fa_admin()
+
     if not admin:
         flash('Admin not found', 'danger')
         return redirect(url_for('login'))
+
+    session['temp_admin_id'] = admin.id
     
     if verify_totp_with_drift(admin, token, setup_mode=True):
         admin.two_fa_enabled = True
@@ -1521,16 +1655,15 @@ def verify_2fa_page():
     
     admin = Admin.query.get(session['temp_admin_id'])
     
-    if not admin or not admin.two_fa_enabled:
+    if not admin:
+        return redirect(url_for('login'))
+
+    if not admin.two_fa_enabled or not admin.otp_secret:
         return redirect(url_for('setup_2fa'))
     
     if request.method == 'POST':
         token = request.form.get('token')
         
-        if not admin:
-            flash('Unauthorized', 'danger')
-            return redirect(url_for('login'))
-
         now = time.time()
         wait_required = calculate_backoff(admin.failed_2fa_count)
         time_passed = now - (admin.last_attempt_time or 0)
@@ -1542,11 +1675,7 @@ def verify_2fa_page():
 
         admin.last_attempt_time = now
         
-        totp = pyotp.TOTP(admin.otp_secret)
-        # Debugging time drift (will show in server console)
-        print(f"DEBUG: Verifying 2FA for {admin.username}. Token: {token}, Expected: {totp.now()}, Drift allowed: 5 mins")
-        
-        if admin and totp.verify(token, valid_window=10):
+        if verify_totp_with_drift(admin, token):
             session.pop('temp_admin_id', None)
             session['admin_logged_in'] = True
             session['admin_id'] = admin.id
@@ -1566,7 +1695,7 @@ def verify_2fa_page():
         else:
             admin.failed_2fa_count += 1
             db.session.commit()
-            flash('Invalid 2FA token', 'danger')
+            flash('Invalid 2FA token. Check your authenticator app or use a recovery code to set up again.', 'danger')
     
     return render_template('verify_2fa.html')
 
@@ -1868,6 +1997,7 @@ def deactivate_system():
     if settings:
         settings.is_active = False
         db.session.commit()
+        invalidate_settings_cache()
         flash("SYSTEM DEACTIVATED")
     return redirect(url_for('ghost_dashboard'))
 
@@ -1878,6 +2008,7 @@ def activate_system():
     if settings:
         settings.is_active = True
         db.session.commit()
+        invalidate_settings_cache()
         flash("SYSTEM RESTORED")
     return redirect(url_for('ghost_dashboard'))
 
@@ -1928,25 +2059,29 @@ def reset_sessions():
 @app.route('/ghost-protocol/flush-cache', methods=['POST'])
 @login_required
 def flush_cache():
-    # Clear any cached data (if implemented)
-    # For now, just flash a message
+    invalidate_settings_cache()
     flash("System cache has been flushed.", "info")
     return redirect(url_for('ghost_dashboard'))
 
 @app.route('/ghost-protocol/db-backup', methods=['POST'])
 @login_required
 def db_backup():
-    # Create a backup of the database
-    import shutil
+    import sqlite3
     from datetime import datetime
-    
+
     db_path = os.path.join(basedir, '3G_ERP_V1.db')
-    
+
     if os.path.exists(db_path):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_path = f"{db_path}.backup_{timestamp}"
-        shutil.copy2(db_path, backup_path)
-        flash(f"Database backup created: {os.path.basename(backup_path)}", "success")
+        try:
+            with sqlite3.connect(db_path, timeout=30) as source:
+                with sqlite3.connect(backup_path) as dest:
+                    source.backup(dest)
+            flash(f"Database backup created: {os.path.basename(backup_path)}", "success")
+        except Exception as exc:
+            current_app.logger.error(f"Database backup failed: {exc}")
+            flash("Database backup failed. Try again when traffic is lower.", "danger")
     else:
         flash("Database file not found for backup.", "danger")
     

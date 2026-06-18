@@ -1,5 +1,5 @@
 """
-3G DESIGN — Billing: professional invoices & receipts
+3G Design — Billing: professional invoices & receipts
 """
 import io
 import json
@@ -15,14 +15,18 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+from sqlalchemy.exc import IntegrityError
+
 from models import db, Product, Customer, Order, OrderItem, GeneratedDocument, Admin
+from brand_mark import draw_brand_wordmark_pdf
+from server_stability import commit_with_retry
 
 billing_bp = Blueprint('billing', __name__)
 
 BRAND_NAVY = '#0B1F3A'
 BRAND_GOLD = '#C9A84C'
 COMPANY = {
-    'name': '3G DESIGN',
+    'name': '3G Design',
     'tagline': 'Quality in Every Print, Excellence in Every Design',
     'phone': '+231 77 532 3731',
     'email': 'info@3GDESIGNprinting.com',
@@ -144,20 +148,30 @@ def build_document_payload(doc_type, customer_data, items, currency='USD', payme
 
 
 def persist_document(payload, order_id=None):
-    doc = GeneratedDocument(
-        doc_type=payload['doc_type'],
-        doc_number=payload['doc_number'],
-        content=json.dumps(payload),
-        order_id=order_id,
-        customer_name=payload['customer'].get('name'),
-        total_amount=payload['total'],
-        currency=payload['currency'],
-        payment_status=payload['payment_status'],
-        issued_by=session.get('admin_id'),
-    )
-    db.session.add(doc)
-    db.session.commit()
-    return doc
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        doc_number = payload['doc_number'] if attempt == 0 else next_doc_number(payload['doc_type'])
+        doc = GeneratedDocument(
+            doc_type=payload['doc_type'],
+            doc_number=doc_number,
+            content=json.dumps({**payload, 'doc_number': doc_number}),
+            order_id=order_id,
+            customer_name=payload['customer'].get('name'),
+            total_amount=payload['total'],
+            currency=payload['currency'],
+            payment_status=payload['payment_status'],
+            issued_by=session.get('admin_id'),
+        )
+        db.session.add(doc)
+        try:
+            commit_with_retry(db)
+            payload['doc_number'] = doc_number
+            return doc
+        except IntegrityError:
+            db.session.rollback()
+            if attempt >= max_attempts - 1:
+                raise
+    raise RuntimeError('Could not allocate a unique document number')
 
 
 def create_order_from_items(customer, items, currency, payment_status, source='In-Store'):
@@ -197,23 +211,40 @@ def render_pdf(payload):
     p.setFillColor(navy)
     p.rect(0, height - 32, width, 32, fill=1, stroke=0)
     p.setFillColor(colors.white)
-    p.setFont('Helvetica-Bold', 11)
-    p.drawString(50, height - 22, COMPANY['name'])
+    draw_brand_wordmark_pdf(p, 50, height - 24, current_app.root_path, variant='light', img_height=12, suffix_size=9)
     p.drawRightString(width - 50, height - 22, doc_type.upper())
 
-    # Logo
+    # Logo on navy badge so gold/white artwork stays visible on white paper
     logo_path = os.path.join(current_app.root_path, 'static', 'img', 'LOGO.png')
     y_top = height - 100
+    badge_x = 42
+    badge_y = y_top - 16
+    badge_w = 118
+    badge_h = 68
+    gold = colors.HexColor(BRAND_GOLD)
     if os.path.exists(logo_path):
-        p.drawImage(logo_path, 50, y_top - 10, width=90, height=50, preserveAspectRatio=True, mask='auto')
+        p.setFillColor(navy)
+        p.roundRect(badge_x, badge_y, badge_w, badge_h, 6, fill=1, stroke=0)
+        p.setStrokeColor(gold)
+        p.setLineWidth(1.5)
+        p.roundRect(badge_x, badge_y, badge_w, badge_h, 6, fill=0, stroke=1)
+        p.drawImage(
+            logo_path,
+            badge_x + 12,
+            badge_y + 10,
+            width=94,
+            height=48,
+            preserveAspectRatio=True,
+            mask='auto',
+        )
 
+    company_x = 178
     p.setFillColor(colors.black)
-    p.setFont('Helvetica-Bold', 14)
-    p.drawString(160, y_top + 25, COMPANY['name'])
+    draw_brand_wordmark_pdf(p, company_x, y_top + 22, current_app.root_path, variant='navy', img_height=16, suffix_size=10)
     p.setFont('Helvetica', 9)
-    p.drawString(160, y_top + 10, COMPANY['address'])
-    p.drawString(160, y_top - 2, f"Tel: {COMPANY['phone']}  |  {COMPANY['email']}")
-    p.drawString(160, y_top - 14, COMPANY['web'])
+    p.drawString(company_x, y_top + 10, COMPANY['address'])
+    p.drawString(company_x, y_top - 2, f"Tel: {COMPANY['phone']}  |  {COMPANY['email']}")
+    p.drawString(company_x, y_top - 14, COMPANY['web'])
 
     # Doc meta box
     box_y = height - 175
@@ -304,8 +335,7 @@ def render_pdf(payload):
     p.line(50, 75, 200, 75)
     p.setFont('Helvetica-Bold', 9)
     p.drawString(50, 62, payload.get('issued_by_name', 'Staff'))
-    p.setFont('Helvetica', 8)
-    p.drawString(50, 50, COMPANY['name'])
+    draw_brand_wordmark_pdf(p, 50, 48, current_app.root_path, variant='navy', img_height=10, suffix_size=7)
 
     # Footer
     p.setFillColor(navy)

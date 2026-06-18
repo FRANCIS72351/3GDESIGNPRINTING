@@ -26,7 +26,7 @@
     <div class="container hero-container">
         <div class="hero-content text-center animate__animated animate__fadeIn">
             <span class="hero-eyebrow">Monrovia's Premier Print House</span>
-            <h1 class="animate__animated animate__fadeInDown">Welcome to <span class="hero-brand">3G DESIGN</span></h1>
+            <h1 class="animate__animated animate__fadeInDown">Welcome to {{ brand_wordmark('gold', 'hero-brand brand-wordmark--hero') }}</h1>
             <p class="hero-tagline animate__animated animate__fadeInUp animate__delay-1s">Where craftsmanship meets creative vision.</p>
             <div class="hero-divider"></div>
             <p class="animate__animated animate__fadeInUp animate__delay-1s">Creative Designs, Premium Prints, Powerful Impression.</p>
@@ -176,7 +176,7 @@
         <div class="row align-items-center">
             <div class="col-lg-6 animate__animated animate__fadeInLeft">
                 <span class="classic-heading-eyebrow">The 3G Difference</span>
-                <h2 class="classic-heading text-start mb-4">Why Choose 3G DESIGN?</h2>
+                <h2 class="classic-heading text-start mb-4">Why Choose {{ brand_wordmark('navy') }}?</h2>
                 <div class="classic-heading-divider start mb-4"><span>◆</span></div>
                 <p class="lead text-muted">With years of experience in the printing industry, we combine traditional craftsmanship with cutting-edge technology to deliver exceptional results.</p>
                 <ul class="list-unstyled mt-4">
@@ -187,7 +187,7 @@
                 </ul>
             </div>
             <div class="col-lg-6 animate__animated animate__fadeInRight">
-                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G DESIGN Workshop" class="img-fluid rounded-4 about-showcase-img">
+                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G Design Workshop" class="img-fluid rounded-4 about-showcase-img">
             </div>
         </div>
     </div>

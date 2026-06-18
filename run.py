@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 email='admin@press.com',
                 otp_secret=secret,
                 recovery_key=hashed_recovery,
-                two_fa_enabled=True  # Will be enabled after setup
+                two_fa_enabled=False  # Enabled only after /setup-2fa is completed
             )
             db.session.add(new_admin)
             db.session.commit()
@@ -78,6 +78,19 @@ if __name__ == '__main__':
         # --- END OF YOUR ORIGINAL LOGIC ---
 
     port = int(os.getenv('APP_PORT', '5001'))
-    print(f"Starting Production Server with Waitress...")
-    print(f"Server running on http://0.0.0.0:{port}")
-    serve(app, host='0.0.0.0', port=port, threads=4)
+    threads = int(os.getenv('WAITRESS_THREADS', '16'))
+    connection_limit = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '200'))
+    channel_timeout = int(os.getenv('WAITRESS_CHANNEL_TIMEOUT', '120'))
+    print("Starting Production Server with Waitress...")
+    print(f"Bind address: 0.0.0.0:{port} (all interfaces, threads={threads})")
+    print(f"Do not use http://0.0.0.0:{port}/ in your browser.")
+    print(f"Open in browser: http://127.0.0.1:{port}/")
+    print(f"Open in browser: http://localhost:{port}/")
+    serve(
+        app,
+        host='0.0.0.0',
+        port=port,
+        threads=threads,
+        channel_timeout=channel_timeout,
+        connection_limit=connection_limit,
+    )

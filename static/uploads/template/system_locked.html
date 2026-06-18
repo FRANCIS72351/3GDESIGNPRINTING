@@ -4,9 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SYSTEM LOCKED</title>
+    {% include '_favicon.html' %}
+    {% include '_brand_font.html' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body style="background: #000; color: #fff; text-align: center; padding-top: 100px; font-family: sans-serif;">
-    <h1 style="color: #ff4444;">3G DESIGN - CORE LOCKED</h1>
+    <div class="mb-4">{{ brand_wordmark('light', 'brand-wordmark--hero') }}</div>
+    <h1 style="color: #ff4444; font-size: 1.5rem;">Core Locked</h1>
     <p style="font-size: 1.2rem;">{{ message }}</p>
     <div style="margin-top: 50px; border: 1px solid #333; display: inline-block; padding: 20px;">
         <p>Status: <strong>Account Suspended</strong></p>
@@ -14,5 +18,3 @@
     </div>
 </body>
 </html>
-
-

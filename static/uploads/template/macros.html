@@ -1,0 +1,7 @@
+{% macro brand(variant='navy', class='') -%}
+{{ brand_wordmark(variant, class) }}
+{%- endmacro %}
+
+{% macro marquee_chunk() -%}
+{{ brand_wordmark('light', 'brand-wordmark--marquee') }} &nbsp;&bull;&nbsp; PREMIUM PRINTS &nbsp;&bull;&nbsp; CREATIVE ASSETS &nbsp;&bull;&nbsp;
+{%- endmacro %}

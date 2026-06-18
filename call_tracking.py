@@ -1,5 +1,5 @@
 """
-3G DESIGN — Communications & Call Tracking
+3G Design — Communications & Call Tracking
 Supports cloud (Twilio webhooks) and local desktop API logging.
 """
 import os
@@ -9,8 +9,9 @@ from functools import wraps
 from flask import Blueprint, request, jsonify, render_template, session, flash, redirect, url_for, current_app
 
 from models import db, CallLog
+from server_stability import run_in_background
 from site_config import get_public_site_url, get_whatsapp_webhook_url, whatsapp_env_status
-from whatsapp_service import is_configured as whatsapp_is_configured, process_incoming_message
+from whatsapp_service import is_configured as whatsapp_is_configured
 from whatsapp_credentials import disconnect_integration, get_verify_token
 
 call_bp = Blueprint('communications', __name__)
@@ -65,13 +66,20 @@ def create_call_log(data):
 def communications_portal():
     calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(100).all()
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_calls = CallLog.query.filter(CallLog.timestamp >= today_start).all()
-
     stats = {
-        'today_total': len(today_calls),
-        'today_whatsapp': sum(1 for c in today_calls if c.call_type and 'whatsapp' in c.call_type),
-        'today_local': sum(1 for c in today_calls if c.source == 'local_desktop'),
-        'today_cloud': sum(1 for c in today_calls if c.source == 'twilio_cloud'),
+        'today_total': CallLog.query.filter(CallLog.timestamp >= today_start).count(),
+        'today_whatsapp': CallLog.query.filter(
+            CallLog.timestamp >= today_start,
+            CallLog.call_type.ilike('%whatsapp%'),
+        ).count(),
+        'today_local': CallLog.query.filter(
+            CallLog.timestamp >= today_start,
+            CallLog.source == 'local_desktop',
+        ).count(),
+        'today_cloud': CallLog.query.filter(
+            CallLog.timestamp >= today_start,
+            CallLog.source == 'twilio_cloud',
+        ).count(),
         'all_total': CallLog.query.count(),
     }
 
@@ -180,7 +188,7 @@ def api_communications_status():
     """Health check for local tracker — no auth required."""
     wa = whatsapp_env_status()
     return jsonify({
-        'service': '3G DESIGN Communications API',
+        'service': '3G Design Communications API',
         'status': 'online',
         'local_tracking': bool(os.getenv('LOCAL_API_KEY', '').strip()),
         'twilio_configured': bool(os.getenv('TWILIO_ACCOUNT_SID') and os.getenv('TWILIO_AUTH_TOKEN')),
@@ -353,32 +361,42 @@ def whatsapp_webhook():
 
     try:
         payload = request.get_json(silent=True) or {}
-        logged = 0
-        app_root = current_app.root_path
-        for entry in payload.get('entry', []):
-            for change in entry.get('changes', []):
-                value = change.get('value', {})
-                for message in value.get('messages', []):
-                    process_incoming_message(message, value, app_root)
-                    logged += 1
-
-                for status in value.get('statuses', []):
-                    if status.get('status') == 'failed':
-                        phone = status.get('recipient_id', '')
-                        from whatsapp_service import phone_display
-                        create_call_log({
-                            'phone_number': phone_display(phone),
-                            'notes': f"Delivery failed: {status.get('errors', '')}",
-                            'call_type': 'whatsapp_message',
-                            'status': 'missed',
-                            'source': 'whatsapp_api',
-                            'call_sid': status.get('id'),
-                            'logged_by': 'whatsapp_api',
-                        })
-                        logged += 1
-
-        return jsonify({'success': True, 'logged': logged}), 200
+        app_obj = current_app._get_current_object()
+        run_in_background(app_obj, _process_whatsapp_webhook_payload, payload, app_obj.root_path)
+        queued = sum(
+            len(change.get('value', {}).get('messages', []))
+            for entry in payload.get('entry', [])
+            for change in entry.get('changes', [])
+        )
+        return jsonify({'success': True, 'queued': queued}), 200
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'WhatsApp webhook error: {e}')
         return jsonify({'error': 'Webhook processing failed'}), 500
+
+
+def _process_whatsapp_webhook_payload(payload, app_root):
+    from whatsapp_service import phone_display, process_incoming_message
+
+    logged = 0
+    for entry in payload.get('entry', []):
+        for change in entry.get('changes', []):
+            value = change.get('value', {})
+            for message in value.get('messages', []):
+                process_incoming_message(message, value, app_root)
+                logged += 1
+
+            for status in value.get('statuses', []):
+                if status.get('status') == 'failed':
+                    phone = status.get('recipient_id', '')
+                    create_call_log({
+                        'phone_number': phone_display(phone),
+                        'notes': f"Delivery failed: {status.get('errors', '')}",
+                        'call_type': 'whatsapp_message',
+                        'status': 'missed',
+                        'source': 'whatsapp_api',
+                        'call_sid': status.get('id'),
+                        'logged_by': 'whatsapp_api',
+                    })
+                    logged += 1
+    current_app.logger.info('WhatsApp webhook processed %s events', logged)
