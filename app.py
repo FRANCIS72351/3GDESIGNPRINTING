@@ -564,8 +564,15 @@ def finalize_whatsapp_order(cart_items):
         })
 
     token = secrets.token_urlsafe(16)
-    message_text = build_whatsapp_text(enriched)
     image_rel = generate_order_image(enriched, token, app.root_path)
+    base_url = get_public_base_url()
+    share_image_url = f"{base_url}/static/uploads/{image_rel}" if image_rel else None
+    share_page_url = f"{base_url}/order/share/{token}"
+    message_text = build_whatsapp_text(
+        enriched,
+        share_image_url=share_image_url,
+        share_page_url=share_page_url,
+    )
 
     total_usd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'LRD')
@@ -575,13 +582,14 @@ def finalize_whatsapp_order(cart_items):
         'total_lrd': round(total_lrd, 2),
         'message_text': message_text,
         'share_image': image_rel,
+        'share_image_url': share_image_url,
+        'share_page_url': share_page_url,
     }
     receipt = PendingReceipt(token=token, payload=json.dumps(payload))
     db.session.add(receipt)
     db.session.commit()
 
-    app_obj = app._get_current_object()
-    run_in_background(app_obj, try_notify_shop_via_api, enriched, message_text, image_rel, app_obj.root_path)
+    run_in_background(app, try_notify_shop_via_api, enriched, message_text, image_rel, app.root_path)
     return token, message_text, image_rel
 
 
@@ -665,14 +673,23 @@ def order_share_page(token):
     import json
     receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
     data = json.loads(receipt.payload)
+    items = data.get('items', [])
     image_rel = data.get('share_image', '')
-    message_text = data.get('message_text', build_whatsapp_text(data.get('items', [])))
-    image_url = url_for('static', filename=f'uploads/{image_rel}') if image_rel else url_for('static', filename='img/LOGO.png')
+    base_url = get_public_base_url()
+    image_url = data.get('share_image_url') or (
+        f"{base_url}/static/uploads/{image_rel}" if image_rel else f"{base_url}/static/img/LOGO.png"
+    )
+    message_text = data.get('message_text') or build_whatsapp_text(
+        items,
+        share_image_url=image_url,
+        share_page_url=data.get('share_page_url') or f"{base_url}/order/share/{token}",
+    )
     phone = WHATSAPP_NUMBER.lstrip('+')
     wa_fallback_url = f"https://wa.me/{phone}?text={urllib.parse.quote(message_text)}"
     return render_template(
         'order_share.html',
         token=token,
+        items=items,
         message_text=message_text,
         image_url=image_url,
         wa_phone=phone,
@@ -763,7 +780,7 @@ def handle_recording():
         current_app.logger.warning("No recording URL received from Twilio.")
         return "No recording found", 400
 
-    run_in_background(app._get_current_object(), _process_call_recording, recording_url, from_number, call_sid, duration)
+    run_in_background(app, _process_call_recording, recording_url, from_number, call_sid, duration)
     return "OK", 200
 
 

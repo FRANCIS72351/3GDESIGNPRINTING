@@ -40,8 +40,8 @@ def _paste_brand_header(canvas, draw, app_root, x, y, img_height=22):
     paste_brand_header_pil(canvas, draw, app_root, x, y, variant='gold', img_height=img_height)
 
 
-def build_whatsapp_text(cart_items):
-    """Plain professional order text — no URLs, for WhatsApp chat body."""
+def build_whatsapp_text(cart_items, *, share_image_url=None, share_page_url=None):
+    """Professional order text for WhatsApp — includes product image URLs when available."""
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
 
@@ -58,12 +58,23 @@ def build_whatsapp_text(cart_items):
         if variant and variant not in ('Base', 'Original Design'):
             lines.append(f"   Design: {variant}")
         lines.append(f"   Qty: {item['quantity']}  ·  {sym}{subtotal:.2f}")
+        img_url = item.get('image_url')
+        if img_url:
+            lines.append(f"   🖼 {img_url}")
         lines.append('')
     lines.append('━━━━━━━━━━━━━━━━━━━━')
     if total_usd:
         lines.append(f'💰 Total USD: ${total_usd:.2f}')
     if total_lrd:
         lines.append(f'💰 Total LRD: L${total_lrd:.2f}')
+    if share_image_url:
+        lines.append('')
+        lines.append('📋 Order summary image:')
+        lines.append(share_image_url)
+    if share_page_url:
+        lines.append('')
+        lines.append('🔗 View order:')
+        lines.append(share_page_url)
     lines.append('')
     lines.append('Please confirm availability and lead time. Thank you! 🙏')
     return '\n'.join(lines)

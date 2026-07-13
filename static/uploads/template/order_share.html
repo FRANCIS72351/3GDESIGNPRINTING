@@ -52,6 +52,35 @@
             max-height: 180px;
             overflow-y: auto;
         }
+        .product-thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #faf8f4;
+            border-bottom: 1px solid #eee;
+        }
+        .product-thumb {
+            width: 72px;
+            text-align: center;
+        }
+        .product-thumb img {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid var(--brand-gold);
+            background: #fff;
+        }
+        .product-thumb span {
+            display: block;
+            font-size: 0.65rem;
+            color: #666;
+            margin-top: 0.25rem;
+            line-height: 1.2;
+            max-height: 2.4em;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="share-order-page">
@@ -64,10 +93,22 @@
 
         <img src="{{ image_url }}" alt="Order preview" class="share-preview-img" id="orderImage">
 
+        {% if items %}
+        <div class="product-thumbs" aria-label="Product images in this order">
+            {% for item in items %}
+            <div class="product-thumb">
+                <img src="{{ item.image_url or url_for('static', filename='img/LOGO.png') }}"
+                     alt="{{ item.product_name }}">
+                <span>{{ item.product_name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="p-4">
             <p class="small text-muted mb-3">
                 <i class="fas fa-mobile-alt me-1 text-success"></i>
-                Tap the button below — WhatsApp will open with the <strong>order image attached</strong> and your order details as text.
+                Tap the button below — WhatsApp will open with the <strong>order image attached</strong>, product photo links in the message, and your order details as text.
             </p>
 
             <button type="button" class="btn share-btn-wa w-100 rounded-pill mb-2" id="shareBtn" onclick="sendOrderWhatsApp()">
