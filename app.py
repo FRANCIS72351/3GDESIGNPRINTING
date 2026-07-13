@@ -241,13 +241,14 @@ def brandify_filter(text, variant='navy'):
 # Ensure URLs are generated with correct scheme
 _pa_domain = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip() or os.environ.get('PYTHONANYWHERE_SITE', '').strip()
 app.config['PREFERRED_URL_SCHEME'] = 'https' if _pa_domain else 'http'
-from site_config import _read_env_url, _sanitize_public_url
+from site_config import _read_env_url, _sanitize_public_url, CANONICAL_CLOUD_SITE_URL
 
 _public_site = _read_env_url('PUBLIC_SITE_URL')
 if _public_site:
     app.config['PUBLIC_SITE_URL'] = _public_site
 elif _pa_domain:
-    app.config['PUBLIC_SITE_URL'] = _sanitize_public_url(f'https://{_pa_domain.lstrip("https://").lstrip("http://").strip("/")}')
+    cleaned = _sanitize_public_url(f'https://{_pa_domain.lstrip("https://").lstrip("http://").strip("/")}')
+    app.config['PUBLIC_SITE_URL'] = cleaned or CANONICAL_CLOUD_SITE_URL
 else:
     app.config['PUBLIC_SITE_URL'] = ''
 with app.app_context():
@@ -531,19 +532,30 @@ def event_portal():
 # Shopping Cart Logic
 # ----------------------------------
 
-from order_share import build_whatsapp_text, build_whatsapp_short_message, generate_order_image, try_notify_shop_via_api
-from site_config import get_whatsapp_number
+from order_share import (
+    build_order_copy_text,
+    build_wa_me_fallback_text,
+    build_whatsapp_text,
+    build_whatsapp_short_message,
+    generate_order_image,
+    try_notify_shop_via_api,
+)
+from site_config import CANONICAL_CLOUD_SITE_URL, get_whatsapp_number, _sanitize_public_url
 
 WHATSAPP_NUMBER = get_whatsapp_number()
 
 
 def get_public_base_url():
-    """Public URL for images, webhooks, and share links."""
+    """Public URL for images, webhooks, and share links — never bare pythonanywhere.com."""
     from site_config import get_public_site_url
-    configured = (app.config.get('PUBLIC_SITE_URL') or '').strip()
+    configured = _sanitize_public_url(app.config.get('PUBLIC_SITE_URL') or '')
     if configured:
-        return configured.rstrip('/')
-    return get_public_site_url(request.url_root if request else None)
+        return configured
+    url = get_public_site_url(request.url_root if request else None)
+    sanitized = _sanitize_public_url(url)
+    if sanitized:
+        return sanitized
+    return CANONICAL_CLOUD_SITE_URL
 
 
 def normalize_image_filename(image_value):
@@ -728,15 +740,20 @@ def order_share_page(token):
         url_for('static', filename=f'uploads/{image_rel}')
         if image_rel else url_for('static', filename='img/LOGO.png')
     )
-    short_message = build_whatsapp_short_message(items, share_page_url=share_page_url)
-    message_text = short_message
+    # Copy/paste text: order details only (no URL). Image goes via Web Share.
+    copy_text = build_order_copy_text(items)
+    short_message = copy_text
+    message_text = build_whatsapp_short_message(items, share_page_url=share_page_url)
     item_count = len(items)
     og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
     og_description = ', '.join(i.get('product_name', 'Product') for i in items[:3])
     if item_count > 3:
         og_description += f' +{item_count - 3} more'
     phone = WHATSAPP_NUMBER.lstrip('+')
-    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(short_message)}"
+    # Soft fallback: short hint only — NEVER dump long share URLs into wa.me (breaks on iPhone)
+    wa_hint = build_wa_me_fallback_text()
+    wa_chat_url = f"https://wa.me/{phone}"
+    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(wa_hint)}"
     product_images = [
         {
             'url': item.get('image_url') or absolute_product_image_url(item.get('image', '')),
@@ -754,11 +771,13 @@ def order_share_page(token):
         items=items,
         message_text=message_text,
         short_message=short_message,
+        copy_text=copy_text,
         image_url=image_url,
         image_fetch_url=image_fetch_url,
         share_page_url=share_page_url,
         product_images=product_images,
         wa_phone=phone,
+        wa_chat_url=wa_chat_url,
         wa_preview_url=wa_preview_url,
         og_title=og_title,
         og_description=og_description,

@@ -73,17 +73,10 @@ def _paste_thumbnail(canvas, draw, img_path, box, thumb_size, placeholder_font):
         draw.text((x0 + 28, y0 + 40), '3G', fill=BRAND_NAVY, font=placeholder_font)
 
 
-def build_whatsapp_text(cart_items, *, share_page_url=None):
+def build_order_copy_text(cart_items):
     """
-    Professional order text for WhatsApp — concise summary with share page link.
-    Raw image URLs in plain text do not render inline in WhatsApp chat.
-    """
-    return build_whatsapp_short_message(cart_items, share_page_url=share_page_url)
-
-
-def build_whatsapp_short_message(cart_items, *, share_page_url):
-    """
-    Concise WhatsApp text for wa.me fallback — share page link triggers og:image preview.
+    Order details for clipboard / paste AFTER the receipt image is shared.
+    No URLs — keeps WhatsApp chat image-first and avoids broken line-wrapped links.
     """
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
@@ -103,13 +96,35 @@ def build_whatsapp_short_message(cart_items, *, share_page_url):
         lines.append(f'💰 Total USD: ${total_usd:.2f}')
     if total_lrd:
         lines.append(f'💰 Total LRD: L${total_lrd:.2f}')
-    if share_page_url:
-        lines.append('')
-        lines.append('📋 View order with images:')
-        lines.append(share_page_url)
     lines.append('')
     lines.append('Please confirm availability and lead time. Thank you! 🙏')
     return '\n'.join(lines)
+
+
+def build_whatsapp_text(cart_items, *, share_page_url=None):
+    """
+    Professional order text for WhatsApp — concise summary with optional share page link.
+    Raw image URLs in plain text do not render inline in WhatsApp chat.
+    """
+    return build_whatsapp_short_message(cart_items, share_page_url=share_page_url)
+
+
+def build_whatsapp_short_message(cart_items, *, share_page_url=None):
+    """
+    Order text plus optional one-line share page URL (for copy / link fallback only).
+    Do not use as primary wa.me prefill — long URLs wrap badly in WhatsApp composer.
+    """
+    text = build_order_copy_text(cart_items)
+    if share_page_url:
+        url = str(share_page_url).strip()
+        if url:
+            text = f"{text}\n\n📋 View order: {url}"
+    return text
+
+
+def build_wa_me_fallback_text():
+    """Minimal wa.me prefill — never include long URLs (they break on mobile WhatsApp)."""
+    return '🛒 New order from 3G Design — receipt image attached separately. Please confirm.'
 
 
 def generate_order_image(cart_items, token, app_root):

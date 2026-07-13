@@ -15,6 +15,9 @@ _BARE_PYTHONANYWHERE_HOSTS = frozenset({
     'www.pythonanywhere.com',
 })
 
+# Canonical cloud host when env is missing/misconfigured (never bare pythonanywhere.com)
+CANONICAL_CLOUD_SITE_URL = 'https://3gdesign.pythonanywhere.com'
+
 
 def _read_env_url(key):
     """Read an env var and normalize it as a public URL (strip whitespace, trailing slashes)."""
@@ -80,7 +83,8 @@ def get_whatsapp_chat_url(text=None):
 def get_public_site_url(request_root=None):
     """
     Canonical public URL for webhooks, WhatsApp, and share links.
-    Priority: PUBLIC_SITE_URL → WEBHOOK_BASE_URL → PythonAnywhere → SITE_DOMAIN → request → localhost.
+    Priority: PUBLIC_SITE_URL → WEBHOOK_BASE_URL → PythonAnywhere → SITE_DOMAIN → request → cloud default → localhost.
+    Never returns bare pythonanywhere.com (rejected by _sanitize_public_url).
     """
     for env_key in ('PUBLIC_SITE_URL', 'WEBHOOK_BASE_URL'):
         explicit = _read_env_url(env_key)
@@ -99,6 +103,14 @@ def get_public_site_url(request_root=None):
         root = _sanitize_public_url(request_root.rstrip('/'))
         if root and not root.startswith('http://127.') and not root.startswith('http://localhost'):
             return root
+
+    # Production / PA with empty env — never invent a bare host; use known shop URL
+    if (
+        os.environ.get('PYTHONANYWHERE_DOMAIN')
+        or os.environ.get('PYTHONANYWHERE_SITE')
+        or os.getenv('FLASK_ENV', '').lower() == 'production'
+    ):
+        return CANONICAL_CLOUD_SITE_URL
 
     port = os.getenv('APP_PORT', '5001')
     return f'http://127.0.0.1:{port}'

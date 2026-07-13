@@ -15,16 +15,17 @@ _is_production = os.getenv('FLASK_ENV', '').lower() == 'production'
 if _is_production:
     application.config['DEBUG'] = False
     application.config['PREFERRED_URL_SCHEME'] = 'https'
-    from site_config import _read_env_url, _sanitize_public_url
+    from site_config import _read_env_url, _sanitize_public_url, CANONICAL_CLOUD_SITE_URL
 
     _public = _read_env_url('PUBLIC_SITE_URL')
     _pa = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip() or os.environ.get('PYTHONANYWHERE_SITE', '').strip()
     if _public:
         application.config['PUBLIC_SITE_URL'] = _public
     elif _pa:
-        application.config['PUBLIC_SITE_URL'] = _sanitize_public_url(
+        cleaned = _sanitize_public_url(
             f'https://{_pa.lstrip("https://").lstrip("http://").strip("/")}'
         )
+        application.config['PUBLIC_SITE_URL'] = cleaned or CANONICAL_CLOUD_SITE_URL
     else:
         application.config['PUBLIC_SITE_URL'] = ''
 

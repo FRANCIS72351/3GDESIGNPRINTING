@@ -9,8 +9,13 @@ os.environ.setdefault('PUBLIC_SITE_URL', 'https://example.test')
 
 from app import app, finalize_whatsapp_order, get_public_base_url
 from models import db, PendingReceipt
-from order_share import build_whatsapp_short_message, generate_order_image
-from site_config import _sanitize_public_url, get_public_site_url
+from order_share import (
+    build_order_copy_text,
+    build_wa_me_fallback_text,
+    build_whatsapp_short_message,
+    generate_order_image,
+)
+from site_config import CANONICAL_CLOUD_SITE_URL, _sanitize_public_url, get_public_site_url
 
 
 class WhatsAppOrderTests(unittest.TestCase):
@@ -52,6 +57,21 @@ class WhatsAppOrderTests(unittest.TestCase):
         url = get_public_site_url()
         self.assertEqual(url, 'https://3gdesign.pythonanywhere.com')
 
+    @patch.dict(
+        os.environ,
+        {
+            'PUBLIC_SITE_URL': '',
+            'WEBHOOK_BASE_URL': '',
+            'PYTHONANYWHERE_DOMAIN': '',
+            'PYTHONANYWHERE_SITE': '',
+            'FLASK_ENV': 'production',
+        },
+        clear=False,
+    )
+    def test_production_falls_back_to_canonical_cloud_url(self):
+        url = get_public_site_url()
+        self.assertEqual(url, CANONICAL_CLOUD_SITE_URL)
+
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_test.png')
     def test_finalize_whatsapp_order(self, _mock_image, _mock_bg):
@@ -77,6 +97,12 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIs(_mock_bg.call_args[0][0], app)
         self.assertEqual(_mock_bg.call_args[0][6], f'{base}/order/share/{token}')
 
+    def test_build_order_copy_text_has_no_url(self):
+        text = build_order_copy_text([self._sample_item()])
+        self.assertIn('Test Mug', text)
+        self.assertNotIn('http', text)
+        self.assertNotIn('order/share', text)
+
     def test_build_whatsapp_short_message_uses_share_link(self):
         items = [self._sample_item()]
         url = 'https://example.test/order/share/abc123'
@@ -84,6 +110,12 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('Test Mug', text)
         self.assertIn(url, text)
         self.assertNotIn('🖼', text)
+
+    def test_wa_me_fallback_has_no_long_url(self):
+        hint = build_wa_me_fallback_text()
+        self.assertNotIn('http', hint)
+        self.assertNotIn('pythonanywhere', hint)
+        self.assertNotIn('order/share', hint)
 
     def test_generate_order_image_creates_png(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,7 +204,12 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn(f'{base}/order/share/{token}', html)
         self.assertIn('Send to WhatsApp with Images', html)
         self.assertIn('sendOrderToWhatsApp', html)
+        self.assertIn('shareReceiptImageOnly', html)
+        self.assertIn('Copy order text', html)
         self.assertIn('wa.me/', html)
+        # wa.me must NOT be prefilled with the full multi-line share page URL
+        self.assertNotIn('order%2Fshare', html)
+        self.assertNotIn('View%20order', html)
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_abs.png')
@@ -185,6 +222,18 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('https://example.test/static/uploads/orders/order_abs.png', html)
         self.assertIn('https://example.test/order/share/', html)
         self.assertNotIn('https://pythonanywhere.com/', html)
+
+    @patch('app.run_in_background')
+    @patch('app.generate_order_image', return_value='orders/order_copy.png')
+    def test_order_share_copy_text_has_no_url(self, _mock_image, _mock_bg):
+        with app.test_request_context('/'):
+            token, _, _ = finalize_whatsapp_order([self._sample_item()])
+
+        r = self.client.get(f'/order/share/{token}')
+        html = r.get_data(as_text=True)
+        self.assertIn('const copyText =', html)
+        self.assertIn('Test Mug', html)
+        self.assertIn('files: [file]', html)
 
 
 if __name__ == '__main__':
