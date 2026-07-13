@@ -2,6 +2,30 @@
 3G DESIGN — Site URL & environment detection (local, VS port-forward, cloud).
 """
 import os
+import urllib.parse
+
+# Public social / click-to-chat (footer, contact page — not WhatsApp Business API)
+FACEBOOK_PAGE_URL = 'https://web.facebook.com/3gdesignprinting'
+WHATSAPP_DEFAULT_CHAT_TEXT = (
+    'Hello! I would like to inquire about your printing services.'
+)
+
+
+def get_whatsapp_number():
+    """E.164 number for click-to-chat links (from WHATSAPP_NUMBER env)."""
+    return os.getenv('WHATSAPP_NUMBER', '+231775323731').replace(' ', '')
+
+
+def get_whatsapp_wa_me_digits():
+    return get_whatsapp_number().lstrip('+')
+
+
+def get_whatsapp_chat_url(text=None):
+    """wa.me link for opening WhatsApp chat (separate from Business API webhooks)."""
+    base = f'https://wa.me/{get_whatsapp_wa_me_digits()}'
+    if text:
+        return f'{base}?text={urllib.parse.quote(text)}'
+    return base
 
 
 def get_public_site_url(request_root=None):

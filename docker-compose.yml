@@ -1,0 +1,27 @@
+services:
+  olatricity:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+      APP_PORT: "8000"
+      GUNICORN_BIND: "0.0.0.0:8000"
+      DATABASE_PATH: /data/3G_ERP_V1.db
+      LOG_DIR: /data/logs
+    volumes:
+      - olatricity_data:/data
+      - olatricity_uploads:/app/static/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  olatricity_data:
+  olatricity_uploads:

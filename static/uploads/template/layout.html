@@ -1,4 +1,4 @@
-﻿{% from 'macros.html' import marquee_chunk %}
+﻿{% from 'macros.html' import marquee_chunk, footer_social_links %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -112,11 +112,7 @@
                     <p class="text-white small lh-base mb-4">
                         Premium printing blueprints, dynamic brand architecture layouts, and high-fidelity graphic production matrices. Delivering precision workflow optimization across Monrovia and beyond.
                     </p>
-                    <div class="d-flex gap-2">
-                        <a href="#" class="social-btn"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#" class="social-btn"><i class="fab fa-instagram"></i></a>
-                        <a href="#" class="social-btn"><i class="fab fa-whatsapp"></i></a>
-                    </div>
+                    {{ footer_social_links() }}
                 </div>
                 
                 <div class="col-6 col-lg-2 offset-lg-1 animate__animated animate__fadeInUp animate__delay-1s">

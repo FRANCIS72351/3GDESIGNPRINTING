@@ -14,7 +14,7 @@
                 <p class="text-muted mb-0 small">Track income, expenses, and net balance</p>
             </div>
         </div>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+        <a href="{{ url_for('dashboard') if session.get('role') == 'admin' else url_for('moderator_portal') }}" class="btn btn-outline-secondary rounded-pill px-4">
             <i class="fas fa-arrow-left me-2"></i>Dashboard
         </a>
     </div>
@@ -66,6 +66,9 @@
             <div class="btn-group period-toggle shadow-sm rounded-pill p-1 bg-white">
                 <a href="{{ url_for('financials', period='daily') }}" class="btn {% if period == 'daily' %}btn-dark{% else %}btn-light{% endif %} rounded-pill px-4">Daily View</a>
                 <a href="{{ url_for('financials', period='weekly') }}" class="btn {% if period == 'weekly' %}btn-dark{% else %}btn-light{% endif %} rounded-pill px-4">Weekly View</a>
+                {% if show_annual %}
+                <a href="{{ url_for('financials', period='annual') }}" class="btn {% if period == 'annual' %}btn-dark{% else %}btn-light{% endif %} rounded-pill px-4">Annual (YTD)</a>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -110,8 +113,8 @@
                     <h5><i class="fas fa-plus-circle me-2"></i>Daily Sales</h5>
                 </div>
                 <div class="admin-card-body">
-                    <p class="small text-muted mb-3">Daily sales are recorded via the Dashboard "Daily Sales Recording" section.</p>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success btn-sm w-100">Go to Dashboard to record sales</a>
+                    <p class="small text-muted mb-3">Daily sales are recorded via the {% if session.get('role') == 'moderator' %}Moderator{% else %}Admin{% endif %} Dashboard.</p>
+                    <a href="{{ url_for('moderator_portal') if session.get('role') == 'moderator' else url_for('dashboard') }}" class="btn btn-outline-success btn-sm w-100">Go to Dashboard to record sales</a>
                 </div>
             </div>
         </div>
@@ -139,11 +142,15 @@
                                 <!-- Combined Income (Sales) -->
                                 {% for sale in sales %}
                                 <tr>
-                                    <td class="small">{{ sale.date_posted.strftime('%m/%d %H:%M') }}</td>
+                                    <td class="small">
+                                        {% if sale.effective_date %}{{ sale.effective_date.strftime('%m/%d/%Y') }}{% else %}{{ sale.date_posted.strftime('%m/%d %H:%M') }}{% endif %}
+                                    </td>
                                     <td><span class="badge bg-success">INCOME</span></td>
                                     <td>
-                                        <strong>Daily Sales</strong><br>
-                                        <small class="text-muted">{{ sale.report_text[:50] }}...</small>
+                                        <strong>{{ sale.payment_method_label }}</strong>
+                                        {% if sale.reference %}<span class="text-muted small"> · {{ sale.reference }}</span>{% endif %}
+                                        <br>
+                                        <small class="text-muted">{{ sale.report_text[:60] }}{% if sale.report_text|length > 60 %}…{% endif %}</small>
                                     </td>
                                     <td class="text-success fw-bold">+{{ '$' if sale.currency == 'USD' else 'L$' }}{{ "%.2f"|format(sale.total_sales) }}</td>
                                     <td class="small">{{ sale.staff_name }}</td>

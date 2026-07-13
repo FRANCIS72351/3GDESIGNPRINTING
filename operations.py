@@ -10,6 +10,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 
 from models import db, Order, OrderItem, Customer, PendingReceipt, CallLog, GeneratedDocument, Product
 from site_config import get_public_site_url, get_whatsapp_webhook_url, whatsapp_env_status
+from moderator_permissions import check_moderator_route_access
 
 operations_bp = Blueprint('operations', __name__)
 
@@ -26,7 +27,7 @@ PRODUCTION_STAGES = [
 STAGE_KEYS = [s[1] for s in PRODUCTION_STAGES]
 
 
-def ops_roles_required(*roles):
+def ops_roles_required(*roles, permission='operations'):
     def wrapper(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -34,6 +35,9 @@ def ops_roles_required(*roles):
                 return redirect(url_for('login'))
             if session.get('role') not in roles:
                 abort(403)
+            denied = check_moderator_route_access(permission)
+            if denied:
+                return denied
             return f(*args, **kwargs)
         return decorated
     return wrapper

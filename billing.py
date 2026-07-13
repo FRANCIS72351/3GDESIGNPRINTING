@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from models import db, Product, Customer, Order, OrderItem, GeneratedDocument, Admin
 from brand_mark import draw_brand_wordmark_pdf
 from server_stability import commit_with_retry
+from moderator_permissions import check_moderator_route_access
 
 billing_bp = Blueprint('billing', __name__)
 
@@ -35,7 +36,7 @@ COMPANY = {
 }
 
 
-def billing_roles_required(*roles):
+def billing_roles_required(*roles, permission='billing'):
     def wrapper(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -43,6 +44,9 @@ def billing_roles_required(*roles):
                 return redirect(url_for('login'))
             if session.get('role') not in roles:
                 abort(403)
+            denied = check_moderator_route_access(permission)
+            if denied:
+                return denied
             return f(*args, **kwargs)
         return decorated
     return wrapper

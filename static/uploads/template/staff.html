@@ -114,6 +114,8 @@
                 </div>
                 <div class="admin-card-body">
                     <form action="{{ url_for('submit_daily_report') }}" method="POST">
+                        <input type="hidden" name="report_date" value="{{ today.strftime('%Y-%m-%d') if today else '' }}">
+                        <input type="hidden" name="payment_method" value="other">
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">Summary</label>
                             <textarea name="report_text" class="form-control admin-textarea" rows="3" placeholder="What did you complete today?" required></textarea>

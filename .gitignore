@@ -32,6 +32,21 @@ instance/
 
 # Environment variables
 .env
+.env.production
+!.env.example
+!.env.production.example
+
+# SQLite WAL sidecar files
+*.db-shm
+*.db-wal
+*.backup_*
+
+# Logs
+logs/
+*.log
+
+# Docker local overrides
+docker-compose.override.yml
 
 # Static Uploads (optional - usually you don't want to commit user uploads)
 static/uploads/portal/*

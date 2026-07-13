@@ -2,24 +2,32 @@
 
 {% block title %}Moderator Portal - 3G Design{% endblock %}
 
-{% block body_class %}admin-page{% endblock %}
+{% block body_class %}admin-page dashboard-page moderator-page{% endblock %}
 
 {% block content %}
 <div class="container mt-5 mb-5">
-    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
+    <div class="dashboard-header animate__animated animate__fadeIn p-4 mb-4 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center">
-            <div class="admin-page-icon me-3">
-                <i class="fas fa-user-shield fa-lg"></i>
+            <div class="me-3 d-none d-sm-block">
+                {{ brand_wordmark('navy', 'brand-wordmark--dashboard') }}
             </div>
             <div>
                 <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Moderator Dashboard</h1>
-                <p class="text-muted mb-0 small">Welcome back, <strong>{{ session['username'] }}</strong></p>
+                <p class="text-muted mb-0 small">
+                    <i class="fas fa-user-shield text-warning me-2"></i>Welcome, <strong>{{ session['username'] }}</strong>
+                    <span class="badge bg-warning text-dark ms-2">Moderator</span>
+                </p>
             </div>
         </div>
-        <span class="role-badge bg-warning text-dark">Moderator Access</span>
+        <div class="text-end">
+            <span class="badge bg-soft-primary text-primary p-2 px-3 rounded-pill border border-primary border-opacity-25">
+                <i class="fas fa-calendar-day me-1"></i>
+                {% if today and today.strftime %}{{ today.strftime('%A, %B %d, %Y') }}{% endif %}
+            </span>
+        </div>
     </div>
 
-    {% if not user.two_factor_enabled %}
+    {% if not user.two_fa_enabled %}
     <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center rounded-3 mb-4" role="alert">
         <i class="fas fa-shield-alt me-3 fa-2x text-warning"></i>
         <div>
@@ -29,62 +37,242 @@
     </div>
     {% endif %}
 
-    <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="admin-card role-portal-card h-100">
-                <div class="card-header bg-white border-0 py-3 px-4">
-                    <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-tasks me-2"></i>Production Workflow</h5>
-                </div>
-                <div class="admin-card-body pt-0">
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('file_portal') }}" class="admin-action-link">
-                            <i class="fas fa-cloud-download-alt me-2"></i>Client File Portal
-                        </a>
-                        <a href="{{ url_for('staff_sales_history') }}" class="admin-action-link">
-                            <i class="fas fa-globe me-2"></i>Website Commerce Ledger
-                        </a>
-                        <a href="{{ url_for('file_portal') }}" class="admin-action-link">
-                            <i class="fas fa-file-upload me-2"></i>Upload Design Proofs
-                        </a>
-                        <a href="{{ url_for('direct_sale_history') }}" class="admin-action-link">
-                            <i class="fas fa-history me-2"></i>Direct Sale History
-                        </a>
-                        <a href="{{ url_for('file_portal') }}" class="admin-action-link">
-                            <i class="fas fa-hdd me-2"></i>Archive Access
-                        </a>
-                        <a href="{{ url_for('staff_sales_history') }}" class="admin-action-link">
-                            <i class="fas fa-chart-line me-2"></i>My Sales History
-                        </a>
-                        <a href="{{ url_for('financials') }}" class="admin-action-link">
-                            <i class="fas fa-dollar-sign me-2"></i>Financial Management
-                        </a>
-                        <a href="{{ url_for('billing.billing_portal') }}" class="admin-action-link">
-                            <i class="fas fa-file-invoice me-2"></i>Management Portal
-                        </a>
-                    </div>
-
-                    <hr class="my-4">
-
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('add_product') }}" class="btn btn-primary rounded-pill">
-                            <i class="fas fa-plus-circle me-2"></i>Post New Product
-                        </a>
-                        <a href="{{ url_for('inventory') }}" class="btn btn-warning text-dark fw-bold rounded-pill">
-                            <i class="fas fa-boxes me-2"></i>Inventory & Stock Management
-                        </a>
+    {% if 'financials' in permissions or 'daily_reports' in permissions %}
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <h6 class="text-uppercase text-muted fw-bold small mb-0 tracking-wide">
+                <i class="fas fa-chart-line me-2"></i>Performance Summary
+                <span class="text-muted fw-normal ms-2">Daily &amp; weekly records only</span>
+            </h6>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100 card-gradient-green text-white">
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase small fw-bold opacity-75 mb-3">
+                        <i class="fas fa-sun me-2"></i>{{ daily_stats.label }} — Manual Income
+                    </h6>
+                    <h3 class="fw-bold mb-1">${{ "%.2f"|format(daily_stats.income_usd) }}</h3>
+                    <h5 class="opacity-90 fw-normal mb-3">L${{ "%.2f"|format(daily_stats.income_lrd) }}</h5>
+                    <div class="d-flex justify-content-between small opacity-75 border-top border-white border-opacity-10 pt-2">
+                        <span>{{ daily_stats.report_count }} entr{{ 'y' if daily_stats.report_count == 1 else 'ies' }}</span>
+                        <span>Net: ${{ "%.2f"|format(daily_stats.net_usd) }}</span>
                     </div>
                 </div>
             </div>
         </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100 card-gradient-navy text-white">
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase small fw-bold opacity-75 mb-3">
+                        <i class="fas fa-calendar-week me-2"></i>{{ weekly_stats.label }} — Income
+                    </h6>
+                    <h3 class="fw-bold mb-1">${{ "%.2f"|format(weekly_stats.income_usd) }}</h3>
+                    <h5 class="opacity-90 fw-normal mb-3">L${{ "%.2f"|format(weekly_stats.income_lrd) }}</h5>
+                    <div class="d-flex justify-content-between small opacity-75 border-top border-white border-opacity-10 pt-2">
+                        <span>{{ weekly_stats.report_count }} report{{ 's' if weekly_stats.report_count != 1 else '' }}</span>
+                        <span>Net: ${{ "%.2f"|format(weekly_stats.net_usd) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-        <div class="col-lg-5">
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <a href="{{ url_for('about_settings') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 hover-lift bg-white">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h6 class="text-uppercase small fw-bold text-muted mb-1"><i class="fas fa-pencil-alt me-2 text-primary"></i>Edit About Page</h6>
+                                <p class="small text-muted mb-0">Post new company messaging, services, and hero slides.</p>
+                            </div>
+                            <span class="badge bg-soft-primary text-primary rounded-pill">Open</span>
+                        </div>
+                        <h4 class="fw-bold mb-0">About Content Manager</h4>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
             <div class="admin-card role-portal-card h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-th-large me-2"></i>Your Responsibilities</h5>
+                    <span class="badge bg-light text-muted border">{{ actions|length }} active</span>
+                </div>
+                <div class="admin-card-body pt-0">
+                    {% if actions %}
+                    <div class="row g-2">
+                        {% for action in actions %}
+                        <div class="col-md-6">
+                            {% if action.get('btn') %}
+                            <a href="{{ url_for(action.endpoint) }}" class="btn btn-{{ action.color }} {% if action.color == 'warning' %}text-dark fw-bold{% endif %} rounded-pill w-100 py-3 moderator-action-btn">
+                                <i class="fas {{ action.icon }} me-2"></i>{{ action.label }}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for(action.endpoint) }}" class="moderator-action-card d-block p-3 rounded-3 border h-100 text-decoration-none">
+                                <div class="d-flex align-items-start">
+                                    <div class="moderator-action-icon text-{{ action.color }} me-3">
+                                        <i class="fas {{ action.icon }} fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark small">{{ action.label }}</div>
+                                        <div class="text-muted" style="font-size:0.78rem;">{{ action.description }}</div>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-user-lock fa-2x mb-3 opacity-50"></i>
+                        <p class="mb-0 small">No responsibilities have been assigned to your account.<br>Contact an administrator to request access.</p>
+                    </div>
+                    {% endif %}
+
+                    {% if 'operations' in permissions and active_jobs is defined %}
+                    <div class="mt-4 p-3 bg-light rounded-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-medium">Production Pipeline</span>
+                            <div class="fw-bold text-dark">{{ active_jobs }} active jobs{% if pending_inbox %} · {{ pending_inbox }} inbox{% endif %}</div>
+                        </div>
+                        <a href="{{ url_for('operations.operations_hub') }}" class="btn btn-sm btn-outline-primary rounded-pill">Open Hub</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if 'daily_reports' in permissions or 'financials' in permissions %}
+            <div class="card border-0 shadow-sm p-4 mt-4 bg-white manual-income-card">
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-hand-holding-dollar text-success me-2"></i>Manual Daily Income
+                    </h5>
+                    <span class="badge bg-soft-success text-success border border-success border-opacity-25 rounded-pill px-3 py-2">
+                        <i class="fas fa-pen me-1"></i>Hand-entered
+                    </span>
+                </div>
+                <p class="text-muted small mb-4">
+                    Log each payment received today as a separate entry. Totals feed your daily and weekly performance summary above.
+                </p>
+                <form action="{{ url_for('submit_daily_report') }}" method="POST" id="manual-income-form" novalidate>
+                    <div class="manual-income-section mb-4">
+                        <div class="manual-income-section-label text-uppercase small fw-bold text-muted mb-3">
+                            <i class="fas fa-calendar-day me-1"></i>When &amp; How Much
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="report_date" class="form-label small fw-bold text-muted">Income Date</label>
+                                <input type="date" class="form-control bg-light rounded-pill" id="report_date" name="report_date" value="{{ today_income_date }}" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label for="total_sales" class="form-label small fw-bold text-muted">Amount Received</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 rounded-start-pill"><i class="fas fa-coins text-muted"></i></span>
+                                    <input type="number" step="0.01" min="0.01" class="form-control bg-light border-start-0 rounded-end-pill" id="total_sales" name="total_sales" required placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="currency" class="form-label small fw-bold text-muted">Currency</label>
+                                <select class="form-select bg-light rounded-pill" id="currency" name="currency">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="LRD">LRD (L$)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="manual-income-section mb-4">
+                        <div class="manual-income-section-label text-uppercase small fw-bold text-muted mb-3">
+                            <i class="fas fa-wallet me-1"></i>Payment Source
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="payment_method" class="form-label small fw-bold text-muted">Method</label>
+                                <select class="form-select bg-light rounded-pill" id="payment_method" name="payment_method" required>
+                                    {% for key, label in payment_methods.items() %}
+                                    <option value="{{ key }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="reference" class="form-label small fw-bold text-muted">Reference / Receipt # <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" class="form-control bg-light rounded-pill" id="reference" name="reference" maxlength="100" placeholder="e.g. MTN-88421, INV-1042">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="manual-income-section mb-4">
+                        <label for="report_text" class="form-label small fw-bold text-muted">Notes <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea class="form-control bg-light admin-textarea" id="report_text" name="report_text" rows="2" placeholder="Customer name, job description, or other context…"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 flex-wrap">
+                        <button type="reset" class="btn btn-outline-secondary rounded-pill px-4">
+                            <i class="fas fa-undo me-1"></i>Clear
+                        </button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4">
+                            <i class="fas fa-plus-circle me-2"></i>Log Income Entry
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {% if recent_reports %}
+            <div class="card border-0 shadow-sm p-4 mt-4 bg-white">
+                <h5 class="fw-bold text-dark mb-3">
+                    <i class="fas fa-clock-rotate-left me-2 text-muted"></i>Recent Manual Income
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small manual-income-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0 text-muted">Date</th>
+                                <th class="border-0 text-muted">Source</th>
+                                <th class="border-0 text-muted">Staff</th>
+                                <th class="border-0 text-muted">Ref</th>
+                                <th class="border-0 text-muted text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in recent_reports %}
+                            <tr>
+                                <td class="text-muted">
+                                    {% if report.effective_date %}{{ report.effective_date.strftime('%m/%d/%Y') }}{% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge manual-income-source-badge">{{ report.payment_method_label }}</span>
+                                </td>
+                                <td class="fw-medium">{{ report.staff_name }}</td>
+                                <td class="text-muted">{{ report.reference or '—' }}</td>
+                                <td class="text-end fw-bold text-success">
+                                    {{ '$' if report.currency == 'USD' else 'L$' }}{{ "%.2f"|format(report.total_sales) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            {% if 'attendance' in permissions %}
+            <div class="admin-card role-portal-card mb-4">
                 <div class="card-header bg-white border-0 py-3 px-4">
                     <h5 class="mb-0 fw-bold text-success"><i class="fas fa-user-check me-2"></i>Time Tracking</h5>
                 </div>
-                <div class="admin-card-body pt-0 d-flex flex-column">
-                    <p class="text-muted small mb-3">Clock in accurately for payroll records. Grace period until 8:15 AM.</p>
-                    <div class="d-grid gap-2 mt-auto">
+                <div class="admin-card-body pt-0">
+                    <p class="text-muted small mb-3">Clock in for payroll records. Grace period until 8:15 AM.</p>
+                    <div class="d-grid gap-2 mb-3">
                         <form action="{{ url_for('staff.clock_in') }}" method="POST">
                             <button type="submit" class="btn btn-success btn-lg rounded-pill py-3 w-100">
                                 <i class="fas fa-fingerprint me-2"></i>Clock In
@@ -94,17 +282,44 @@
                             <button type="submit" class="btn btn-outline-secondary rounded-pill py-2 w-100">Clock Out</button>
                         </form>
                     </div>
+                    {% if today_attendance %}
+                    <div class="small">
+                        <div class="text-muted fw-medium mb-2">Today's Team</div>
+                        {% for a in today_attendance[:5] %}
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span>{{ a.staff_name }}</span>
+                            <span class="text-muted">{{ a.check_in.strftime('%I:%M %p') if a.check_in else '—' }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
+            {% endif %}
 
-    <div class="text-center mt-4">
-        <div class="admin-card d-inline-block px-4 py-3">
-            <small class="text-muted">
-                <i class="fas fa-lock me-2"></i>
-                Financial documents (Invoices/Receipts) require <strong>Moderator</strong> or <strong>Admin</strong> authorization.
-            </small>
+            <div class="card border-0 shadow-sm p-4 bg-white">
+                <h6 class="fw-bold text-dark mb-3"><i class="fas fa-id-badge text-primary me-2"></i>Your Access Profile</h6>
+                <div class="d-flex flex-wrap gap-1 mb-3">
+                    {% for key, label in all_permissions.items() %}
+                    <span class="badge rounded-pill {% if key in permissions %}bg-soft-primary text-primary border border-primary border-opacity-25{% else %}bg-light text-muted text-decoration-line-through{% endif %} py-2 px-2" style="font-size:0.7rem;">
+                        {{ label }}
+                    </span>
+                    {% endfor %}
+                </div>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Annual and year-to-date records are reserved for administrators.
+                    {% if 'financials' in permissions %}
+                    <a href="{{ url_for('financials', period='weekly') }}" class="d-block mt-2">View weekly financials →</a>
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm rounded-pill px-4">
+                    <i class="fas fa-sign-out-alt me-1"></i>Sign Out
+                </a>
+            </div>
         </div>
     </div>
 </div>

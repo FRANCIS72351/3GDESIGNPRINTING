@@ -8,11 +8,12 @@ import io
 import base64
 import urllib.parse
 from datetime import datetime, timedelta, time as datetime_time
-from sqlalchemy import func
+from sqlalchemy import func, text as sa_text
 from twilio.twiml.voice_response import VoiceResponse
 from flask import send_from_directory
 # Removed flask_login import as we use a custom decorator
 from flask import Flask, render_template, request, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 
 import assemblyai as aai
 
@@ -25,8 +26,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime
 
-from models import db, Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
 from flask_mail import Mail, Message
+
+# Shared database instance for the app and models
+# This must be created before importing models.py so they can share the same db object.
+db = SQLAlchemy()
+
+from models import Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
 
 from security_utils import ERPSecurity
 security = ERPSecurity()
@@ -40,13 +46,27 @@ load_dotenv(os.path.join(basedir, '.env'))
 app = Flask(__name__, template_folder='static/uploads/template')
 
 # 2. Security & Keys
-app.secret_key = os.getenv('SECRET_KEY', 'fallback-key-for-dev-only')
+_is_production = os.getenv('FLASK_ENV', '').lower() == 'production'
+app.config['DEBUG'] = not _is_production and os.getenv('FLASK_DEBUG', '1').lower() in ('1', 'true', 'yes')
+_secret = os.getenv('SECRET_KEY', '').strip()
+if _is_production and not _secret:
+    raise RuntimeError('SECRET_KEY must be set in the environment when FLASK_ENV=production')
+app.secret_key = _secret or 'fallback-key-for-dev-only'
 aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 
-# 3. Database Alignment
-# This points exactly to /home/FRANCIS72351/3G DESIGNPRINTING/3G_ERP_V1.db
-# Updated for 3G Design Branding
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, '3G_ERP_V1.db')
+# 3. Database Alignment (override with DATABASE_PATH on AWS EBS, e.g. /var/lib/olatricity/data/3G_ERP_V1.db)
+def _resolve_database_path():
+    explicit = os.getenv('DATABASE_PATH', '').strip()
+    if explicit:
+        return os.path.abspath(explicit)
+    return os.path.join(basedir, '3G_ERP_V1.db')
+
+_database_file = _resolve_database_path()
+_db_dir = os.path.dirname(_database_file)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+app.config['DATABASE_FILE'] = _database_file
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + _database_file.replace('\\', '/')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'timeout': 30, 'check_same_thread': False},
@@ -64,6 +84,10 @@ PRODUCT_FOLDER = os.path.join(basedir, 'static/uploads')
 app.config['PRODUCT_FOLDER'] = PRODUCT_FOLDER
 os.makedirs(PRODUCT_FOLDER, exist_ok=True)
 
+AD_VIDEO_FOLDER = os.path.join(basedir, 'static/uploads/ads')
+app.config['AD_VIDEO_FOLDER'] = AD_VIDEO_FOLDER
+os.makedirs(AD_VIDEO_FOLDER, exist_ok=True)
+
 # File upload settings for large storage capacity
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
 
@@ -75,7 +99,10 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
 # 6. Ghost Admin Identity
-GHOST_USER = os.getenv('GHOST_ADMIN_USER')
+def get_ghost_username():
+    return os.getenv('GHOST_ADMIN_USER', 'ghost_admin').strip() or 'ghost_admin'
+
+GHOST_USER = get_ghost_username()
 
 # 7. Twilio (cloud voice/SMS) — optional
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
@@ -96,7 +123,16 @@ app.config['WEBHOOK_BASE_URL'] = os.getenv('WEBHOOK_BASE_URL', '').rstrip('/')
 db.init_app(app)
 mail = Mail(app)
 
-from server_stability import configure_sqlite, get_cached_system_settings, invalidate_settings_cache, run_in_background
+from server_stability import (
+    ABOUT_CONTENT_COLUMN_MIGRATIONS,
+    configure_sqlite,
+    ensure_system_settings,
+    ensure_table_columns,
+    get_about_content,
+    get_cached_system_settings,
+    invalidate_settings_cache,
+    run_in_background,
+)
 configure_sqlite(app, db)
 
 from call_tracking import call_bp
@@ -112,6 +148,21 @@ from ai_chat import ai_chat_bp
 app.register_blueprint(ai_chat_bp)
 
 from staff_portal import staff_bp, run_late_staff_check_if_due, post_login_redirect
+from moderator_permissions import (
+    ALL_MODERATOR_PERMISSIONS,
+    INCOME_PAYMENT_METHODS,
+    ROUTE_PERMISSION_MAP,
+    can_log_manual_income,
+    compute_period_stats,
+    daily_report_period_filter,
+    income_log_permission_required,
+    moderator_has_permission,
+    parse_manual_income_form,
+    parse_moderator_permissions,
+    permissions_from_form,
+    serialize_permissions,
+    visible_dashboard_actions,
+)
 app.register_blueprint(staff_bp)
 
 
@@ -122,6 +173,17 @@ def _run_late_staff_check_safe(app_obj):
 def _static_url(filename):
     from flask import url_for
     return url_for('static', filename=filename)
+
+
+@app.route('/health')
+def health_check():
+    """Load balancer / monitoring probe — no auth required."""
+    try:
+        db.session.execute(sa_text('SELECT 1'))
+        return jsonify({'status': 'ok', 'database': 'connected'}), 200
+    except Exception as exc:
+        current_app.logger.error('Health check failed: %s', exc)
+        return jsonify({'status': 'error', 'database': 'unavailable'}), 503
 
 
 @app.template_global()
@@ -148,6 +210,18 @@ def brand_wordmark_email(base_url, variant='navy', extra_class='', suffix=True):
     return brand_wordmark_email_markup(base_url, variant, extra_class, suffix)
 
 
+@app.template_global()
+def social_facebook_url():
+    from site_config import FACEBOOK_PAGE_URL
+    return FACEBOOK_PAGE_URL
+
+
+@app.template_global()
+def social_whatsapp_url(text=None):
+    from site_config import get_whatsapp_chat_url
+    return get_whatsapp_chat_url(text)
+
+
 @app.template_filter('brandify')
 def brandify_filter(text, variant='navy'):
     """Replace 3G Design with Ethnocentric wordmark markup."""
@@ -168,10 +242,15 @@ def brandify_filter(text, variant='navy'):
 app.config['PREFERRED_URL_SCHEME'] = 'https' if os.environ.get('PYTHONANYWHERE_DOMAIN') else 'http'
 with app.app_context():
     db.create_all()
-    from sqlalchemy import text
+    ensure_system_settings(db, SystemSettings)
+    from sqlalchemy import inspect, text
+    existing_tables = set(inspect(db.engine).get_table_names())
     with db.engine.connect() as conn:
         # Tables and their required columns
         migrations = {
+            'user': [
+                ("password_hash", "VARCHAR(128)")
+            ],
             'product': [
                 ("currency", "VARCHAR(10) DEFAULT 'USD'")
             ],
@@ -183,8 +262,10 @@ with app.app_context():
             'admin': [
                 ("last_login_at", "DATETIME"),
                 ("last_login_ip", "VARCHAR(100)"),
-                ("time_drift", "INTEGER DEFAULT 0")
+                ("time_drift", "INTEGER DEFAULT 0"),
+                ("moderator_permissions", "TEXT"),
             ],
+            'about_content': ABOUT_CONTENT_COLUMN_MIGRATIONS,
             'order': [
                 ("order_source", "VARCHAR(50)"),
                 ("date_ordered", "DATETIME"),
@@ -220,9 +301,23 @@ with app.app_context():
             'system_settings': [
                 ("last_late_check_date", "DATE"),
             ],
+            'inventory_log': [
+                ("reason", "VARCHAR(50)"),
+                ("reference", "VARCHAR(100)"),
+                ("item_name", "VARCHAR(200)"),
+                ("item_sku", "VARCHAR(100)"),
+                ("unit", "VARCHAR(30)"),
+            ],
+            'daily_report': [
+                ("report_date", "DATE"),
+                ("payment_method", "VARCHAR(30)"),
+                ("reference", "VARCHAR(100)"),
+            ],
         }
         
         for table, columns in migrations.items():
+            if table not in existing_tables:
+                continue
             for col_name, col_type in columns:
                 try:
                     # Check if column exists
@@ -258,8 +353,31 @@ def role_required(roles):
                 flash(f"Unauthorized. Your role ({user_role}) does not have access to this area.", "danger")
                 if user_role == 'staff':
                     return redirect(url_for('staff.staff_portal'))
+                if user_role == 'moderator':
+                    return redirect(url_for('moderator_portal'))
                 return redirect(url_for('home'))
             return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def moderator_permission_required(perm):
+    """Enforce granular moderator responsibility; admins always pass."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'admin_logged_in' not in session:
+                return redirect(url_for('login'))
+            role = session.get('role')
+            if role == 'admin':
+                return f(*args, **kwargs)
+            if role == 'moderator':
+                admin = Admin.query.get(session.get('admin_id'))
+                if moderator_has_permission(admin, perm):
+                    return f(*args, **kwargs)
+                flash('You do not have permission for this responsibility.', 'danger')
+                return redirect(url_for('moderator_portal'))
+            flash('Unauthorized access.', 'danger')
+            return redirect(url_for('login'))
         return decorated_function
     return decorator
 
@@ -377,8 +495,9 @@ def event_portal():
 # ----------------------------------
 
 from order_share import build_whatsapp_text, generate_order_image, try_notify_shop_via_api
+from site_config import get_whatsapp_number
 
-WHATSAPP_NUMBER = os.getenv('WHATSAPP_NUMBER', '+231775323731').replace(' ', '')
+WHATSAPP_NUMBER = get_whatsapp_number()
 
 
 def get_public_base_url():
@@ -701,59 +820,147 @@ UPLOAD_FOLDER = 'static/uploads/leaders'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def _normalize_portal_subpath(subpath):
+    """Sanitize a relative path inside a date folder."""
+    if not subpath:
+        return ''
+    cleaned = subpath.replace('\\', '/').strip('/')
+    parts = [p for p in cleaned.split('/') if p and p not in ('.', '..')]
+    return '/'.join(parts)
+
+
+def _portal_path_within_date(portal_root, date_folder, subpath=''):
+    """Resolve and validate a directory inside a date folder."""
+    base = os.path.normpath(os.path.join(portal_root, date_folder))
+    current = os.path.normpath(os.path.join(base, _normalize_portal_subpath(subpath)))
+    if current == base or current.startswith(base + os.sep):
+        return base, current
+    return base, base
+
+
+def _format_file_size(size):
+    if size < 1024:
+        return f'{int(size)} B'
+    for unit in ('KB', 'MB', 'GB'):
+        size /= 1024
+        if size < 1024:
+            return f'{size:.1f} {unit}'
+    return f'{size:.1f} TB'
+
+
+def _portal_file_meta(full_path, rel_path):
+    stat = os.stat(full_path)
+    name = os.path.basename(rel_path)
+    ext = os.path.splitext(name)[1].lower()
+    return {
+        'name': name,
+        'path': rel_path.replace('\\', '/'),
+        'size': stat.st_size,
+        'size_label': _format_file_size(stat.st_size),
+        'modified': datetime.fromtimestamp(stat.st_mtime),
+        'ext': ext,
+    }
+
+
+def _list_portal_directory(portal_root, date_folder, subpath=''):
+    base, current = _portal_path_within_date(portal_root, date_folder, subpath)
+    folders = []
+    files = []
+    if not os.path.isdir(current):
+        return folders, files, _normalize_portal_subpath(subpath)
+
+    try:
+        for item in os.listdir(current):
+            full = os.path.join(current, item)
+            rel = os.path.relpath(full, base).replace('\\', '/')
+            if os.path.isdir(full):
+                folders.append({'name': item, 'path': rel})
+            elif os.path.isfile(full):
+                files.append(_portal_file_meta(full, rel))
+    except OSError:
+        pass
+
+    folders.sort(key=lambda x: x['name'].lower())
+    files.sort(key=lambda x: x['name'].lower())
+    return folders, files, os.path.relpath(current, base).replace('\\', '/') if current != base else ''
+
+
+def _portal_breadcrumbs(subpath):
+    crumbs = []
+    accumulated = ''
+    for part in _normalize_portal_subpath(subpath).split('/'):
+        if not part:
+            continue
+        accumulated = f'{accumulated}/{part}' if accumulated else part
+        crumbs.append({'name': part, 'path': accumulated})
+    return crumbs
+
+
+def _portal_search_files(portal_root, date_folders, search_query):
+    results = []
+    needle = search_query.lower()
+    for date_folder in date_folders:
+        date_path = os.path.join(portal_root, date_folder)
+        try:
+            for root, _, filenames in os.walk(date_path):
+                for filename in filenames:
+                    rel_path = os.path.relpath(os.path.join(root, filename), date_path).replace('\\', '/')
+                    if needle in rel_path.lower() or needle in filename.lower():
+                        full = os.path.join(root, filename)
+                        meta = _portal_file_meta(full, rel_path)
+                        meta['date_folder'] = date_folder
+                        results.append(meta)
+        except OSError:
+            continue
+    results.sort(key=lambda x: (x['date_folder'], x['path']), reverse=True)
+    return results
+
+
 @app.route('/admin/file-portal')
 @login_required
+@moderator_permission_required('files')
 def file_portal():
-    search_query = request.args.get('search', '').lower()
-    selected_date = request.args.get('date', '')
-    
-    # Get all date folders
+    search_query = request.args.get('search', '').strip()
+    selected_date = request.args.get('date', '').strip()
+    current_path = _normalize_portal_subpath(request.args.get('path', ''))
+    portal_root = app.config['PORTAL_FOLDER']
+
     try:
-        all_items = os.listdir(app.config['PORTAL_FOLDER'])
-        date_folders = [item for item in all_items if os.path.isdir(os.path.join(app.config['PORTAL_FOLDER'], item))]
-        date_folders.sort(reverse=True)  # Most recent first
-    except:
+        all_items = os.listdir(portal_root)
+        date_folders = [
+            item for item in all_items
+            if os.path.isdir(os.path.join(portal_root, item))
+        ]
+        date_folders.sort(reverse=True)
+    except OSError:
         date_folders = []
-    
+
+    folders = []
     files = []
-    if selected_date and selected_date in date_folders:
-        # List all files and folders in selected date folder recursively
-        date_path = os.path.join(app.config['PORTAL_FOLDER'], selected_date)
-        try:
-            all_files = []
-            for root, dirs, filenames in os.walk(date_path):
-                for filename in filenames:
-                    rel_path = os.path.relpath(os.path.join(root, filename), date_path)
-                    all_files.append(rel_path)
-            
-            if search_query:
-                files = [f for f in all_files if search_query in f.lower()]
-            else:
-                files = all_files
-        except:
-            files = []
-    elif search_query:
-        # Search across all date folders
-        files = []
-        for date_folder in date_folders:
-            date_path = os.path.join(app.config['PORTAL_FOLDER'], date_folder)
-            try:
-                all_files = []
-                for root, dirs, filenames in os.walk(date_path):
-                    for filename in filenames:
-                        rel_path = os.path.relpath(os.path.join(root, filename), date_path)
-                        all_files.append(rel_path)
-                
-                matching_files = [f"{date_folder}/{f}" for f in all_files if search_query in f.lower()]
-                files.extend(matching_files)
-            except:
-                pass
-    
-    return render_template('file_portal.html', 
-                         date_folders=date_folders, 
-                         files=files, 
-                         search_query=search_query, 
-                         selected_date=selected_date)
+    search_results = []
+    breadcrumbs = []
+
+    if search_query:
+        search_results = _portal_search_files(portal_root, date_folders, search_query)
+    elif selected_date and selected_date in date_folders:
+        folders, files, current_path = _list_portal_directory(portal_root, selected_date, current_path)
+        breadcrumbs = _portal_breadcrumbs(current_path)
+    elif selected_date and selected_date not in date_folders:
+        flash('That folder no longer exists.', 'warning')
+        selected_date = ''
+
+    return render_template(
+        'file_portal.html',
+        date_folders=date_folders,
+        folders=folders,
+        files=files,
+        search_results=search_results,
+        search_query=search_query,
+        selected_date=selected_date,
+        current_path=current_path,
+        breadcrumbs=breadcrumbs,
+        today_folder=datetime.now().strftime('%Y-%m-%d'),
+    )
 
 @app.route('/portal/upload', methods=['GET', 'POST'])
 @login_required
@@ -770,35 +977,45 @@ def upload_file():
         flash('No files selected', 'error')
         return redirect(url_for('file_portal'))
     
-    # Determine the date folder
-    selected_date = request.args.get('date')
+    selected_date = request.form.get('date') or request.args.get('date')
+    upload_path = _normalize_portal_subpath(request.form.get('path') or request.args.get('path', ''))
+
     if selected_date:
         date_folder_name = selected_date
     else:
         date_folder_name = datetime.now().strftime('%Y-%m-%d')
-    
+
     date_folder = os.path.join(app.config['PORTAL_FOLDER'], date_folder_name)
     os.makedirs(date_folder, exist_ok=True)
-    
+
     uploaded_count = 0
     for file in files:
         if file and file.filename:
-            # Check if it's a folder upload (has webkitRelativePath)
-            relative_path = getattr(file, 'webkitRelativePath', file.filename)
-            
-            # Create subdirectories if needed
+            webkit_path = getattr(file, 'webkitRelativePath', None)
+            if webkit_path:
+                relative_path = webkit_path.replace('\\', '/')
+            elif upload_path:
+                relative_path = f'{upload_path}/{file.filename}'
+            else:
+                relative_path = file.filename
+
             full_path = os.path.join(date_folder, relative_path)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
+            parent = os.path.dirname(full_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+
             file.save(full_path)
             uploaded_count += 1
-    
+
     if uploaded_count > 0:
-        flash(f"Successfully uploaded {uploaded_count} file(s) to {date_folder_name} folder!", 'success')
+        flash(f'Successfully uploaded {uploaded_count} file(s) to {date_folder_name}!', 'success')
     else:
         flash('No files were uploaded', 'warning')
-    
-    return redirect(url_for('file_portal', date=selected_date))
+
+    redirect_kwargs = {'date': date_folder_name}
+    if upload_path:
+        redirect_kwargs['path'] = upload_path
+    return redirect(url_for('file_portal', **redirect_kwargs))
 
 # Billing routes are in billing.py (invoices, receipts, admin_portal, PDF generation)
 
@@ -815,6 +1032,7 @@ def roles_required(*roles):
 
 @app.route('/direct-sale-history')
 @roles_required('admin', 'moderator')
+@moderator_permission_required('sales')
 def direct_sale_history():
     search = request.args.get('search', '')
     query = Order.query
@@ -984,6 +1202,7 @@ def trigger_order_sms(sale):
 
 @app.route("/admin/staff-sales")
 @login_required
+@moderator_permission_required('sales')
 def staff_sales_history():
     # Show personal sales history for the logged-in staff
     staff_id = session.get('admin_id')
@@ -1019,7 +1238,7 @@ def add_leader():
 @app.route("/about")
 def about():
     leaders = Leaders.query.all()
-    content = AboutContent.query.first()
+    content = get_about_content(db, AboutContent)
     return render_template("about.html", leaders=leaders, content=content)
 
 # ----------------------------------
@@ -1028,15 +1247,20 @@ def about():
 @app.route("/admin/about-settings", methods=['GET', 'POST'])
 @login_required
 def about_settings():
-    content = AboutContent.query.first()
-    if not content:
-        content = AboutContent(description="", services="")
-        db.session.add(content)
-        db.session.commit()
+    content = get_about_content(db, AboutContent)
 
     if request.method == 'POST':
         content.description = request.form.get('description')
         content.services = request.form.get('service')
+        content.ad_title = request.form.get('ad_title', '')
+        content.ad_description = request.form.get('ad_description', '')
+
+        ad_video_file = request.files.get('ad_video_file')
+        if ad_video_file and ad_video_file.filename:
+            filename = secure_filename(ad_video_file.filename)
+            os.makedirs(app.config['AD_VIDEO_FOLDER'], exist_ok=True)
+            ad_video_file.save(os.path.join(app.config['AD_VIDEO_FOLDER'], filename))
+            content.ad_video_file = filename
 
         for i in range(1, 4):
             file = request.files.get(f'slider{i}')
@@ -1050,22 +1274,55 @@ def about_settings():
 
     return render_template('admin_about.html', content=content)
 
+@app.route("/admin/about-settings/delete", methods=['POST'])
+@login_required
+def delete_about_content():
+    current_admin = Admin.query.get(session.get('admin_id'))
+    if not current_admin or current_admin.role != 'admin':
+        flash('Permission denied. Only Admins can reset About page content.', 'danger')
+        return redirect(url_for('about_settings'))
+
+    content = get_about_content(db, AboutContent)
+    content.description = ""
+    content.services = ""
+    content.ad_title = ""
+    content.ad_description = ""
+    content.ad_video_file = ""
+    content.slider1 = "slider.1.jpg"
+    content.slider2 = "slider.2.jpg"
+    content.slider3 = "slider.3.jpg"
+    db.session.commit()
+    flash('About page content has been reset to defaults.', 'success')
+
+    return redirect(url_for('about_settings'))
+
 @app.route("/admin/financials")
 @login_required
+@moderator_permission_required('financials')
 def financials():
     # Get filters
-    period = request.args.get('period', 'daily') # daily, weekly
-    
+    period = request.args.get('period', 'daily')  # daily, weekly, annual (admin only)
+
+    if period == 'annual' and session.get('role') == 'moderator':
+        flash('Annual financial records are restricted to administrators.', 'warning')
+        return redirect(url_for('financials', period='weekly'))
+
     from datetime import timedelta
     now = datetime.utcnow()
-    
+
     if period == 'weekly':
         start_date = now - timedelta(days=7)
+        period_key = 'weekly'
+    elif period == 'annual':
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_key = 'annual'
     else:
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period = 'daily'
+        period_key = 'daily'
 
-    # Fetch Sales (Income) and Expenses
-    sales_recs = DailyReport.query.filter(DailyReport.date_posted >= start_date).order_by(DailyReport.date_posted.desc()).all()
+    period_filter = daily_report_period_filter(period_key)
+    sales_recs = DailyReport.query.filter(period_filter).order_by(DailyReport.date_posted.desc()).all()
     expenses = Expense.query.filter(Expense.timestamp >= start_date).order_by(Expense.timestamp.desc()).all()
     
     total_income_usd = sum(s.total_sales for s in sales_recs if s.currency == 'USD')
@@ -1074,18 +1331,20 @@ def financials():
     total_expense_lrd = sum(e.amount for e in expenses if e.currency == 'LRD')
     
     admin_user = Admin.query.get(session.get('admin_id'))
-    return render_template('financials.html', 
-                         sales=sales_recs, 
-                         expenses=expenses, 
-                         total_income_usd=total_income_usd, 
-                         total_income_lrd=total_income_lrd, 
-                         total_expense_usd=total_expense_usd, 
-                         total_expense_lrd=total_expense_lrd, 
+    return render_template('financials.html',
+                         sales=sales_recs,
+                         expenses=expenses,
+                         total_income_usd=total_income_usd,
+                         total_income_lrd=total_income_lrd,
+                         total_expense_usd=total_expense_usd,
+                         total_expense_lrd=total_expense_lrd,
                          period=period,
-                         admin=admin_user)
+                         admin=admin_user,
+                         show_annual=session.get('role') == 'admin')
 
 @app.route("/admin/expense/add", methods=['POST'])
 @login_required
+@moderator_permission_required('financials')
 def add_expense():
     amount = float(request.form.get('amount', 0))
     description = request.form.get('description')
@@ -1135,6 +1394,16 @@ def edit_sale(report_id):
         report.total_sales = float(request.form.get('total_sales'))
         report.report_text = request.form.get('report_text')
         report.currency = request.form.get('currency', 'USD')
+        payment_method = (request.form.get('payment_method') or 'other').strip()
+        if payment_method in INCOME_PAYMENT_METHODS:
+            report.payment_method = payment_method
+        report.reference = (request.form.get('reference') or '').strip() or None
+        report_date_raw = (request.form.get('report_date') or '').strip()
+        if report_date_raw:
+            try:
+                report.report_date = datetime.strptime(report_date_raw, '%Y-%m-%d').date()
+            except ValueError:
+                pass
         db.session.commit()
         flash('Sale report updated successfully.', 'success')
         return redirect(url_for('financials'))
@@ -1195,56 +1464,202 @@ def reset_user_password(user_id):
     flash(f'Password reset for {user_to_reset.username}. Temporary password: {temp_password}', 'warning')
     return redirect(url_for('team_management'))
 
+INVENTORY_IN_REASONS = {
+    'purchase': 'Purchase / Supplier delivery',
+    'return_in': 'Customer return',
+    'transfer_in': 'Transfer in',
+    'restock': 'Restock',
+    'adjustment': 'Stock adjustment',
+    'other': 'Other',
+}
+INVENTORY_OUT_REASONS = {
+    'sale': 'Sale / Customer order',
+    'transfer_out': 'Transfer out',
+    'damaged': 'Damaged / Write-off',
+    'sample': 'Sample / Promo',
+    'adjustment': 'Stock adjustment',
+    'other': 'Other',
+}
+
+
+def _sync_product_stock(product):
+    product.stock_quantity = product.stock
+
+
+def _parse_inventory_quantity(raw):
+    try:
+        qty = int(raw)
+    except (TypeError, ValueError):
+        return None, 'Please enter a valid whole-number quantity.'
+    if qty < 1:
+        return None, 'Quantity must be at least 1.'
+    return qty, None
+
+
+def _parse_inventory_form(form):
+    product_id_raw = (form.get('product_id') or '').strip()
+    item_name = (form.get('item_name') or '').strip()
+    item_sku = (form.get('item_sku') or '').strip() or None
+    unit = (form.get('unit') or '').strip() or None
+    transaction_type = (form.get('transaction_type') or '').strip().upper()
+    quantity, qty_err = _parse_inventory_quantity(form.get('quantity'))
+    notes = (form.get('notes') or '').strip() or None
+    reference = (form.get('reference') or '').strip() or None
+    reason = (form.get('reason') or '').strip() or None
+
+    if not item_name:
+        return None, 'Please enter an item name.'
+    if len(item_name) > 200:
+        return None, 'Item name must be 200 characters or fewer.'
+    if item_sku and len(item_sku) > 100:
+        return None, 'SKU / description must be 100 characters or fewer.'
+    if unit and len(unit) > 30:
+        return None, 'Unit must be 30 characters or fewer.'
+    if transaction_type not in ('IN', 'OUT'):
+        return None, 'Please select Goods In or Goods Out.'
+    if qty_err:
+        return None, qty_err
+
+    product_id = None
+    if product_id_raw:
+        try:
+            product_id = int(product_id_raw)
+        except (TypeError, ValueError):
+            return None, 'Invalid catalog product link.'
+
+    valid_reasons = INVENTORY_IN_REASONS if transaction_type == 'IN' else INVENTORY_OUT_REASONS
+    if reason and reason not in valid_reasons:
+        return None, 'Please select a valid reason for this transaction type.'
+
+    return {
+        'product_id': product_id,
+        'item_name': item_name,
+        'item_sku': item_sku,
+        'unit': unit,
+        'transaction_type': transaction_type,
+        'quantity': quantity,
+        'notes': notes,
+        'reference': reference,
+        'reason': reason,
+    }, None
+
+
+def _apply_inventory_stock(product, transaction_type, quantity):
+    if transaction_type == 'IN':
+        product.stock += quantity
+    elif product.stock < quantity:
+        return False, f'Insufficient stock for {product.name}. Available: {product.stock}'
+    else:
+        product.stock -= quantity
+    _sync_product_stock(product)
+    return True, None
+
+
+def _reverse_inventory_stock(product, transaction_type, quantity):
+    if transaction_type == 'IN':
+        product.stock -= quantity
+    else:
+        product.stock += quantity
+    _sync_product_stock(product)
+
+
+def _inventory_reason_label(transaction_type, reason_key):
+    if not reason_key:
+        return '—'
+    reasons = INVENTORY_IN_REASONS if transaction_type == 'IN' else INVENTORY_OUT_REASONS
+    return reasons.get(reason_key, reason_key.replace('_', ' ').title())
+
+
+app.jinja_env.globals['inventory_reason_label'] = _inventory_reason_label
+
+
 @app.route("/admin/inventory")
 @login_required
+@moderator_permission_required('inventory')
 def inventory():
-    products = Product.query.all()
+    products = Product.query.order_by(Product.name).all()
     logs = InventoryLog.query.order_by(InventoryLog.timestamp.desc()).limit(200).all()
     admin_user = Admin.query.get(session.get('admin_id'))
-    return render_template('inventory.html', products=products, logs=logs, admin=admin_user)
+    product_stocks = {p.id: p.stock for p in products}
+    product_catalog = [
+        {
+            'id': p.id,
+            'name': p.name,
+            'stock': p.stock,
+            'category': p.category or '',
+            'sku': (p.description or '')[:80] if p.description else '',
+        }
+        for p in products
+    ]
+    return render_template(
+        'inventory.html',
+        products=products,
+        logs=logs,
+        admin=admin_user,
+        product_stocks=product_stocks,
+        product_catalog=product_catalog,
+        in_reasons=INVENTORY_IN_REASONS,
+        out_reasons=INVENTORY_OUT_REASONS,
+    )
+
 
 @app.route("/admin/inventory/log", methods=['POST'])
 @login_required
+@moderator_permission_required('inventory')
 def log_inventory():
-    product_id = request.form.get('product_id')
-    quantity = int(request.form.get('quantity'))
-    transaction_type = request.form.get('transaction_type')
-    notes = request.form.get('notes')
-
-    product = Product.query.get(product_id)
-    if not product:
-        flash('Product not found.', 'danger')
+    data, err = _parse_inventory_form(request.form)
+    if err:
+        flash(err, 'danger')
         return redirect(url_for('inventory'))
 
-    # Update product stock
-    if transaction_type == 'IN':
-        product.stock += quantity
-        product.stock_quantity = product.stock
-    elif transaction_type == 'OUT':
-        if product.stock < quantity:
-            flash(f'Error: Not enough stock for {product.name}. Current: {product.stock}', 'danger')
+    product = None
+    if data['product_id']:
+        product = Product.query.get(data['product_id'])
+        if not product:
+            flash('Linked catalog product not found.', 'danger')
             return redirect(url_for('inventory'))
-        product.stock -= quantity
 
-    product.stock_quantity = product.stock
+        ok, stock_err = _apply_inventory_stock(product, data['transaction_type'], data['quantity'])
+        if not ok:
+            flash(stock_err, 'danger')
+            return redirect(url_for('inventory'))
 
     new_log = InventoryLog(
-        product_id=product_id,
-        quantity=quantity,
-        transaction_type=transaction_type,
-        notes=notes,
-        recorded_by=session.get('admin_id')
+        product_id=product.id if product else None,
+        item_name=data['item_name'],
+        item_sku=data['item_sku'],
+        unit=data['unit'],
+        quantity=data['quantity'],
+        transaction_type=data['transaction_type'],
+        reason=data['reason'],
+        reference=data['reference'],
+        notes=data['notes'],
+        recorded_by=session.get('admin_id'),
     )
 
     db.session.add(new_log)
     db.session.commit()
-    flash(f'Inventory {transaction_type} recorded for {product.name}.', 'success')
+
+    unit_label = f' {data["unit"]}' if data.get('unit') else ' unit(s)'
+    direction = 'received into' if data['transaction_type'] == 'IN' else 'removed from'
+    if product:
+        flash(
+            f'{data["quantity"]}{unit_label} {direction} catalog stock for {data["item_name"]}. '
+            f'New balance: {product.stock}.',
+            'success',
+        )
+    else:
+        flash(
+            f'Manual {data["transaction_type"]} logged: {data["quantity"]}{unit_label} of {data["item_name"]} '
+            f'(not linked to catalog stock).',
+            'success',
+        )
     return redirect(url_for('inventory'))
+
 
 @app.route("/admin/inventory/edit/<int:log_id>", methods=['GET', 'POST'])
 @login_required
 def edit_inventory_log(log_id):
-    # Only allow Admin to edit
     current_admin = Admin.query.get(session.get('admin_id'))
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can edit logs.', 'danger')
@@ -1252,29 +1667,46 @@ def edit_inventory_log(log_id):
 
     log = InventoryLog.query.get_or_404(log_id)
     if request.method == 'POST':
-        # Reverse previous stock change before applying new one
+        data, err = _parse_inventory_form(request.form)
+        if err:
+            flash(err, 'danger')
+            return redirect(url_for('edit_inventory_log', log_id=log.id))
+
         product = log.product
-        if log.transaction_type == 'IN':
-            product.stock -= log.quantity
-        else:
-            product.stock += log.quantity
+        old_type, old_qty = log.transaction_type, log.quantity
 
-        log.quantity = int(request.form.get('quantity'))
-        log.transaction_type = request.form.get('transaction_type')
-        log.notes = request.form.get('notes')
+        if product:
+            _reverse_inventory_stock(product, old_type, old_qty)
+            ok, stock_err = _apply_inventory_stock(product, data['transaction_type'], data['quantity'])
+            if not ok:
+                _apply_inventory_stock(product, old_type, old_qty)
+                flash(stock_err, 'danger')
+                return redirect(url_for('edit_inventory_log', log_id=log.id))
 
-        # Re-apply updated stock
-        if log.transaction_type == 'IN':
-            product.stock += log.quantity
-        else:
-            product.stock -= log.quantity
+        log.item_name = data['item_name']
+        log.item_sku = data['item_sku']
+        log.unit = data['unit']
+        log.quantity = data['quantity']
+        log.transaction_type = data['transaction_type']
+        log.reason = data['reason']
+        log.reference = data['reference']
+        log.notes = data['notes']
 
         db.session.commit()
-        flash('Inventory log updated successfully.', 'success')
+        flash('Inventory transaction updated successfully.', 'success')
         return redirect(url_for('inventory'))
 
-    products = Product.query.all()
-    return render_template('edit_inventory.html', log=log, products=products)
+    product_catalog = [
+        {'id': p.id, 'name': p.name, 'stock': p.stock, 'category': p.category or '', 'sku': ''}
+        for p in Product.query.order_by(Product.name).all()
+    ]
+    return render_template(
+        'edit_inventory.html',
+        log=log,
+        product_catalog=product_catalog,
+        in_reasons=INVENTORY_IN_REASONS,
+        out_reasons=INVENTORY_OUT_REASONS,
+    )
 
 # ----------------------------------
 # Attendance — see staff_portal.py (clock-in, late alerts)
@@ -1306,30 +1738,39 @@ def send_welcome_email(customer_email, customer_name):
 
 @app.route("/admin/daily-report", methods=['POST'])
 @login_required
+@income_log_permission_required
 def submit_daily_report():
-    report_text = request.form.get('report_text')
-    total_sales = request.form.get('total_sales', 0.0)
-    currency = request.form.get('currency', 'USD')
-    
-    try:
-        total_sales = float(total_sales)
-    except ValueError:
-        total_sales = 0.0
+    role = session.get('role')
+    entry_mode = (request.form.get('income_entry_mode') or 'manual').strip()
+    require_notes = role == 'admin' and entry_mode == 'summary'
+    data, error = parse_manual_income_form(request.form, require_notes=require_notes)
+    if error:
+        flash(error, 'danger')
+        if role == 'staff':
+            return redirect(url_for('staff.staff_portal'))
+        if role == 'moderator':
+            return redirect(url_for('moderator_portal'))
+        return redirect(url_for('dashboard'))
 
     new_report = DailyReport(
         staff_id=session.get('admin_id'),
         staff_name=session.get('username'),
-        report_text=report_text,
-        total_sales=total_sales,
-        currency=currency
+        report_text=data['report_text'],
+        total_sales=data['total_sales'],
+        currency=data['currency'],
+        report_date=data['report_date'],
+        payment_method=data['payment_method'],
+        reference=data['reference'],
     )
-    
+
     db.session.add(new_report)
     db.session.commit()
-    
-    flash('Daily report submitted successfully!', 'success')
+
+    flash('Manual daily income logged successfully!', 'success')
     if session.get('role') == 'staff':
         return redirect(url_for('staff.staff_portal'))
+    if session.get('role') == 'moderator':
+        return redirect(url_for('moderator_portal'))
     return redirect(url_for('dashboard'))
 
 # ----------------------------------
@@ -1384,11 +1825,48 @@ def admin_root():
 @role_required(['moderator'])
 def moderator_portal():
     user = Admin.query.get(session.get('admin_id'))
-    return render_template('moderator.html', user=user)
+    perms = parse_moderator_permissions(user)
+    actions = visible_dashboard_actions(user)
+    daily_stats = compute_period_stats(db, DailyReport, Expense, 'daily')
+    weekly_stats = compute_period_stats(db, DailyReport, Expense, 'weekly')
+    recent_reports = (
+        DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(10).all()
+        if can_log_manual_income(user)
+        else []
+    )
+    today = datetime.now().date()
+    today_attendance = []
+    if moderator_has_permission(user, 'attendance'):
+        today_attendance = Attendance.query.filter(db.func.date(Attendance.check_in) == today).all()
+    active_jobs = 0
+    pending_inbox = 0
+    if moderator_has_permission(user, 'operations'):
+        from models import PendingReceipt
+        pending_inbox = PendingReceipt.query.filter(
+            (PendingReceipt.status == 'pending') | (PendingReceipt.status.is_(None))
+        ).count()
+        active_jobs = Order.query.filter(Order.production_stage != 'delivered').count()
+
+    return render_template(
+        'moderator.html',
+        user=user,
+        permissions=perms,
+        actions=actions,
+        all_permissions=ALL_MODERATOR_PERMISSIONS,
+        daily_stats=daily_stats,
+        weekly_stats=weekly_stats,
+        recent_reports=recent_reports,
+        payment_methods=INCOME_PAYMENT_METHODS,
+        today_income_date=today.isoformat(),
+        today_attendance=today_attendance,
+        active_jobs=active_jobs,
+        pending_inbox=pending_inbox,
+        today=today,
+    )
 
 
 @app.route("/dashboard")
-@role_required(['admin', 'moderator'])
+@role_required(['admin'])
 def dashboard():
     calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(50).all()
     sales = Sale.query.order_by(Sale.timestamp.desc()).limit(100).all()
@@ -1410,11 +1888,12 @@ def dashboard():
     # Financial summary for today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     
+    today_filter = daily_report_period_filter('daily')
     today_income_usd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        DailyReport.date_posted >= today_start, DailyReport.currency == 'USD'
+        today_filter, DailyReport.currency == 'USD'
     ).scalar() or 0
     today_income_lrd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        DailyReport.date_posted >= today_start, DailyReport.currency == 'LRD'
+        today_filter, DailyReport.currency == 'LRD'
     ).scalar() or 0
 
     today_expense_usd = db.session.query(func.sum(Expense.amount)).filter(
@@ -1430,6 +1909,9 @@ def dashboard():
     ).count()
     active_jobs = Order.query.filter(Order.production_stage != 'delivered').count()
     ready_jobs = Order.query.filter_by(production_stage='ready').count()
+    annual_stats = compute_period_stats(db, DailyReport, Expense, 'annual')
+    daily_stats = compute_period_stats(db, DailyReport, Expense, 'daily')
+    recent_reports = DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(10).all()
 
     return render_template(
         "dashboard.html",
@@ -1438,6 +1920,9 @@ def dashboard():
         products=products,
         leaders=leaders,
         reports=reports,
+        recent_reports=recent_reports,
+        payment_methods=INCOME_PAYMENT_METHODS,
+        today_income_date=today.isoformat(),
         today_attendance=today_attendance,
         late_threshold=late_threshold,
         today_income_usd=today_income_usd,
@@ -1448,6 +1933,9 @@ def dashboard():
         pending_inbox=pending_inbox,
         active_jobs=active_jobs,
         ready_jobs=ready_jobs,
+        annual_stats=annual_stats,
+        daily_stats=daily_stats,
+        today=datetime.now(),
     )
 
 @app.route('/logout')
@@ -1459,49 +1947,47 @@ def logout():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    ghost_username = get_ghost_username()
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
-        
-        print(f"Login attempt: username='{username}'")  # Debug with quotes to see spaces
-        
-        # Find admin in database by username OR email
+        is_ghost_attempt = username.lower() == ghost_username.lower()
+
         admin = Admin.query.filter((Admin.username == username) | (Admin.email == username)).first()
-        
-        if admin:
-            print(f"Admin found: {admin.username}, 2FA enabled: {admin.two_fa_enabled}")  # Debug
-            # Verify password hash
-            if check_password_hash(admin.password_hash, password):
-                print("Password correct")  # Debug
-                
-                # Log success
-                log = LoginLog(username=username, ip_address=request.remote_addr, status='success')
-                db.session.add(log)
-                db.session.commit()
+        is_ghost_account = bool(
+            admin and (
+                admin.username == ghost_username
+                or admin.email == 'ghost@system.local'
+            )
+        )
 
-                # Store admin ID in session temporarily for 2FA step
-                session['temp_admin_id'] = admin.id 
-
-                # Check if 2FA is set up
-                if not admin.two_fa_enabled or not admin.otp_secret:
-                    print("Redirecting to setup_2fa")  # Debug
-                    return redirect(url_for('setup_2fa'))
-                
-                print("Redirecting to verify_2fa_page")  # Debug
-                return redirect(url_for('verify_2fa_page')) 
-            else:
-                print("Password incorrect")  # Debug
-                log = LoginLog(username=username, ip_address=request.remote_addr, status='failed')
-                db.session.add(log)
-                db.session.commit()
-        else:
-            print("Admin not found")  # Debug
-            log = LoginLog(username=username, ip_address=request.remote_addr, status='failed')
+        if admin and check_password_hash(admin.password_hash, password):
+            log = LoginLog(username=username, ip_address=request.remote_addr, status='success')
             db.session.add(log)
             db.session.commit()
-            
-        flash('Invalid username or password', 'danger')
-            
+
+            session['temp_admin_id'] = admin.id
+
+            if not admin.two_fa_enabled or not admin.otp_secret:
+                return redirect(url_for('setup_2fa'))
+
+            return redirect(url_for('verify_2fa_page'))
+
+        log = LoginLog(username=username, ip_address=request.remote_addr, status='failed')
+        db.session.add(log)
+        db.session.commit()
+
+        if is_ghost_attempt or is_ghost_account:
+            if not admin:
+                flash(
+                    'Ghost recovery account not found. Run: python scripts/sync_ghost_account.py',
+                    'danger',
+                )
+            else:
+                flash('Invalid username or password for ghost recovery account.', 'danger')
+        else:
+            flash('Invalid username or password', 'danger')
+
     return render_template('login.html')
 
 
@@ -1737,37 +2223,75 @@ def login_recovery():
 @app.route('/admin/team-management', methods=['GET', 'POST'])
 @login_required
 def team_management():
+    current_admin = Admin.query.get(session.get('admin_id'))
+    if current_admin.role != 'admin':
+        flash('Permission denied. Only Admins can manage team members.', 'danger')
+        if current_admin.role == 'staff':
+            return redirect(url_for('staff.staff_portal'))
+        if current_admin.role == 'moderator':
+            return redirect(url_for('moderator_portal'))
+        return redirect(url_for('home'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         role = request.form.get('role', 'staff')
-        
-        # Check if user already exists
+
         existing_user = Admin.query.filter_by(username=username).first()
         if existing_user:
             flash('Username already exists', 'danger')
             return redirect(url_for('team_management'))
-        
-        # Create new user
+
         hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = Admin(
             username=username,
             password_hash=hashed_pw,
             role=role,
             two_fa_enabled=False,
-            otp_secret=pyotp.random_base32()
+            otp_secret=pyotp.random_base32(),
         )
+        if role == 'moderator':
+            new_user.moderator_permissions = serialize_permissions(permissions_from_form(request.form))
+
         db.session.add(new_user)
         db.session.commit()
-        
+
         flash(f'User {username} created successfully', 'success')
         return redirect(url_for('team_management'))
-    
-    # Get all users except the ghost user
+
     users = Admin.query.filter(Admin.username != GHOST_USER).all()
-    return render_template('team_management.html', users=users)
+    moderator_perm_map = {
+        u.id: parse_moderator_permissions(u) for u in users if u.role == 'moderator'
+    }
+    return render_template(
+        'team_management.html',
+        users=users,
+        all_permissions=ALL_MODERATOR_PERMISSIONS,
+        moderator_perm_map=moderator_perm_map,
+    )
+
+
+@app.route('/admin/moderator-permissions/<int:user_id>', methods=['POST'])
+@login_required
+def update_moderator_permissions(user_id):
+    current_admin = Admin.query.get(session.get('admin_id'))
+    if current_admin.role != 'admin':
+        flash('Permission denied. Only Admins can manage moderator permissions.', 'danger')
+        return redirect(url_for('team_management'))
+
+    target = Admin.query.get_or_404(user_id)
+    if target.role != 'moderator':
+        flash('Permissions can only be assigned to moderator accounts.', 'warning')
+        return redirect(url_for('team_management'))
+
+    target.moderator_permissions = serialize_permissions(permissions_from_form(request.form))
+    db.session.commit()
+    flash(f'Permissions updated for {target.username}.', 'success')
+    return redirect(url_for('team_management'))
+
 @app.route("/admin/add_product", methods=['GET', 'POST'])
 @login_required
+@moderator_permission_required('products')
 def add_product():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -2069,7 +2593,7 @@ def db_backup():
     import sqlite3
     from datetime import datetime
 
-    db_path = os.path.join(basedir, '3G_ERP_V1.db')
+    db_path = current_app.config.get('DATABASE_FILE') or os.path.join(basedir, '3G_ERP_V1.db')
 
     if os.path.exists(db_path):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

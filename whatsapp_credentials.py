@@ -63,7 +63,8 @@ def get_display_phone():
     row = get_active_integration()
     if row and row.display_phone:
         return row.display_phone
-    return os.getenv('WHATSAPP_NUMBER', '+231775323731').strip()
+    from site_config import get_whatsapp_number
+    return get_whatsapp_number()
 
 
 def get_verify_token():

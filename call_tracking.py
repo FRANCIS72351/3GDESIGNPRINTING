@@ -13,6 +13,7 @@ from server_stability import run_in_background
 from site_config import get_public_site_url, get_whatsapp_webhook_url, whatsapp_env_status
 from whatsapp_service import is_configured as whatsapp_is_configured
 from whatsapp_credentials import disconnect_integration, get_verify_token
+from moderator_permissions import check_moderator_route_access
 
 call_bp = Blueprint('communications', __name__)
 
@@ -64,6 +65,9 @@ def create_call_log(data):
 @call_bp.route('/admin/communications')
 @api_or_login_required
 def communications_portal():
+    denied = check_moderator_route_access('communications')
+    if denied:
+        return denied
     calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(100).all()
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     stats = {

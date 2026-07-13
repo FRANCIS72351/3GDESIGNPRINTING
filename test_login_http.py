@@ -1,5 +1,4 @@
 import requests
-
 # Test login via HTTP POST
 url = 'http://localhost:5001/login'
 data = {

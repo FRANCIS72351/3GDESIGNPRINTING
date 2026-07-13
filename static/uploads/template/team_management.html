@@ -11,7 +11,7 @@
             <div class="admin-page-icon me-3"><i class="fas fa-users-cog fa-lg"></i></div>
             <div>
                 <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Team Management</h1>
-                <p class="text-muted mb-0 small">Create and manage staff accounts and roles</p>
+                <p class="text-muted mb-0 small">Create accounts and assign moderator responsibilities</p>
             </div>
         </div>
         <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
@@ -23,76 +23,100 @@
         <div class="col-md-10 mx-auto">
             <div class="admin-card">
                 <div class="admin-card-header admin-card-header-primary">
-                    <h3 class="h5 mb-0"><i class="fas fa-users me-2"></i>Staff Accounts</h3>
+                    <h3 class="h5 mb-0"><i class="fas fa-user-plus me-2"></i>Create New Account</h3>
                 </div>
                 <div class="admin-card-body">
-                    <div class="form-section mb-4">
-                        <h4>Create New Staff Account</h4>
-                        <form method="POST" class="row g-3">
-                            <div class="col-md-4">
-                                <input type="text" name="username" class="form-control" placeholder="Username" required>
+                    <form method="POST" class="row g-3" id="createUserForm">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Username</label>
+                            <input type="text" name="username" class="form-control" placeholder="Username" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Password</label>
+                            <input type="password" name="password" class="form-control" placeholder="Password" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Role</label>
+                            <select name="role" class="form-select" id="createRoleSelect">
+                                <option value="staff">Staff (View Only)</option>
+                                <option value="moderator">Moderator (Limited Control)</option>
+                                <option value="admin">Admin (Full Control)</option>
+                            </select>
+                        </div>
+                        <div class="col-12 moderator-perms-panel d-none" id="createModeratorPerms">
+                            <label class="form-label small fw-bold text-muted">Moderator Responsibilities</label>
+                            <div class="row g-2">
+                                {% for key, label in all_permissions.items() %}
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="perm_{{ key }}" id="create_perm_{{ key }}" checked>
+                                        <label class="form-check-label small" for="create_perm_{{ key }}">{{ label }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
                             </div>
-                            <div class="col-md-4">
-                                <input type="password" name="password" class="form-control" placeholder="Password" required>
-                            </div>
-                            <div class="col-md-3">
-                                <select name="role" class="form-select">
-                                    <option value="staff">Staff (View Only)</option>
-                                    <option value="moderator">Moderator (Limited Control)</option>
-                                    <option value="admin">Admin (Full Control)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="submit" class="btn btn-success rounded-pill">Add User</button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success rounded-pill px-4">
+                                <i class="fas fa-plus me-2"></i>Add User
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-                    <hr>
-
-                    <h4>Current Team Members</h4>
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h3 class="h5 mb-0"><i class="fas fa-users me-2"></i>Current Team Members</h3>
+                </div>
+                <div class="admin-card-body">
                     {% if session.get('username') == GHOST_USER %}
                     <div class="alert alert-warning">
-                        <i class="fas fa-key me-2"></i><strong>Password Recovery:</strong> As the system administrator, you can reset any user's password using the "Reset Password" button. This will generate a temporary password and disable 2FA for that user.
+                        <i class="fas fa-key me-2"></i><strong>Password Recovery:</strong> As the system administrator, you can reset any user's password using the "Reset Password" button.
                     </div>
                     {% endif %}
                     <div class="table-responsive">
-                        <table class="table table-hover admin-table">
+                        <table class="table table-hover admin-table align-middle">
                             <thead>
                                 <tr>
                                     <th>Username</th>
                                     <th>Role</th>
-                                    <th>2FA Status</th>
+                                    <th>2FA</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for user in users %}
                                 <tr>
-                                    <td>{{ user.username }}</td>
+                                    <td class="fw-medium">{{ user.username }}</td>
                                     <td>
-                                        <span class="badge {% if user.role == 'admin' %}bg-danger{% elif user.role == 'moderator' %}bg-warning{% else %}bg-info{% endif %}">
+                                        <span class="badge {% if user.role == 'admin' %}bg-danger{% elif user.role == 'moderator' %}bg-warning text-dark{% else %}bg-info{% endif %}">
                                             {{ user.role.upper() }}
                                         </span>
                                     </td>
                                     <td>
                                         {% if user.two_fa_enabled %}
-                                            <span class="badge bg-success">Active</span>
+                                        <span class="badge bg-success">Active</span>
                                         {% else %}
-                                            <span class="badge bg-warning">Pending</span>
+                                        <span class="badge bg-warning text-dark">Pending</span>
                                         {% endif %}
                                     </td>
                                     <td>
+                                        {% if user.role == 'moderator' %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#perms-{{ user.id }}">
+                                            <i class="fas fa-sliders-h"></i> Permissions
+                                        </button>
+                                        {% endif %}
                                         {% if session.get('admin_id') != user.id %}
-                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                        <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-trash"></i> Delete
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
                                         {% if session.get('username') == GHOST_USER %}
-                                        <form action="{{ url_for('reset_user_password', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to reset this user\'s password? They will need to set up 2FA again.');">
-                                            <button type="submit" class="btn btn-sm btn-outline-warning ms-1">
-                                                <i class="fas fa-key"></i> Reset Password
+                                        <form action="{{ url_for('reset_user_password', user_id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Reset password for this user?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-key"></i>
                                             </button>
                                         </form>
                                         {% endif %}
@@ -101,6 +125,27 @@
                                         {% endif %}
                                     </td>
                                 </tr>
+                                {% if user.role == 'moderator' %}
+                                <tr class="collapse" id="perms-{{ user.id }}">
+                                    <td colspan="4" class="bg-light">
+                                        <form action="{{ url_for('update_moderator_permissions', user_id=user.id) }}" method="POST">
+                                            <p class="small text-muted mb-2">Assign responsibilities for <strong>{{ user.username }}</strong>:</p>
+                                            <div class="row g-2 mb-3">
+                                                {% for key, label in all_permissions.items() %}
+                                                <div class="col-md-4 col-lg-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="perm_{{ key }}" id="perm_{{ user.id }}_{{ key }}"
+                                                            {% if key in moderator_perm_map.get(user.id, []) %}checked{% endif %}>
+                                                        <label class="form-check-label small" for="perm_{{ user.id }}_{{ key }}">{{ label }}</label>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary rounded-pill">Save Permissions</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -110,4 +155,10 @@
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('createRoleSelect').addEventListener('change', function() {
+    document.getElementById('createModeratorPerms').classList.toggle('d-none', this.value !== 'moderator');
+});
+</script>
 {% endblock %}

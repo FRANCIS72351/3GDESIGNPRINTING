@@ -5,7 +5,7 @@
 {% block body_class %}admin-page{% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
+<div class="container mt-4 mb-5">
     <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3 animate__animated animate__fadeIn">
         <div class="d-flex align-items-center">
             <div class="admin-page-icon me-3"><i class="fas fa-boxes fa-lg"></i></div>
@@ -19,41 +19,117 @@
         </a>
     </div>
 
-    <div class="row">
-        <div class="col-md-4">
-            <div class="admin-card animate__animated animate__fadeInLeft">
-                <div class="admin-card-header">
-                    <h4><i class="fas fa-plus-circle me-2"></i>Log Goods In/Out</h4>
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="admin-card inventory-log-card animate__animated animate__fadeInLeft">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h4 class="h5 mb-0"><i class="fas fa-exchange-alt me-2"></i>Log Goods In / Out</h4>
+                    <p class="mb-0 small opacity-75 mt-1">Record stock movements with a clear audit trail</p>
                 </div>
                 <div class="admin-card-body">
-                    <form action="{{ url_for('log_inventory') }}" method="POST">
+                    <form action="{{ url_for('log_inventory') }}" method="POST" id="inventory-log-form" novalidate>
+                        <div class="inventory-form-section mb-4">
+                            <label class="form-label fw-semibold">Transaction type <span class="text-danger">*</span></label>
+                            <div class="inventory-type-toggle" role="group" aria-label="Transaction type">
+                                <input type="radio" class="btn-check" name="transaction_type" id="type-in" value="IN" checked>
+                                <label class="btn inventory-type-btn inventory-type-in" for="type-in">
+                                    <i class="fas fa-arrow-down me-2"></i>Goods In
+                                    <span class="d-block small fw-normal opacity-75">Add to stock</span>
+                                </label>
+                                <input type="radio" class="btn-check" name="transaction_type" id="type-out" value="OUT">
+                                <label class="btn inventory-type-btn inventory-type-out" for="type-out">
+                                    <i class="fas fa-arrow-up me-2"></i>Goods Out
+                                    <span class="d-block small fw-normal opacity-75">Remove from stock</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="inventory-form-section mb-4">
+                            <label class="form-label fw-semibold">Item details</label>
+                            <div class="inventory-item-combo">
+                                <label for="item_name" class="form-label small text-muted mb-1">Item name <span class="text-danger">*</span></label>
+                                <div class="inventory-item-input-wrap">
+                                    <i class="fas fa-tag inventory-item-input-icon"></i>
+                                    <input type="text" name="item_name" id="item_name" class="form-control inventory-item-input"
+                                           autocomplete="off" required maxlength="200"
+                                           placeholder="Type goods name — pick a suggestion or enter freely">
+                                    <input type="hidden" name="product_id" id="product_id" value="">
+                                    <div id="item-suggest-panel" class="inventory-suggest-panel d-none" role="listbox" aria-label="Catalog suggestions"></div>
+                                </div>
+                                <div id="catalog-link-badge" class="inventory-catalog-link d-none">
+                                    <i class="fas fa-link me-1"></i>
+                                    Linked to catalog · <strong id="catalog-link-stock">0</strong> in stock
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-2 inventory-unlink-btn" id="unlink-catalog">Clear link</button>
+                                </div>
+                                <div id="manual-entry-hint" class="inventory-manual-hint">
+                                    <i class="fas fa-pen-fancy me-1"></i>
+                                    Manual entry — movement recorded without changing catalog stock
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-7">
+                                <label for="item_sku" class="form-label fw-semibold">SKU / description</label>
+                                <input type="text" name="item_sku" id="item_sku" class="form-control" maxlength="100"
+                                       placeholder="Optional code or short description">
+                            </div>
+                            <div class="col-sm-5">
+                                <label for="unit" class="form-label fw-semibold">Unit</label>
+                                <input type="text" name="unit" id="unit" class="form-control" maxlength="30"
+                                       placeholder="e.g. pcs, boxes, rolls" list="unit-suggestions">
+                                <datalist id="unit-suggestions">
+                                    <option value="pcs"></option>
+                                    <option value="boxes"></option>
+                                    <option value="rolls"></option>
+                                    <option value="sheets"></option>
+                                    <option value="kg"></option>
+                                    <option value="meters"></option>
+                                </datalist>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
-                            <label class="form-label">Select Product</label>
-                            <select name="product_id" class="form-select" required>
-                                <option value="" selected disabled>Choose product...</option>
-                                {% for product in products %}
-                                <option value="{{ product.id }}">{{ product.name }} (Current: {{ product.stock }})</option>
-                                {% endfor %}
+                            <label for="quantity" class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" name="quantity" id="quantity" class="form-control" min="1" step="1" required placeholder="Enter amount">
+                            <div id="stock-preview" class="inventory-stock-preview mt-2 d-none">
+                                <i class="fas fa-cubes me-1"></i>
+                                Catalog stock: <strong id="stock-preview-qty">0</strong>
+                                <span id="stock-preview-warning" class="text-danger ms-2 d-none">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Insufficient for this quantity
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="reason" class="form-label fw-semibold">Reason</label>
+                            <select name="reason" id="reason" class="form-select">
+                                <option value="">Select reason (optional)…</option>
                             </select>
                         </div>
+
                         <div class="mb-3">
-                            <label class="form-label">Transaction Type</label>
-                            <select name="transaction_type" class="form-select" required>
-                                <option value="IN">Goods IN (Add to stock)</option>
-                                <option value="OUT">Goods OUT (Remove from stock)</option>
-                            </select>
+                            <label for="reference" class="form-label fw-semibold">Reference</label>
+                            <input type="text" name="reference" id="reference" class="form-control" maxlength="100"
+                                   placeholder="PO #, supplier name, customer order #, etc.">
                         </div>
+
                         <div class="mb-3">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" name="quantity" class="form-control" min="1" required placeholder="0">
+                            <label for="notes" class="form-label fw-semibold">Notes</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="2" maxlength="2000"
+                                      placeholder="Additional details about this movement…"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Notes / Reference</label>
-                            <textarea name="notes" class="form-control" rows="3" placeholder="e.g. Supplier name, Customer order #, etc."></textarea>
+
+                        <div class="inventory-logged-by mb-4">
+                            <i class="fas fa-user-check me-2 text-muted"></i>
+                            <span class="text-muted small">Logged by</span>
+                            <strong class="small">{{ admin.username if admin else 'Staff' }}</strong>
+                            <span class="text-muted small ms-2">· Timestamp recorded automatically</span>
                         </div>
+
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary rounded-pill">
-                                <i class="fas fa-save me-2"></i>Save Transaction
+                            <button type="submit" class="btn btn-primary rounded-pill py-2" id="submit-inventory-log">
+                                <i class="fas fa-check-circle me-2"></i>Record Transaction
                             </button>
                         </div>
                     </form>
@@ -61,63 +137,132 @@
             </div>
         </div>
 
-        <div class="col-md-8">
+        <div class="col-lg-7">
             <div class="admin-card animate__animated animate__fadeInRight">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 px-4 border-0">
-                    <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-history me-2 text-primary"></i>Inventory History</h4>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 px-4 border-0 flex-wrap gap-2">
+                    <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-history me-2 text-primary"></i>Transaction History</h4>
                     <a href="{{ url_for('add_product') }}" class="btn btn-primary btn-sm rounded-pill px-3">
-                        <i class="fas fa-plus me-2"></i>Add New Product
+                        <i class="fas fa-plus me-2"></i>Add Product
                     </a>
                 </div>
                 <div class="admin-card-body pt-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle admin-table">
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-hover align-middle admin-table inventory-history-table">
                             <thead class="table-light">
                                 <tr>
                                     <th>Date</th>
-                                    <th>Product</th>
+                                    <th>Item</th>
                                     <th>Type</th>
                                     <th>Qty</th>
-                                    <th>Recorded By</th>
-                                    <th>Actions</th>
+                                    <th>Reason</th>
+                                    <th>Reference</th>
+                                    <th>By</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for log in logs %}
                                 <tr>
-                                    <td class="small">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                                    <td><strong>{{ log.product.name }}</strong></td>
+                                    <td class="small text-nowrap">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                                     <td>
-                                        <span class="badge {% if log.transaction_type == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ log.transaction_type }}
+                                        <strong>{{ log.display_name }}</strong>
+                                        {% if log.is_manual %}
+                                        <span class="badge inventory-source-badge inventory-source-manual ms-1">Manual</span>
+                                        {% else %}
+                                        <span class="badge inventory-source-badge inventory-source-catalog ms-1">Catalog</span>
+                                        {% endif %}
+                                        {% if log.item_sku %}
+                                        <div class="small text-muted">{{ log.item_sku }}</div>
+                                        {% endif %}
+                                        {% if log.notes %}
+                                        <div class="small text-muted text-truncate inventory-notes-cell" title="{{ log.notes }}">{{ log.notes }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge inventory-badge {% if log.transaction_type == 'IN' %}inventory-badge-in{% else %}inventory-badge-out{% endif %}">
+                                            {% if log.transaction_type == 'IN' %}IN{% else %}OUT{% endif %}
                                         </span>
                                     </td>
-                                    <td>{{ log.quantity }}</td>
-                                    <td class="small text-muted">{{ log.admin.username }}</td>
+                                    <td class="fw-semibold">
+                                        {{ log.quantity }}{% if log.unit %} <span class="text-muted small fw-normal">{{ log.unit }}</span>{% endif %}
+                                    </td>
+                                    <td class="small">{{ inventory_reason_label(log.transaction_type, log.reason) }}</td>
+                                    <td class="small text-muted">{{ log.reference or '—' }}</td>
+                                    <td class="small text-muted">{{ log.admin.username if log.admin else '—' }}</td>
                                     <td>
-                                        {% if admin.role == 'admin' %}
-                                        <a href="{{ url_for('edit_inventory_log', log_id=log.id) }}" class="btn btn-sm btn-outline-secondary">
-                                            <i class="fas fa-edit"></i> Edit
+                                        {% if admin and admin.role == 'admin' %}
+                                        <a href="{{ url_for('edit_inventory_log', log_id=log.id) }}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="fas fa-edit"></i>
                                         </a>
                                         {% else %}
-                                        <span class="text-muted small"><i class="fas fa-lock me-1"></i>Locked</span>
+                                        <span class="text-muted small" title="Admin only"><i class="fas fa-lock"></i></span>
                                         {% endif %}
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No inventory records found.</td>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="fas fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+                                        No inventory transactions yet. Use the form to log your first movement.
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
+
+                    <div class="d-md-none inventory-log-cards">
+                        {% for log in logs %}
+                        <div class="inventory-log-card-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge inventory-badge {% if log.transaction_type == 'IN' %}inventory-badge-in{% else %}inventory-badge-out{% endif %}">
+                                    {% if log.transaction_type == 'IN' %}Goods In{% else %}Goods Out{% endif %}
+                                </span>
+                                <span class="small text-muted">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            <div class="fw-bold">
+                                {{ log.display_name }}
+                                {% if log.is_manual %}
+                                <span class="badge inventory-source-badge inventory-source-manual">Manual</span>
+                                {% else %}
+                                <span class="badge inventory-source-badge inventory-source-catalog">Catalog</span>
+                                {% endif %}
+                            </div>
+                            <div class="small mt-1">
+                                <span class="fw-semibold">{{ log.quantity }}</span>{% if log.unit %} {{ log.unit }}{% else %} units{% endif %}
+                                · {{ inventory_reason_label(log.transaction_type, log.reason) }}
+                            </div>
+                            {% if log.item_sku %}
+                            <div class="small text-muted mt-1">{{ log.item_sku }}</div>
+                            {% endif %}
+                            {% if log.reference %}
+                            <div class="small text-muted mt-1"><i class="fas fa-hashtag me-1"></i>{{ log.reference }}</div>
+                            {% endif %}
+                            {% if log.notes %}
+                            <div class="small text-muted mt-1">{{ log.notes }}</div>
+                            {% endif %}
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-user me-1"></i>{{ log.admin.username if log.admin else '—' }}
+                                {% if admin and admin.role == 'admin' %}
+                                <a href="{{ url_for('edit_inventory_log', log_id=log.id) }}" class="float-end btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+                            No transactions yet.
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
-            
+
             <div class="admin-card mt-4 animate__animated animate__fadeInUp">
                 <div class="card-header bg-white py-3 px-4 border-0">
-                    <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-box me-2 text-primary"></i>All Products</h4>
+                    <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-box me-2 text-primary"></i>Product Catalog</h4>
                 </div>
                 <div class="admin-card-body pt-0">
                     <div class="table-responsive">
@@ -143,9 +288,13 @@
                                         {% endif %}
                                     </td>
                                     <td><strong>{{ product.name }}</strong></td>
-                                    <td><span class="badge bg-light text-dark">{{ product.category }}</span></td>
+                                    <td><span class="badge bg-light text-dark">{{ product.category or '—' }}</span></td>
                                     <td>{{ product.currency }} {{ "%.2f"|format(product.price) }}</td>
-                                    <td>{{ product.stock }}</td>
+                                    <td>
+                                        <span class="{% if product.stock <= (product.min_stock_threshold or 5) %}text-danger fw-bold{% endif %}">
+                                            {{ product.stock }}
+                                        </span>
+                                    </td>
                                     <td>
                                         <div class="d-flex gap-2">
                                             <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary">
@@ -161,7 +310,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No products found.</td>
+                                    <td colspan="6" class="text-center py-4 text-muted">No products found. Add a product to start logging stock.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -172,6 +321,197 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const inReasons = {{ in_reasons | tojson }};
+    const outReasons = {{ out_reasons | tojson }};
+    const catalog = {{ product_catalog | tojson }};
+    const form = document.getElementById('inventory-log-form');
+    const itemNameInput = document.getElementById('item_name');
+    const productIdInput = document.getElementById('product_id');
+    const itemSkuInput = document.getElementById('item_sku');
+    const quantityInput = document.getElementById('quantity');
+    const reasonSelect = document.getElementById('reason');
+    const suggestPanel = document.getElementById('item-suggest-panel');
+    const catalogLinkBadge = document.getElementById('catalog-link-badge');
+    const catalogLinkStock = document.getElementById('catalog-link-stock');
+    const manualHint = document.getElementById('manual-entry-hint');
+    const unlinkBtn = document.getElementById('unlink-catalog');
+    const stockPreview = document.getElementById('stock-preview');
+    const stockPreviewQty = document.getElementById('stock-preview-qty');
+    const stockWarning = document.getElementById('stock-preview-warning');
+    const typeRadios = form.querySelectorAll('input[name="transaction_type"]');
+    let linkedProduct = null;
+    let activeSuggest = -1;
+
+    function currentType() {
+        const checked = form.querySelector('input[name="transaction_type"]:checked');
+        return checked ? checked.value : 'IN';
+    }
+
+    function currentStock() {
+        return linkedProduct ? linkedProduct.stock : null;
+    }
+
+    function populateReasons() {
+        const reasons = currentType() === 'IN' ? inReasons : outReasons;
+        const prev = reasonSelect.value;
+        reasonSelect.innerHTML = '<option value="">Select reason (optional)…</option>';
+        Object.entries(reasons).forEach(([key, label]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = label;
+            reasonSelect.appendChild(opt);
+        });
+        if (prev && reasons[prev]) reasonSelect.value = prev;
+    }
+
+    function setLinkedProduct(product) {
+        linkedProduct = product;
+        productIdInput.value = product ? product.id : '';
+        catalogLinkBadge.classList.toggle('d-none', !product);
+        manualHint.classList.toggle('d-none', !!product);
+        if (product) {
+            catalogLinkStock.textContent = product.stock;
+            stockPreview.classList.remove('d-none');
+            stockPreviewQty.textContent = product.stock;
+        } else {
+            stockPreview.classList.add('d-none');
+        }
+        validateQuantity();
+    }
+
+    function unlinkCatalog() {
+        setLinkedProduct(null);
+    }
+
+    function filterSuggestions(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return [];
+        return catalog.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.category && p.category.toLowerCase().includes(q)) ||
+            (p.sku && p.sku.toLowerCase().includes(q))
+        ).slice(0, 8);
+    }
+
+    function renderSuggestions(matches) {
+        suggestPanel.innerHTML = '';
+        activeSuggest = -1;
+        if (!matches.length) {
+            suggestPanel.classList.add('d-none');
+            return;
+        }
+        matches.forEach((p, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'inventory-suggest-item';
+            btn.setAttribute('role', 'option');
+            btn.dataset.index = idx;
+            btn.innerHTML = '<span class="inventory-suggest-name">' + escapeHtml(p.name) + '</span>' +
+                '<span class="inventory-suggest-meta">' + escapeHtml(p.category || 'Catalog') +
+                ' · ' + p.stock + ' in stock</span>';
+            btn.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                pickSuggestion(p);
+            });
+            suggestPanel.appendChild(btn);
+        });
+        suggestPanel.classList.remove('d-none');
+    }
+
+    function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function pickSuggestion(product) {
+        itemNameInput.value = product.name;
+        if (!itemSkuInput.value && product.sku) itemSkuInput.value = product.sku;
+        setLinkedProduct(product);
+        suggestPanel.classList.add('d-none');
+    }
+
+    function onItemInput() {
+        const val = itemNameInput.value;
+        if (linkedProduct && val.trim().toLowerCase() !== linkedProduct.name.toLowerCase()) {
+            setLinkedProduct(null);
+        }
+        renderSuggestions(filterSuggestions(val));
+    }
+
+    function validateQuantity() {
+        const stock = currentStock();
+        const qty = parseInt(quantityInput.value || '0', 10);
+        const isOut = currentType() === 'OUT';
+        const insufficient = isOut && stock !== null && qty > stock;
+        stockWarning.classList.toggle('d-none', !insufficient);
+        quantityInput.classList.toggle('is-invalid', insufficient);
+        return !insufficient;
+    }
+
+    typeRadios.forEach(r => r.addEventListener('change', () => {
+        populateReasons();
+        validateQuantity();
+    }));
+
+    itemNameInput.addEventListener('input', onItemInput);
+    itemNameInput.addEventListener('focus', onItemInput);
+    itemNameInput.addEventListener('blur', () => {
+        setTimeout(() => suggestPanel.classList.add('d-none'), 150);
+    });
+    itemNameInput.addEventListener('keydown', function (e) {
+        const items = suggestPanel.querySelectorAll('.inventory-suggest-item');
+        if (!items.length || suggestPanel.classList.contains('d-none')) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeSuggest = Math.min(activeSuggest + 1, items.length - 1);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeSuggest));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeSuggest = Math.max(activeSuggest - 1, 0);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeSuggest));
+        } else if (e.key === 'Enter' && activeSuggest >= 0) {
+            e.preventDefault();
+            const matches = filterSuggestions(itemNameInput.value);
+            if (matches[activeSuggest]) pickSuggestion(matches[activeSuggest]);
+        } else if (e.key === 'Escape') {
+            suggestPanel.classList.add('d-none');
+        }
+    });
+
+    unlinkBtn.addEventListener('click', unlinkCatalog);
+    quantityInput.addEventListener('input', validateQuantity);
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.inventory-item-input-wrap')) {
+            suggestPanel.classList.add('d-none');
+        }
+    });
+
+    form.addEventListener('submit', function (e) {
+        if (!itemNameInput.value.trim()) {
+            e.preventDefault();
+            itemNameInput.classList.add('is-invalid');
+            return;
+        }
+        if (!validateQuantity()) {
+            e.preventDefault();
+            return;
+        }
+        if (currentType() === 'OUT' && linkedProduct) {
+            const stock = currentStock();
+            const qty = parseInt(quantityInput.value || '0', 10);
+            if (stock !== null && qty > stock) {
+                e.preventDefault();
+                alert('Cannot remove more than available catalog stock (' + stock + ').');
+            }
+        }
+    });
+
+    populateReasons();
+})();
+</script>
 {% endblock %}
-
-

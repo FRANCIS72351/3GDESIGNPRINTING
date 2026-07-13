@@ -1,13 +1,17 @@
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
+from werkzeug.security import generate_password_hash
+from app import db
 
-db = SQLAlchemy()
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True)
-    role = db.Column(db.String(20), default='moderator') # admin, moderator
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    role = db.Column(db.String(20), default='moderator')
+    password_hash = db.Column(db.String(128))
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
 
 class Product(db.Model):
@@ -64,7 +68,8 @@ class Admin(db.Model):
     username = db.Column(db.String(50), unique=True)
     password_hash = db.Column(db.String(128))
     email = db.Column(db.String(120))
-    role = db.Column(db.String(20), default='admin')  # 'admin' or 'staff'
+    role = db.Column(db.String(20), default='admin')  # admin, moderator, staff
+    moderator_permissions = db.Column(db.Text)  # JSON list of responsibility keys (moderator only)
     otp_secret = db.Column(db.String(32))
     recovery_key = db.Column(db.String(128))  # Hashed recovery key
     two_fa_enabled = db.Column(db.Boolean, default=False)
@@ -80,6 +85,9 @@ class AboutContent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.Text)  # "About our press" text
     services = db.Column(db.Text)     # List of services (T-shirts, Banners, etc.)
+    ad_title = db.Column(db.String(150), default='')
+    ad_description = db.Column(db.Text, default='')
+    ad_video_file = db.Column(db.String(255), default='')
     # Slider Image Paths
     slider1 = db.Column(db.String(100), default='slider.1.jpg')
     slider2 = db.Column(db.String(100), default='slider.2.jpg')
@@ -137,6 +145,27 @@ class DailyReport(db.Model):
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
     date_posted = db.Column(db.DateTime, default=datetime.utcnow)
     staff_name = db.Column(db.String(50)) # To easily see who wrote it
+    report_date = db.Column(db.Date)  # Business date for manual income entry
+    payment_method = db.Column(db.String(30))  # cash, mobile_money, bank_transfer, other
+    reference = db.Column(db.String(100))  # Receipt or transaction reference
+
+    @property
+    def effective_date(self):
+        if self.report_date:
+            return self.report_date
+        if self.date_posted:
+            return self.date_posted.date()
+        return None
+
+    @property
+    def payment_method_label(self):
+        labels = {
+            'cash': 'Cash',
+            'mobile_money': 'Mobile Money',
+            'bank_transfer': 'Bank Transfer',
+            'other': 'Other',
+        }
+        return labels.get(self.payment_method or 'other', 'Other')
 
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -148,14 +177,31 @@ class Attendance(db.Model):
 class InventoryLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
+    item_name = db.Column(db.String(200))
+    item_sku = db.Column(db.String(100))
+    unit = db.Column(db.String(30))
     quantity = db.Column(db.Integer, nullable=False)
-    transaction_type = db.Column(db.String(10)) # 'IN' or 'OUT'
+    transaction_type = db.Column(db.String(10))  # 'IN' or 'OUT'
+    reason = db.Column(db.String(50))  # e.g. purchase, sale, damaged
+    reference = db.Column(db.String(100))  # PO #, supplier, customer order
     recorded_by = db.Column(db.Integer, db.ForeignKey('admin.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     notes = db.Column(db.Text)
 
     product = db.relationship('Product', backref='inventory_logs')
     admin = db.relationship('Admin', backref='inventory_logs')
+
+    @property
+    def display_name(self):
+        if self.item_name:
+            return self.item_name
+        if self.product:
+            return self.product.name
+        return '—'
+
+    @property
+    def is_manual(self):
+        return self.product_id is None
 # generate document
 class GeneratedDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)

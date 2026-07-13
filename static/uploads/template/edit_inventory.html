@@ -1,45 +1,150 @@
 {% extends "layout.html" %}
 
-{% block title %}Edit Inventory Log - 3G Design{% endblock %}
+{% block title %}Edit Inventory Transaction - 3G Design{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row">
-        <div class="col-md-6 mx-auto">
-            <div class="card shadow border-0 rounded-4 animate__animated animate__fadeInUp">
-                <div class="card-header bg-warning text-dark p-4">
-                    <h3 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Inventory Transaction</h3>
-                    <p class="mb-0 text-dark-50">Admin-only: Modify existing inventory records</p>
+<div class="container py-4 mb-5">
+    <div class="admin-page-header p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <div class="admin-page-icon me-3"><i class="fas fa-edit fa-lg"></i></div>
+            <div>
+                <h1 class="fw-bold text-dark mb-0 h3 tracking-tight">Edit Transaction</h1>
+                <p class="text-muted mb-0 small">Admin-only · {{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+        </div>
+        <a href="{{ url_for('inventory') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>Back to Inventory
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="admin-card inventory-log-card">
+                <div class="admin-card-header admin-card-header-primary">
+                    <h3 class="h5 mb-0"><i class="fas fa-exchange-alt me-2"></i>{{ log.display_name }}</h3>
+                    <p class="mb-0 small opacity-75 mt-1">
+                        {% if log.product %}
+                        Catalog item · current stock: {{ log.product.stock }} units
+                        {% else %}
+                        Manual entry · not linked to catalog stock
+                        {% endif %}
+                    </p>
                 </div>
-                <div class="card-body p-4">
-                    <form action="{{ url_for('edit_inventory_log', log_id=log.id) }}" method="POST">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Product</label>
-                            <input type="text" class="form-control" value="{{ log.product.name }}" disabled>
-                            <small class="text-muted">Product cannot be changed. Create a new log if you made a mistake on product selection.</small>
+                <div class="admin-card-body">
+                    <form action="{{ url_for('edit_inventory_log', log_id=log.id) }}" method="POST" id="edit-inventory-form">
+                        {% if log.product_id %}
+                        <input type="hidden" name="product_id" id="product_id" value="{{ log.product_id }}">
+                        {% endif %}
+
+                        <div class="inventory-form-section mb-4">
+                            <label class="form-label fw-semibold">Item details</label>
+                            <div class="inventory-item-combo">
+                                <label for="item_name" class="form-label small text-muted mb-1">Item name <span class="text-danger">*</span></label>
+                                <div class="inventory-item-input-wrap">
+                                    <i class="fas fa-tag inventory-item-input-icon"></i>
+                                    <input type="text" name="item_name" id="item_name" class="form-control inventory-item-input"
+                                           value="{{ log.item_name or (log.product.name if log.product else '') }}"
+                                           autocomplete="off" required maxlength="200"
+                                           {% if log.product %}readonly{% endif %}>
+                                    {% if not log.product %}
+                                    <div id="item-suggest-panel" class="inventory-suggest-panel d-none" role="listbox"></div>
+                                    {% endif %}
+                                </div>
+                                {% if log.product %}
+                                <div class="inventory-catalog-link">
+                                    <i class="fas fa-link me-1"></i>
+                                    Linked to catalog · stock updates apply to this product
+                                </div>
+                                {% else %}
+                                <div class="inventory-manual-hint">
+                                    <i class="fas fa-pen-fancy me-1"></i>
+                                    Manual entry — quantity changes do not affect catalog stock
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-7">
+                                <label for="item_sku" class="form-label fw-semibold">SKU / description</label>
+                                <input type="text" name="item_sku" id="item_sku" class="form-control" maxlength="100"
+                                       value="{{ log.item_sku or '' }}"
+                                       placeholder="Optional code or short description">
+                            </div>
+                            <div class="col-sm-5">
+                                <label for="unit" class="form-label fw-semibold">Unit</label>
+                                <input type="text" name="unit" id="unit" class="form-control" maxlength="30"
+                                       value="{{ log.unit or '' }}"
+                                       placeholder="e.g. pcs, boxes" list="unit-suggestions">
+                                <datalist id="unit-suggestions">
+                                    <option value="pcs"></option>
+                                    <option value="boxes"></option>
+                                    <option value="rolls"></option>
+                                    <option value="sheets"></option>
+                                </datalist>
+                            </div>
+                        </div>
+
+                        <div class="inventory-form-section mb-4">
+                            <label class="form-label fw-semibold">Transaction type <span class="text-danger">*</span></label>
+                            <div class="inventory-type-toggle" role="group">
+                                <input type="radio" class="btn-check" name="transaction_type" id="edit-type-in" value="IN"
+                                       {% if log.transaction_type == 'IN' %}checked{% endif %}>
+                                <label class="btn inventory-type-btn inventory-type-in" for="edit-type-in">
+                                    <i class="fas fa-arrow-down me-2"></i>Goods In
+                                </label>
+                                <input type="radio" class="btn-check" name="transaction_type" id="edit-type-out" value="OUT"
+                                       {% if log.transaction_type == 'OUT' %}checked{% endif %}>
+                                <label class="btn inventory-type-btn inventory-type-out" for="edit-type-out">
+                                    <i class="fas fa-arrow-up me-2"></i>Goods Out
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Transaction Type</label>
-                            <select name="transaction_type" class="form-select" required>
-                                <option value="IN" {% if log.transaction_type == 'IN' %}selected{% endif %}>Goods IN</option>
-                                <option value="OUT" {% if log.transaction_type == 'OUT' %}selected{% endif %}>Goods OUT</option>
+                            <label for="edit-quantity" class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" name="quantity" id="edit-quantity" class="form-control"
+                                   value="{{ log.quantity }}" min="1" step="1" required>
+                            {% if log.product %}
+                            <div class="form-text" id="edit-stock-hint">
+                                Available if reversed: <strong id="edit-available-stock">{{ log.product.stock + (log.quantity if log.transaction_type == 'OUT' else -log.quantity) }}</strong> units
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="edit-reason" class="form-label fw-semibold">Reason</label>
+                            <select name="reason" id="edit-reason" class="form-select">
+                                <option value="">Select reason (optional)…</option>
                             </select>
                         </div>
+
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Quantity</label>
-                            <input type="number" name="quantity" class="form-control" value="{{ log.quantity }}" min="1" required>
+                            <label for="reference" class="form-label fw-semibold">Reference</label>
+                            <input type="text" name="reference" id="reference" class="form-control" maxlength="100"
+                                   value="{{ log.reference or '' }}"
+                                   placeholder="PO #, supplier, customer order #">
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Notes / Reference</label>
-                            <textarea name="notes" class="form-control" rows="3">{{ log.notes }}</textarea>
+
+                        <div class="mb-4">
+                            <label for="notes" class="form-label fw-semibold">Notes</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="2">{{ log.notes or '' }}</textarea>
                         </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-warning fw-bold text-dark">
-                                <i class="fas fa-save me-2"></i>Update Log
+
+                        <div class="inventory-logged-by mb-4">
+                            <i class="fas fa-user me-2 text-muted"></i>
+                            <span class="text-muted small">Originally logged by</span>
+                            <strong class="small">{{ log.admin.username if log.admin else '—' }}</strong>
+                            <span class="text-muted small ms-2">· {{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+
+                        <div class="d-grid gap-2 d-sm-flex">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4">
+                                <i class="fas fa-save me-2"></i>Update Transaction
                             </button>
-                            <a href="{{ url_for('inventory') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-times me-2"></i>Cancel
-                            </a>
+                            <a href="{{ url_for('inventory') }}" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
                         </div>
                     </form>
                 </div>
@@ -47,6 +152,49 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const inReasons = {{ in_reasons | tojson }};
+    const outReasons = {{ out_reasons | tojson }};
+    const savedReason = {{ (log.reason or '') | tojson }};
+    const form = document.getElementById('edit-inventory-form');
+    const reasonSelect = document.getElementById('edit-reason');
+    const quantityInput = document.getElementById('edit-quantity');
+    const hasCatalog = {{ 'true' if log.product else 'false' }};
+    const availableBase = hasCatalog ? {{ log.product.stock + (log.quantity if log.transaction_type == 'OUT' else -log.quantity) if log.product else 0 }} : null;
+
+    function currentType() {
+        const checked = form.querySelector('input[name="transaction_type"]:checked');
+        return checked ? checked.value : 'IN';
+    }
+
+    function populateReasons() {
+        const reasons = currentType() === 'IN' ? inReasons : outReasons;
+        reasonSelect.innerHTML = '<option value="">Select reason (optional)…</option>';
+        Object.entries(reasons).forEach(([key, label]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = label;
+            if (key === savedReason) opt.selected = true;
+            reasonSelect.appendChild(opt);
+        });
+    }
+
+    form.querySelectorAll('input[name="transaction_type"]').forEach(r => {
+        r.addEventListener('change', populateReasons);
+    });
+
+    form.addEventListener('submit', function (e) {
+        if (!hasCatalog) return;
+        const qty = parseInt(quantityInput.value || '0', 10);
+        if (currentType() === 'OUT' && qty > availableBase) {
+            e.preventDefault();
+            alert('Cannot remove more than ' + availableBase + ' units for this catalog item.');
+        }
+    });
+
+    populateReasons();
+})();
+</script>
 {% endblock %}
-
-

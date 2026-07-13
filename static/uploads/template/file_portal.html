@@ -2,199 +2,329 @@
 
 {% block title %}File Share Portal - 3G Design{% endblock %}
 
-{% block body_class %}admin-page{% endblock %}
+{% block body_class %}admin-page file-portal-page{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='file_browser.js') }}" defer></script>
+{% endblock %}
+
+{% macro file_icon(ext) -%}
+{%- if ext in ['.pdf'] -%}fa-file-pdf file-icon-pdf
+{%- elif ext in ['.doc', '.docx'] -%}fa-file-word file-icon-doc
+{%- elif ext in ['.xls', '.xlsx', '.csv'] -%}fa-file-excel file-icon-sheet
+{%- elif ext in ['.ppt', '.pptx'] -%}fa-file-powerpoint file-icon-slide
+{%- elif ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'] -%}fa-file-image file-icon-image
+{%- elif ext in ['.zip', '.rar', '.7z', '.tar', '.gz'] -%}fa-file-archive file-icon-archive
+{%- elif ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm'] -%}fa-file-video file-icon-video
+{%- elif ext in ['.mp3', '.wav', '.aac', '.flac'] -%}fa-file-audio file-icon-audio
+{%- elif ext in ['.html', '.htm', '.css', '.js', '.json', '.xml', '.py'] -%}fa-file-code file-icon-code
+{%- elif ext in ['.txt', '.md', '.rtf'] -%}fa-file-alt file-icon-text
+{%- else -%}fa-file file-icon-generic
+{%- endif -%}
+{%- endmacro %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
-    <div class="row">
-        <div class="col-md-10 mx-auto">
-            <div class="admin-card">
-                <div class="admin-card-header p-4">
-                    <h2 class="h4 mb-1"><i class="fas fa-folder-open me-2"></i>Team File Share Portal{% if selected_date %} — {{ selected_date }}{% endif %}</h2>
-                    <p class="mb-0 text-white-50 small">Upload and manage internal files and designs{% if selected_date %} for {{ selected_date }}{% endif %}</p>
+<div class="file-browser-loading" id="fileBrowserLoading" aria-hidden="true">
+    <div class="file-browser-loading-inner">
+        <i class="fas fa-circle-notch fa-spin fa-2x text-gold"></i>
+        <span>Loading folder…</span>
+    </div>
+</div>
+
+<div class="container-fluid file-browser-wrap py-4">
+    <div class="row g-4">
+        <!-- Sidebar: date folders -->
+        <div class="col-lg-3">
+            <aside class="file-browser-sidebar admin-card h-100">
+                <div class="file-browser-sidebar-header">
+                    <h2 class="h6 mb-0"><i class="fas fa-folder-tree me-2"></i>Date Folders</h2>
+                    <p class="small text-white-50 mb-0 mt-1">Browse by production day</p>
                 </div>
-                <div class="admin-card-body">
-                    <!-- Search Bar -->
-                    <div class="search-section mb-4">
-                        <form action="{{ url_for('file_portal') }}" method="GET" class="d-flex search-bar-pill rounded-pill overflow-hidden border bg-white">
-                            <input type="text" name="search" class="form-control border-0 ps-4 py-3" placeholder="Search files by name..." value="{{ search_query }}">
-                            <button type="submit" class="btn btn-primary px-4 rounded-0">
-                                <i class="fas fa-search"></i> Search
-                            </button>
-                        </form>
-                        {% if search_query %}
-                        <div class="mt-2 text-muted small px-3">
-                            Showing results for: "<strong>{{ search_query }}</strong>" 
-                            <a href="{{ url_for('file_portal', date=selected_date) }}" class="text-decoration-none ms-2"><i class="fas fa-times me-1"></i>Clear</a>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Date Folders -->
-                    <div class="date-folders mb-4">
-                        <h4><i class="fas fa-calendar me-2 text-primary"></i>Select Date Folder</h4>
-                        <div class="row g-2">
-                            {% for date_folder in date_folders %}
-                            <div class="col-md-3 col-sm-6">
-                                <a href="{{ url_for('file_portal', date=date_folder) }}" class="btn btn-outline-secondary w-100 {% if selected_date == date_folder %}active{% endif %}">
-                                    <i class="fas fa-folder me-2"></i>{{ date_folder }}
-                                </a>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% if not date_folders %}
-                        <div class="text-center py-4 text-muted">
-                            <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
-                            No date folders yet. Upload a file to create today's folder.
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    {% if selected_date %}
-                    <!-- Upload Section -->
-                    <div class="upload-zone mb-5">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload to {{ selected_date }}</h4>
-                            <a href="{{ url_for('file_portal') }}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-arrow-left me-2"></i>Back to All Dates
-                            </a>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5>Upload Files</h5>
-                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" class="mt-3">
-                                    <div class="input-group">
-                                        <input type="file" name="files" class="form-control" multiple>
-                                        <button type="submit" class="btn btn-primary px-4">
-                                            <i class="fas fa-upload me-2"></i>Upload Files
-                                        </button>
-                                    </div>
-                                    <small class="text-muted mt-2 d-block">Select multiple files. Maximum file size: 100MB each. All file types supported.</small>
-                                </form>
-                            </div>
-                            <div class="col-md-6">
-                                <h5>Upload Folder</h5>
-                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" class="mt-3">
-                                    <div class="input-group">
-                                        <input type="file" name="files" class="form-control" webkitdirectory multiple>
-                                        <button type="submit" class="btn btn-success px-4">
-                                            <i class="fas fa-folder-plus me-2"></i>Upload Folder
-                                        </button>
-                                    </div>
-                                    <small class="text-muted mt-2 d-block">Select an entire folder to upload with its structure preserved.</small>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Files in Selected Date -->
-                    <h4><i class="fas fa-list me-2 text-primary"></i>Files in {{ selected_date }}</h4>
-                    {% else %}
-                    <!-- Upload Section -->
-                    <div class="upload-zone mb-5">
-                        <h4><i class="fas fa-cloud-upload-alt me-2 text-primary"></i>Upload New Files/Folders</h4>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5>Upload Files</h5>
-                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" class="mt-3">
-                                    <div class="input-group">
-                                        <input type="file" name="files" class="form-control" multiple>
-                                        <button type="submit" class="btn btn-primary px-4">
-                                            <i class="fas fa-upload me-2"></i>Upload Files
-                                        </button>
-                                    </div>
-                                    <small class="text-muted mt-2 d-block">Select multiple files. Files will be uploaded to today's folder.</small>
-                                </form>
-                            </div>
-                            <div class="col-md-6">
-                                <h5>Upload Folder</h5>
-                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" class="mt-3">
-                                    <div class="input-group">
-                                        <input type="file" name="files" class="form-control" webkitdirectory multiple>
-                                        <button type="submit" class="btn btn-success px-4">
-                                            <i class="fas fa-folder-plus me-2"></i>Upload Folder
-                                        </button>
-                                    </div>
-                                    <small class="text-muted mt-2 d-block">Select an entire folder to upload with its structure preserved to today's folder.</small>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Search Results or All Files -->
-                    {% if search_query %}
-                    <h4><i class="fas fa-search me-2 text-primary"></i>Search Results</h4>
-                    {% else %}
-                    <h4><i class="fas fa-list me-2 text-primary"></i>All Files (Select a date folder above to browse)</h4>
-                    {% endif %}
-                    {% endif %}
-
-                    <div class="table-responsive mt-3">
-                        <table class="table table-hover align-middle admin-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>File Name</th>
-                                    <th>Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for file in files %}
-                                {% if selected_date %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-file-alt me-2 text-secondary"></i>
-                                        <strong>{{ file }}</strong>
-                                    </td>
-                                    <td>{{ selected_date }}</td>
-                                    <td>
-                                        <a href="{{ url_for('static', filename='uploads/portal/' + selected_date + '/' + file) }}" class="btn btn-sm btn-outline-primary" target="_blank">
-                                            <i class="fas fa-download me-1"></i>View/Download
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                {% set file_parts = file.split('/', 1) %}
-                                {% if file_parts|length == 2 %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-file-alt me-2 text-secondary"></i>
-                                        <strong>{{ file_parts[1] }}</strong>
-                                    </td>
-                                    <td>{{ file_parts[0] }}</td>
-                                    <td>
-                                        <a href="{{ url_for('static', filename='uploads/portal/' + file) }}" class="btn btn-sm btn-outline-primary" target="_blank">
-                                            <i class="fas fa-download me-1"></i>View/Download
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endif %}
-                                {% endif %}
-                                {% else %}
-                                {% if selected_date %}
-                                <tr>
-                                    <td colspan="3" class="text-center py-4 text-muted">
-                                        <i class="fas fa-ghost fa-3x mb-3 d-block"></i>
-                                        No files in {{ selected_date }} yet.
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="3" class="text-center py-4 text-muted">
-                                        <i class="fas fa-ghost fa-3x mb-3 d-block"></i>
-                                        No files found.
-                                    </td>
-                                </tr>
-                                {% endif %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="card-footer bg-white p-3 border-0 text-center">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-link text-secondary text-decoration-none">
-                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                <div class="file-browser-sidebar-body">
+                    <a href="{{ url_for('file_portal') }}"
+                       class="file-tree-item {% if not selected_date and not search_query %}active{% endif %}">
+                        <i class="fas fa-home"></i>
+                        <span>All Folders</span>
                     </a>
+                    {% for date_folder in date_folders %}
+                    <a href="{{ url_for('file_portal', date=date_folder) }}"
+                       class="file-tree-item {% if selected_date == date_folder and not search_query %}active{% endif %}">
+                        <i class="fas fa-folder{% if selected_date == date_folder %} open text-warning{% endif %}"></i>
+                        <span>{{ date_folder }}</span>
+                        {% if date_folder == today_folder %}
+                        <span class="badge rounded-pill file-badge-today">Today</span>
+                        {% endif %}
+                    </a>
+                    {% else %}
+                    <div class="file-empty-sidebar">
+                        <i class="fas fa-folder-plus"></i>
+                        <p class="small mb-0">No folders yet. Upload files to create today's folder.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </aside>
+        </div>
+
+        <!-- Main browser -->
+        <div class="col-lg-9">
+            <div class="admin-card file-browser-main">
+                <div class="admin-card-header file-browser-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h1 class="h4 mb-1"><i class="fas fa-folder-open me-2"></i>Team File Share Portal</h1>
+                        <p class="mb-0 text-white-50 small">Upload, browse, and download internal files &amp; designs</p>
+                    </div>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-light rounded-pill">
+                        <i class="fas fa-arrow-left me-1"></i>Dashboard
+                    </a>
+                </div>
+
+                <div class="admin-card-body">
+                    <!-- Toolbar -->
+                    <div class="file-browser-toolbar">
+                        <form action="{{ url_for('file_portal') }}" method="GET" class="file-search-form">
+                            {% if selected_date %}<input type="hidden" name="date" value="{{ selected_date }}">{% endif %}
+                            {% if current_path %}<input type="hidden" name="path" value="{{ current_path }}">{% endif %}
+                            <div class="search-bar-pill rounded-pill overflow-hidden border bg-white d-flex">
+                                <span class="file-search-icon"><i class="fas fa-search"></i></span>
+                                <input type="search" name="search" class="form-control border-0"
+                                       placeholder="Search files by name…" value="{{ search_query }}" autocomplete="off">
+                                <button type="submit" class="btn btn-primary rounded-0 px-3">Search</button>
+                            </div>
+                        </form>
+
+                        <div class="file-view-toggle btn-group" role="group" aria-label="View mode">
+                            <button type="button" class="btn btn-outline-secondary active" data-view="grid" title="Grid view">
+                                <i class="fas fa-th-large"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" data-view="list" title="List view">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {% if search_query %}
+                    <!-- Search results -->
+                    <div class="file-breadcrumb-bar">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb file-breadcrumb mb-0">
+                                <li class="breadcrumb-item"><a href="{{ url_for('file_portal') }}">Portal</a></li>
+                                <li class="breadcrumb-item active" aria-current="page">Search: “{{ search_query }}”</li>
+                            </ol>
+                        </nav>
+                        <a href="{{ url_for('file_portal', date=selected_date, path=current_path or none) }}" class="btn btn-sm btn-link text-decoration-none">
+                            <i class="fas fa-times me-1"></i>Clear search
+                        </a>
+                    </div>
+
+                    {% if search_results %}
+                    <div class="file-items file-items-grid" data-view-container>
+                        {% for file in search_results %}
+                        <a href="{{ url_for('static', filename='uploads/portal/' + file.date_folder + '/' + file.path) }}"
+                           class="file-item file-item-file" target="_blank" rel="noopener"
+                           title="Open {{ file.name }}">
+                            <div class="file-item-icon">
+                                <i class="fas {{ file_icon(file.ext) }}"></i>
+                            </div>
+                            <div class="file-item-name" title="{{ file.name }}">{{ file.name }}</div>
+                            <div class="file-item-meta">
+                                <span class="file-item-date">{{ file.date_folder }}</span>
+                                <span>{{ file.size_label }}</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="file-empty-state">
+                        <div class="file-empty-icon"><i class="fas fa-search"></i></div>
+                        <h3 class="h5">No files found</h3>
+                        <p class="text-muted mb-0">Try a different search term or browse a date folder.</p>
+                    </div>
+                    {% endif %}
+
+                    {% elif selected_date %}
+                    <!-- Breadcrumbs inside date folder -->
+                    <div class="file-breadcrumb-bar">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb file-breadcrumb mb-0">
+                                <li class="breadcrumb-item">
+                                    <a href="{{ url_for('file_portal') }}">Portal</a>
+                                </li>
+                                <li class="breadcrumb-item">
+                                    <a href="{{ url_for('file_portal', date=selected_date) }}">{{ selected_date }}</a>
+                                </li>
+                                {% for crumb in breadcrumbs %}
+                                <li class="breadcrumb-item {% if loop.last %}active{% endif %}" {% if loop.last %}aria-current="page"{% endif %}>
+                                    {% if loop.last %}
+                                    {{ crumb.name }}
+                                    {% else %}
+                                    <a href="{{ url_for('file_portal', date=selected_date, path=crumb.path) }}">{{ crumb.name }}</a>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ol>
+                        </nav>
+                    </div>
+
+                    <!-- Upload zone -->
+                    <div class="file-upload-zone">
+                        <div class="file-upload-zone-header">
+                            <h3 class="h6 mb-0">
+                                <i class="fas fa-cloud-upload-alt me-2 text-gold"></i>
+                                Upload to {{ selected_date }}{% if current_path %} / {{ current_path }}{% endif %}
+                            </h3>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                                    <input type="hidden" name="date" value="{{ selected_date }}">
+                                    {% if current_path %}<input type="hidden" name="path" value="{{ current_path }}">{% endif %}
+                                    <label class="file-upload-drop">
+                                        <input type="file" name="files" multiple>
+                                        <span class="file-upload-drop-inner">
+                                            <i class="fas fa-file-upload"></i>
+                                            <strong>Choose files</strong>
+                                            <small>Up to 100MB each · all types</small>
+                                        </span>
+                                    </label>
+                                    <button type="submit" class="btn btn-primary w-100 mt-2 rounded-pill">
+                                        <i class="fas fa-upload me-2"></i>Upload Files
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-6">
+                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                                    <input type="hidden" name="date" value="{{ selected_date }}">
+                                    {% if current_path %}<input type="hidden" name="path" value="{{ current_path }}">{% endif %}
+                                    <label class="file-upload-drop file-upload-drop-folder">
+                                        <input type="file" name="files" webkitdirectory multiple>
+                                        <span class="file-upload-drop-inner">
+                                            <i class="fas fa-folder-plus"></i>
+                                            <strong>Choose folder</strong>
+                                            <small>Preserves folder structure</small>
+                                        </span>
+                                    </label>
+                                    <button type="submit" class="btn btn-success w-100 mt-2 rounded-pill">
+                                        <i class="fas fa-folder-plus me-2"></i>Upload Folder
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if folders or files %}
+                    <div class="file-items file-items-grid" data-view-container>
+                        {% for folder in folders %}
+                        <a href="{{ url_for('file_portal', date=selected_date, path=folder.path) }}"
+                           class="file-item file-item-folder" title="Open {{ folder.name }}">
+                            <div class="file-item-icon">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div class="file-item-name" title="{{ folder.name }}">{{ folder.name }}</div>
+                            <div class="file-item-meta"><span>Folder</span></div>
+                        </a>
+                        {% endfor %}
+
+                        {% for file in files %}
+                        <a href="{{ url_for('static', filename='uploads/portal/' + selected_date + '/' + file.path) }}"
+                           class="file-item file-item-file" target="_blank" rel="noopener"
+                           title="Open {{ file.name }}">
+                            <div class="file-item-icon">
+                                <i class="fas {{ file_icon(file.ext) }}"></i>
+                            </div>
+                            <div class="file-item-name" title="{{ file.name }}">{{ file.name }}</div>
+                            <div class="file-item-meta">
+                                <span>{{ file.size_label }}</span>
+                                <span>{{ file.modified.strftime('%b %d, %Y') }}</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="file-empty-state">
+                        <div class="file-empty-icon"><i class="fas fa-folder-open"></i></div>
+                        <h3 class="h5">This folder is empty</h3>
+                        <p class="text-muted mb-0">Upload files or a folder using the panel above.</p>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <!-- Root: date folder grid -->
+                    <div class="file-breadcrumb-bar">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb file-breadcrumb mb-0">
+                                <li class="breadcrumb-item active" aria-current="page">All Date Folders</li>
+                            </ol>
+                        </nav>
+                    </div>
+
+                    <div class="file-upload-zone mb-4">
+                        <div class="file-upload-zone-header">
+                            <h3 class="h6 mb-0">
+                                <i class="fas fa-cloud-upload-alt me-2 text-gold"></i>
+                                Quick upload to today ({{ today_folder }})
+                            </h3>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                                    <label class="file-upload-drop">
+                                        <input type="file" name="files" multiple>
+                                        <span class="file-upload-drop-inner">
+                                            <i class="fas fa-file-upload"></i>
+                                            <strong>Choose files</strong>
+                                            <small>Goes to today's folder</small>
+                                        </span>
+                                    </label>
+                                    <button type="submit" class="btn btn-primary w-100 mt-2 rounded-pill">
+                                        <i class="fas fa-upload me-2"></i>Upload Files
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-6">
+                                <form action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                                    <label class="file-upload-drop file-upload-drop-folder">
+                                        <input type="file" name="files" webkitdirectory multiple>
+                                        <span class="file-upload-drop-inner">
+                                            <i class="fas fa-folder-plus"></i>
+                                            <strong>Choose folder</strong>
+                                            <small>Structure preserved in today's folder</small>
+                                        </span>
+                                    </label>
+                                    <button type="submit" class="btn btn-success w-100 mt-2 rounded-pill">
+                                        <i class="fas fa-folder-plus me-2"></i>Upload Folder
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if date_folders %}
+                    <div class="file-items file-items-grid" data-view-container>
+                        {% for date_folder in date_folders %}
+                        <a href="{{ url_for('file_portal', date=date_folder) }}"
+                           class="file-item file-item-folder file-item-date" title="Open {{ date_folder }}">
+                            <div class="file-item-icon">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div class="file-item-name">{{ date_folder }}</div>
+                            <div class="file-item-meta">
+                                {% if date_folder == today_folder %}
+                                <span class="file-badge-inline">Today</span>
+                                {% else %}
+                                <span>Date folder</span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="file-empty-state">
+                        <div class="file-empty-icon"><i class="fas fa-folder-plus"></i></div>
+                        <h3 class="h5">No date folders yet</h3>
+                        <p class="text-muted mb-0">Upload files above to create your first folder automatically.</p>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>

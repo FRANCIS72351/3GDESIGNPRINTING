@@ -5,3 +5,27 @@
 {% macro marquee_chunk() -%}
 {{ brand_wordmark('light', 'brand-wordmark--marquee') }} &nbsp;&bull;&nbsp; PREMIUM PRINTS &nbsp;&bull;&nbsp; CREATIVE ASSETS &nbsp;&bull;&nbsp;
 {%- endmacro %}
+
+{% macro footer_social_links() -%}
+<nav class="footer-social" aria-label="Social media">
+    <span class="footer-social-label">Connect with us</span>
+    <div class="footer-social-links">
+        <a href="{{ social_facebook_url() }}"
+           class="footer-social-btn footer-social-btn--facebook"
+           target="_blank"
+           rel="noopener noreferrer"
+           aria-label="Follow 3G Design on Facebook">
+            <i class="fab fa-facebook-f" aria-hidden="true"></i>
+            <span class="footer-social-text">Facebook</span>
+        </a>
+        <a href="{{ social_whatsapp_url() }}"
+           class="footer-social-btn footer-social-btn--whatsapp"
+           target="_blank"
+           rel="noopener noreferrer"
+           aria-label="Chat with 3G Design on WhatsApp">
+            <i class="fab fa-whatsapp" aria-hidden="true"></i>
+            <span class="footer-social-text">WhatsApp</span>
+        </a>
+    </div>
+</nav>
+{%- endmacro %}

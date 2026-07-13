@@ -39,6 +39,8 @@ def post_login_redirect(admin):
         return url_for('ghost_dashboard')
     if admin.role == 'staff':
         return url_for('staff.staff_portal')
+    if admin.role == 'moderator':
+        return url_for('moderator_portal')
     return url_for('dashboard')
 
 
@@ -200,6 +202,8 @@ def clock_in():
 
     if session.get('role') == 'staff':
         return redirect(url_for('staff.staff_portal'))
+    if session.get('role') == 'moderator':
+        return redirect(url_for('moderator_portal'))
     return redirect(url_for('dashboard'))
 
 
@@ -217,4 +221,6 @@ def clock_out():
 
     if session.get('role') == 'staff':
         return redirect(url_for('staff.staff_portal'))
+    if session.get('role') == 'moderator':
+        return redirect(url_for('moderator_portal'))
     return redirect(url_for('dashboard'))

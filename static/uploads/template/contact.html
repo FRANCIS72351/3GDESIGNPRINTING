@@ -23,7 +23,7 @@
                     </div>
 
                     <div class="text-center mt-4">
-                        <a href="https://wa.me/+231775323731?text=Hello! I would like to inquire about your printing services." class="whatsapp-btn btn-lg">
+                        <a href="{{ social_whatsapp_url('Hello! I would like to inquire about your printing services.') }}" class="whatsapp-btn btn-lg" target="_blank" rel="noopener noreferrer" aria-label="Chat with 3G Design on WhatsApp">
                             <i class="fab fa-whatsapp me-2"></i>Chat with us on WhatsApp
                         </a>
                     </div>
@@ -32,17 +32,26 @@
                         <p class="text-muted">For urgent orders or bulk inquiries, WhatsApp is the fastest way to reach us!</p>
                     </div>
 
-                    <div class="mt-4 border rounded-3 overflow-hidden shadow-sm" id="webChatPanel">
-                        <div class="px-3 py-2 text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, var(--brand-navy), #1a3a5c);">
-                            <i class="fas fa-robot"></i>
+                    <div class="mt-4 border rounded-3 overflow-hidden shadow-sm" id="webChatPanel" role="region" aria-label="Chat with 3G Design assistant">
+                        <div class="px-3 py-2 text-white d-flex align-items-center gap-2 flex-wrap" style="background: linear-gradient(135deg, var(--brand-navy), #1a3a5c);">
+                            <i class="fas fa-robot" aria-hidden="true"></i>
                             {{ brand_wordmark('light', 'brand-wordmark--on-dark small') }}<span class="small text-white-50"> Assistant</span>
-                            <span class="badge bg-success ms-auto">Online</span>
+                            <span class="badge bg-secondary ms-auto" title="Replies are generated automatically">Automated assistant</span>
                         </div>
-                        <div id="webChatMessages" class="p-3 bg-white" style="height: 220px; overflow-y: auto; font-size: 0.9rem;"></div>
+                        <p class="small text-muted mb-0 px-3 pt-2 bg-white">AI assistant — for quotes, our team confirms final pricing.</p>
+                        <div id="webChatMessages" class="p-3 bg-white web-chat-messages" aria-live="polite" aria-relevant="additions" aria-label="Chat messages"></div>
+                        <div id="webChatStatus" class="visually-hidden" aria-live="polite"></div>
+                        <div class="px-2 pt-2 pb-1 bg-light d-flex flex-wrap gap-1" role="group" aria-label="Suggested questions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-chat-suggest="What are your business hours?" aria-label="Ask about business hours">Hours</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-chat-suggest="What services do you offer?" aria-label="Ask about services">Services</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-chat-suggest="How much do you charge for printing?" aria-label="Ask about prices">Prices</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-chat-suggest="Where are you located?" aria-label="Ask about location">Location</button>
+                        </div>
                         <div class="p-2 border-top bg-light d-flex gap-2">
-                            <input type="text" id="webChatInput" class="form-control form-control-sm" placeholder="Ask about prices, hours, orders…" maxlength="500">
-                            <button type="button" id="webChatSend" class="btn btn-sm btn-primary rounded-pill px-3">Send</button>
+                            <input type="text" id="webChatInput" class="form-control form-control-sm" placeholder="Ask about prices, hours, orders…" maxlength="500" aria-label="Type your message">
+                            <button type="button" id="webChatSend" class="btn btn-sm btn-primary rounded-pill px-3" aria-label="Send message">Send</button>
                         </div>
+                        <p class="small text-muted mb-0 px-3 py-2 bg-light border-top">Messages are stored temporarily to continue this chat. Do not share payment or sensitive personal details here.</p>
                     </div>
                 </div>
             </div>
@@ -76,26 +85,81 @@
     </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<style>
+.web-chat-messages {
+    height: 280px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+}
+@media (max-width: 576px) {
+    .web-chat-messages { height: 360px; }
+}
+.web-chat-typing .typing-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 2px;
+    border-radius: 50%;
+    background: #6c757d;
+    animation: webChatDot 1.2s infinite ease-in-out both;
+}
+.web-chat-typing .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.web-chat-typing .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes webChatDot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+</style>
 <script>
 (function() {
     const STORAGE_KEY = '3g_design_chat_session';
     const box = document.getElementById('webChatMessages');
     const input = document.getElementById('webChatInput');
     const btn = document.getElementById('webChatSend');
+    const status = document.getElementById('webChatStatus');
     if (!box || !input || !btn) return;
+
+    function escapeHtml(text) {
+        return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function formatAssistant(text) {
+        return escapeHtml(text).replace(/\n/g, '<br>').replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    }
 
     function append(role, text, asHtml) {
         const div = document.createElement('div');
         div.className = 'mb-2 ' + (role === 'user' ? 'text-end' : '');
         if (role === 'user') {
-            div.innerHTML = '<span class="badge bg-primary rounded-pill px-3 py-2">' + text.replace(/</g,'&lt;') + '</span>';
+            div.innerHTML = '<span class="badge bg-primary rounded-pill px-3 py-2">' + escapeHtml(text) + '</span>';
         } else if (asHtml) {
             div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text + '</span>';
         } else {
-            div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span>' + text.replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>') + '</span>';
+            div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span>' + formatAssistant(text) + '</span>';
         }
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
+    }
+
+    function showTyping() {
+        hideTyping();
+        const div = document.createElement('div');
+        div.id = 'webChatTyping';
+        div.className = 'mb-2 web-chat-typing';
+        div.setAttribute('aria-hidden', 'true');
+        div.innerHTML = '<span class="text-muted small d-block mb-1">Assistant</span><span class="typing-dots"><span></span><span></span><span></span></span>';
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        if (status) status.textContent = 'Assistant is typing';
+    }
+
+    function hideTyping() {
+        const el = document.getElementById('webChatTyping');
+        if (el) el.remove();
+        if (status) status.textContent = '';
     }
 
     function getSession() {
@@ -107,12 +171,33 @@
         return t;
     }
 
-    async function send() {
-        const msg = input.value.trim();
+    const brandGreeting = {{ brand_wordmark('navy', 'brand-wordmark--inline')|tojson }};
+    const defaultGreeting = "Hello! I'm the " + brandGreeting + " assistant. Ask about printing, prices, hours, or orders.";
+
+    async function loadHistory() {
+        try {
+            const r = await fetch('/api/web/chat?session_token=' + encodeURIComponent(getSession()));
+            const d = await r.json();
+            if (r.ok && d.messages && d.messages.length) {
+                d.messages.forEach(function(m) {
+                    if (m.role === 'user' || m.role === 'assistant') {
+                        append(m.role, m.content, false);
+                    }
+                });
+                return;
+            }
+        } catch (e) { /* fall through to greeting */ }
+        append('assistant', defaultGreeting, true);
+    }
+
+    async function send(preset) {
+        const msg = (preset || input.value).trim();
         if (!msg) return;
         input.value = '';
         append('user', msg);
         btn.disabled = true;
+        input.disabled = true;
+        showTyping();
         try {
             const r = await fetch('/api/web/chat', {
                 method: 'POST',
@@ -120,18 +205,34 @@
                 body: JSON.stringify({ session_token: getSession(), message: msg })
             });
             const d = await r.json();
-            append('assistant', d.reply || d.error || 'Sorry, try again.');
+            hideTyping();
+            if (!r.ok) {
+                append('assistant', d.error || 'Sorry, something went wrong. Please try again or use WhatsApp.');
+            } else {
+                append('assistant', d.reply || 'Sorry, I could not reply. Please try again.');
+            }
         } catch (e) {
-            append('assistant', 'Connection error — please try WhatsApp instead.');
+            hideTyping();
+            append('assistant', 'Connection error — please try again or contact us on WhatsApp.');
         }
         btn.disabled = false;
+        input.disabled = false;
         input.focus();
     }
 
-    btn.addEventListener('click', send);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    const brandGreeting = {{ brand_wordmark('navy', 'brand-wordmark--inline')|tojson }};
-    append('assistant', 'Hello! I\\'m the ' + brandGreeting + ' assistant. Ask about printing, prices, hours, or orders.', true);
+    btn.addEventListener('click', function() { send(); });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            send();
+        }
+    });
+
+    document.querySelectorAll('[data-chat-suggest]').forEach(function(chip) {
+        chip.addEventListener('click', function() { send(chip.getAttribute('data-chat-suggest')); });
+    });
+
+    loadHistory();
 })();
 </script>
 {% endblock %}
