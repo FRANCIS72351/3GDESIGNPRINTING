@@ -80,6 +80,38 @@ def build_whatsapp_text(cart_items, *, share_image_url=None, share_page_url=None
     return '\n'.join(lines)
 
 
+def build_whatsapp_short_message(cart_items, *, share_page_url):
+    """
+    Concise WhatsApp text for wa.me fallback — share page link triggers og:image preview.
+    Image URLs in plain text do not render inline in WhatsApp; the link preview does.
+    """
+    total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
+    total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
+
+    lines = ['🛒 NEW ORDER — 3G Design', '']
+    for item in cart_items:
+        sym = '$' if item.get('currency') == 'USD' else 'L$'
+        subtotal = item['price'] * item['quantity']
+        name = item.get('product_name', 'Product')
+        variant = item.get('variant_name', '')
+        if variant and variant not in ('Base', 'Original Design'):
+            lines.append(f"• {name} ({variant}) x{item['quantity']} — {sym}{subtotal:.2f}")
+        else:
+            lines.append(f"• {name} x{item['quantity']} — {sym}{subtotal:.2f}")
+    lines.append('')
+    if total_usd:
+        lines.append(f'💰 Total USD: ${total_usd:.2f}')
+    if total_lrd:
+        lines.append(f'💰 Total LRD: L${total_lrd:.2f}')
+    if share_page_url:
+        lines.append('')
+        lines.append('📋 View order with images:')
+        lines.append(share_page_url)
+    lines.append('')
+    lines.append('Please confirm availability and lead time. Thank you! 🙏')
+    return '\n'.join(lines)
+
+
 def generate_order_image(cart_items, token, app_root):
     """
     Build one PNG with product thumbnails + order details.
@@ -162,10 +194,10 @@ def generate_order_image(cart_items, token, app_root):
     return f'orders/{filename}'
 
 
-def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root):
+def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root, share_page_url=None):
     """
     Optional: push order image + text to shop WhatsApp via Meta Cloud API.
-    Works locally — uploads image from disk, no public URL needed.
+    Sends composite receipt image and individual product photos as media messages.
     """
     import os
     import requests
@@ -205,12 +237,16 @@ def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root):
         except Exception:
             pass
 
+    caption = message_text[:1024]
+    if share_page_url and share_page_url not in caption:
+        caption = f"{caption}\n\n🔗 {share_page_url}"[:1024]
+
     if media_id:
         send_payload({
             'messaging_product': 'whatsapp',
             'to': notify_to,
             'type': 'image',
-            'image': {'id': media_id, 'caption': message_text[:1024]},
+            'image': {'id': media_id, 'caption': caption},
         })
     else:
         send_payload({

@@ -494,7 +494,7 @@ def event_portal():
 # Shopping Cart Logic
 # ----------------------------------
 
-from order_share import build_whatsapp_text, generate_order_image, try_notify_shop_via_api
+from order_share import build_whatsapp_text, build_whatsapp_short_message, generate_order_image, try_notify_shop_via_api
 from site_config import get_whatsapp_number
 
 WHATSAPP_NUMBER = get_whatsapp_number()
@@ -589,7 +589,15 @@ def finalize_whatsapp_order(cart_items):
     db.session.add(receipt)
     db.session.commit()
 
-    run_in_background(app, try_notify_shop_via_api, enriched, message_text, image_rel, app.root_path)
+    run_in_background(
+        app,
+        try_notify_shop_via_api,
+        enriched,
+        message_text,
+        image_rel,
+        app.root_path,
+        share_page_url,
+    )
     return token, message_text, image_rel
 
 
@@ -676,24 +684,56 @@ def order_share_page(token):
     items = data.get('items', [])
     image_rel = data.get('share_image', '')
     base_url = get_public_base_url()
+    share_page_url = data.get('share_page_url') or f"{base_url}/order/share/{token}"
     image_url = data.get('share_image_url') or (
         f"{base_url}/static/uploads/{image_rel}" if image_rel else f"{base_url}/static/img/LOGO.png"
+    )
+    image_fetch_url = (
+        url_for('static', filename=f'uploads/{image_rel}')
+        if image_rel else url_for('static', filename='img/LOGO.png')
     )
     message_text = data.get('message_text') or build_whatsapp_text(
         items,
         share_image_url=image_url,
-        share_page_url=data.get('share_page_url') or f"{base_url}/order/share/{token}",
+        share_page_url=share_page_url,
     )
+    short_message = build_whatsapp_short_message(items, share_page_url=share_page_url)
+    item_count = len(items)
+    og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
+    og_description = ', '.join(i.get('product_name', 'Product') for i in items[:3])
+    if item_count > 3:
+        og_description += f' +{item_count - 3} more'
     phone = WHATSAPP_NUMBER.lstrip('+')
+    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(short_message)}"
     wa_fallback_url = f"https://wa.me/{phone}?text={urllib.parse.quote(message_text)}"
+    product_images = [
+        {
+            'url': item.get('image_url') or absolute_product_image_url(item.get('image', '')),
+            'fetch_url': url_for(
+                'static',
+                filename=f"uploads/{normalize_image_filename(item.get('image', ''))}",
+            ) if item.get('image') else url_for('static', filename='img/LOGO.png'),
+            'name': item.get('product_name', 'Product'),
+        }
+        for item in items
+    ]
     return render_template(
         'order_share.html',
         token=token,
         items=items,
         message_text=message_text,
+        short_message=short_message,
         image_url=image_url,
+        image_fetch_url=image_fetch_url,
+        share_page_url=share_page_url,
+        product_images=product_images,
         wa_phone=phone,
+        wa_preview_url=wa_preview_url,
         wa_fallback_url=wa_fallback_url,
+        og_title=og_title,
+        og_description=og_description,
+        og_image=image_url,
+        og_url=share_page_url,
     )
 
 

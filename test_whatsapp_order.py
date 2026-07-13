@@ -1,6 +1,7 @@
 """Tests for WhatsApp order flow (finalize, prepare, checkout, share page)."""
 import json
 import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ os.environ.setdefault('PUBLIC_SITE_URL', 'https://example.test')
 
 from app import app, finalize_whatsapp_order, get_public_base_url
 from models import db, PendingReceipt
+from order_share import build_whatsapp_short_message, generate_order_image
 
 
 class WhatsAppOrderTests(unittest.TestCase):
@@ -59,6 +61,36 @@ class WhatsAppOrderTests(unittest.TestCase):
 
         _mock_bg.assert_called_once()
         self.assertIs(_mock_bg.call_args[0][0], app)
+        self.assertEqual(_mock_bg.call_args[0][6], f'{base}/order/share/{token}')
+
+    def test_build_whatsapp_short_message_uses_share_link(self):
+        items = [self._sample_item()]
+        url = 'https://example.test/order/share/abc123'
+        text = build_whatsapp_short_message(items, share_page_url=url)
+        self.assertIn('Test Mug', text)
+        self.assertIn(url, text)
+        self.assertNotIn('🖼', text)
+
+    def test_generate_order_image_creates_png(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logo = os.path.join(tmp, 'static', 'img')
+            os.makedirs(logo, exist_ok=True)
+            from PIL import Image
+            Image.new('RGB', (10, 10), 'red').save(os.path.join(logo, 'LOGO.png'))
+
+            items = [{
+                'product_name': 'Banner',
+                'variant_name': 'Large',
+                'price': 25.0,
+                'currency': 'USD',
+                'quantity': 1,
+                'image': '',
+            }]
+            rel = generate_order_image(items, 'unittesttoken', tmp)
+            self.assertEqual(rel, 'orders/order_unittesttoken.png')
+            out = os.path.join(tmp, 'static', 'uploads', rel)
+            self.assertTrue(os.path.isfile(out))
+            self.assertGreater(os.path.getsize(out), 500)
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_prep.png')
@@ -105,6 +137,36 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn(f'{base}/static/uploads/test-mug.jpg', html)
         self.assertIn('Test Mug', html)
         self.assertIn('product-thumbs', html)
+
+    @patch('app.run_in_background')
+    @patch('app.generate_order_image', return_value='orders/order_og.png')
+    def test_order_share_page_has_og_tags(self, _mock_image, _mock_bg):
+        with app.test_request_context('/'):
+            token, _, _ = finalize_whatsapp_order([self._sample_item('Poster', 'poster.jpg')])
+
+        r = self.client.get(f'/order/share/{token}')
+        html = r.get_data(as_text=True)
+        base = get_public_base_url()
+        self.assertIn('property="og:image"', html)
+        self.assertIn(f'{base}/static/uploads/orders/order_og.png', html)
+        self.assertIn('property="og:title"', html)
+        self.assertIn('property="og:description"', html)
+        self.assertIn(f'{base}/order/share/{token}', html)
+        self.assertIn('Share with Images', html)
+        self.assertIn('shareWithImages', html)
+        self.assertIn('Open WhatsApp with Link Preview', html)
+        self.assertIn('wa.me/', html)
+
+    @patch('app.run_in_background')
+    @patch('app.generate_order_image', return_value='orders/order_abs.png')
+    def test_order_share_uses_absolute_public_urls(self, _mock_image, _mock_bg):
+        with app.test_request_context('/'):
+            token, _, _ = finalize_whatsapp_order([self._sample_item()])
+
+        r = self.client.get(f'/order/share/{token}')
+        html = r.get_data(as_text=True)
+        self.assertIn('https://example.test/static/uploads/orders/order_abs.png', html)
+        self.assertIn('https://example.test/order/share/', html)
 
 
 if __name__ == '__main__':
