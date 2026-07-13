@@ -100,8 +100,10 @@ class WhatsAppOrderTests(unittest.TestCase):
     def test_build_order_copy_text_has_no_url(self):
         text = build_order_copy_text([self._sample_item()])
         self.assertIn('Test Mug', text)
+        self.assertIn('NEW ORDER', text)
         self.assertNotIn('http', text)
         self.assertNotIn('order/share', text)
+        self.assertNotIn('static/uploads', text)
 
     def test_build_whatsapp_short_message_uses_share_link(self):
         items = [self._sample_item()]
@@ -204,12 +206,14 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn(f'{base}/order/share/{token}', html)
         self.assertIn('Send to WhatsApp with Images', html)
         self.assertIn('sendOrderToWhatsApp', html)
-        self.assertIn('shareReceiptImageOnly', html)
+        self.assertIn('shareImageFiles', html)
         self.assertIn('Copy order text', html)
         self.assertIn('wa.me/', html)
         # wa.me must NOT be prefilled with the full multi-line share page URL
         self.assertNotIn('order%2Fshare', html)
         self.assertNotIn('View%20order', html)
+        self.assertIn('chat-preview', html)
+        self.assertIn('Exact image that will attach', html)
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_abs.png')
@@ -233,7 +237,10 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         self.assertIn('const copyText =', html)
         self.assertIn('Test Mug', html)
-        self.assertIn('files: [file]', html)
+        self.assertIn('shareImageFiles', html)
+        self.assertIn('files: files', html)
+        # Clipboard / caption must not expose raw static upload URLs
+        self.assertNotIn('/static/uploads/test-mug.jpg', html.split('const copyText =')[1].split('const shortMessage')[0])
 
 
 if __name__ == '__main__':
