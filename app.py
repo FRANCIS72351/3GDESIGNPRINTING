@@ -18,7 +18,7 @@ from flask_sqlalchemy import SQLAlchemy
 import assemblyai as aai
 
 from werkzeug.utils import secure_filename
-from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response, current_app
+from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response, current_app, g
 from markupsafe import Markup, escape
 from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
@@ -239,7 +239,17 @@ def brandify_filter(text, variant='navy'):
 #     sslify = SSLify(app)
 
 # Ensure URLs are generated with correct scheme
-app.config['PREFERRED_URL_SCHEME'] = 'https' if os.environ.get('PYTHONANYWHERE_DOMAIN') else 'http'
+_pa_domain = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip() or os.environ.get('PYTHONANYWHERE_SITE', '').strip()
+app.config['PREFERRED_URL_SCHEME'] = 'https' if _pa_domain else 'http'
+from site_config import _read_env_url, _sanitize_public_url
+
+_public_site = _read_env_url('PUBLIC_SITE_URL')
+if _public_site:
+    app.config['PUBLIC_SITE_URL'] = _public_site
+elif _pa_domain:
+    app.config['PUBLIC_SITE_URL'] = _sanitize_public_url(f'https://{_pa_domain.lstrip("https://").lstrip("http://").strip("/")}')
+else:
+    app.config['PUBLIC_SITE_URL'] = ''
 with app.app_context():
     db.create_all()
     ensure_system_settings(db, SystemSettings)
@@ -333,11 +343,33 @@ with app.app_context():
 # ----------------------------------
 # Auth Decorator
 # ----------------------------------
+def _clear_stale_admin_session():
+    for key in ('admin_logged_in', 'admin_id', 'role', 'username'):
+        session.pop(key, None)
+
+
+def load_session_admin_or_redirect():
+    """Return (admin, None) or (None, redirect) when session admin_id is missing or stale."""
+    cached = getattr(g, '_session_admin', None)
+    if cached is not None:
+        return cached, None
+    admin = Admin.query.get(session.get('admin_id'))
+    if not admin:
+        _clear_stale_admin_session()
+        flash('Your session expired. Please log in again.', 'warning')
+        return None, redirect(url_for('login'))
+    g._session_admin = admin
+    return admin, None
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_logged_in' not in session:
             return redirect(url_for('login'))
+        _, auth_redirect = load_session_admin_or_redirect()
+        if auth_redirect:
+            return auth_redirect
         return f(*args, **kwargs)
     return decorated_function
 
@@ -348,6 +380,9 @@ def role_required(roles):
         def decorated_function(*args, **kwargs):
             if 'admin_logged_in' not in session:
                 return redirect(url_for('login'))
+            _, auth_redirect = load_session_admin_or_redirect()
+            if auth_redirect:
+                return auth_redirect
             user_role = session.get('role', 'staff')
             if user_role not in roles:
                 flash(f"Unauthorized. Your role ({user_role}) does not have access to this area.", "danger")
@@ -367,11 +402,13 @@ def moderator_permission_required(perm):
         def decorated_function(*args, **kwargs):
             if 'admin_logged_in' not in session:
                 return redirect(url_for('login'))
+            admin, auth_redirect = load_session_admin_or_redirect()
+            if auth_redirect:
+                return auth_redirect
             role = session.get('role')
             if role == 'admin':
                 return f(*args, **kwargs)
             if role == 'moderator':
-                admin = Admin.query.get(session.get('admin_id'))
                 if moderator_has_permission(admin, perm):
                     return f(*args, **kwargs)
                 flash('You do not have permission for this responsibility.', 'danger')
@@ -503,6 +540,9 @@ WHATSAPP_NUMBER = get_whatsapp_number()
 def get_public_base_url():
     """Public URL for images, webhooks, and share links."""
     from site_config import get_public_site_url
+    configured = (app.config.get('PUBLIC_SITE_URL') or '').strip()
+    if configured:
+        return configured.rstrip('/')
     return get_public_site_url(request.url_root if request else None)
 
 
@@ -568,11 +608,7 @@ def finalize_whatsapp_order(cart_items):
     base_url = get_public_base_url()
     share_image_url = f"{base_url}/static/uploads/{image_rel}" if image_rel else None
     share_page_url = f"{base_url}/order/share/{token}"
-    message_text = build_whatsapp_text(
-        enriched,
-        share_image_url=share_image_url,
-        share_page_url=share_page_url,
-    )
+    message_text = build_whatsapp_short_message(enriched, share_page_url=share_page_url)
 
     total_usd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'LRD')
@@ -681,23 +717,19 @@ def order_share_page(token):
     import json
     receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
     data = json.loads(receipt.payload)
-    items = data.get('items', [])
+    items = [enrich_cart_item(item) for item in data.get('items', [])]
     image_rel = data.get('share_image', '')
     base_url = get_public_base_url()
-    share_page_url = data.get('share_page_url') or f"{base_url}/order/share/{token}"
-    image_url = data.get('share_image_url') or (
+    share_page_url = f"{base_url}/order/share/{token}"
+    image_url = (
         f"{base_url}/static/uploads/{image_rel}" if image_rel else f"{base_url}/static/img/LOGO.png"
     )
     image_fetch_url = (
         url_for('static', filename=f'uploads/{image_rel}')
         if image_rel else url_for('static', filename='img/LOGO.png')
     )
-    message_text = data.get('message_text') or build_whatsapp_text(
-        items,
-        share_image_url=image_url,
-        share_page_url=share_page_url,
-    )
     short_message = build_whatsapp_short_message(items, share_page_url=share_page_url)
+    message_text = short_message
     item_count = len(items)
     og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
     og_description = ', '.join(i.get('product_name', 'Product') for i in items[:3])
@@ -705,7 +737,6 @@ def order_share_page(token):
         og_description += f' +{item_count - 3} more'
     phone = WHATSAPP_NUMBER.lstrip('+')
     wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(short_message)}"
-    wa_fallback_url = f"https://wa.me/{phone}?text={urllib.parse.quote(message_text)}"
     product_images = [
         {
             'url': item.get('image_url') or absolute_product_image_url(item.get('image', '')),
@@ -729,7 +760,6 @@ def order_share_page(token):
         product_images=product_images,
         wa_phone=phone,
         wa_preview_url=wa_preview_url,
-        wa_fallback_url=wa_fallback_url,
         og_title=og_title,
         og_description=og_description,
         og_image=image_url,
@@ -1108,7 +1138,9 @@ def direct_sale_history():
 @app.route("/admin/leader/edit/<int:leader_id>", methods=['GET', 'POST'])
 @login_required
 def edit_leader(leader_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can edit team members.', 'danger')
         return redirect(url_for('about'))
@@ -1135,7 +1167,9 @@ def edit_leader(leader_id):
 @app.route("/admin/leader/delete/<int:leader_id>", methods=['POST'])
 @login_required
 def delete_leader(leader_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can delete team members.', 'danger')
         return redirect(url_for('about'))
@@ -1152,7 +1186,9 @@ def delete_leader(leader_id):
 @app.route("/admin/leader-management")
 @login_required
 def leader_management():
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can manage team members.', 'danger')
         return redirect(url_for('dashboard'))
@@ -1334,8 +1370,10 @@ def about_settings():
 @app.route("/admin/about-settings/delete", methods=['POST'])
 @login_required
 def delete_about_content():
-    current_admin = Admin.query.get(session.get('admin_id'))
-    if not current_admin or current_admin.role != 'admin':
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
+    if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can reset About page content.', 'danger')
         return redirect(url_for('about_settings'))
 
@@ -1422,7 +1460,9 @@ def add_expense():
 @app.route("/admin/expense/edit/<int:expense_id>", methods=['GET', 'POST'])
 @login_required
 def edit_expense(expense_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can edit expenses.', 'danger')
         return redirect(url_for('financials'))
@@ -1441,7 +1481,9 @@ def edit_expense(expense_id):
 @app.route("/admin/sale/edit/<int:report_id>", methods=['GET', 'POST'])
 @login_required
 def edit_sale(report_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can edit sales.', 'danger')
         return redirect(url_for('financials'))
@@ -1470,7 +1512,9 @@ def edit_sale(report_id):
 @app.route("/admin/user/delete/<int:user_id>", methods=['POST'])
 @login_required
 def delete_user(user_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can manage users.', 'danger')
         return redirect(url_for('team_management'))
@@ -1495,7 +1539,9 @@ def delete_user(user_id):
 @app.route("/admin/user/reset-password/<int:user_id>", methods=['POST'])
 @login_required
 def reset_user_password(user_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     # Only ghost user can reset passwords
     if current_admin.username != GHOST_USER:
         flash('Permission denied. Only the system administrator can reset passwords.', 'danger')
@@ -1717,7 +1763,9 @@ def log_inventory():
 @app.route("/admin/inventory/edit/<int:log_id>", methods=['GET', 'POST'])
 @login_required
 def edit_inventory_log(log_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can edit logs.', 'danger')
         return redirect(url_for('inventory'))
@@ -2280,7 +2328,9 @@ def login_recovery():
 @app.route('/admin/team-management', methods=['GET', 'POST'])
 @login_required
 def team_management():
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can manage team members.', 'danger')
         if current_admin.role == 'staff':
@@ -2331,7 +2381,9 @@ def team_management():
 @app.route('/admin/moderator-permissions/<int:user_id>', methods=['POST'])
 @login_required
 def update_moderator_permissions(user_id):
-    current_admin = Admin.query.get(session.get('admin_id'))
+    current_admin, auth_redirect = load_session_admin_or_redirect()
+    if auth_redirect:
+        return auth_redirect
     if current_admin.role != 'admin':
         flash('Permission denied. Only Admins can manage moderator permissions.', 'danger')
         return redirect(url_for('team_management'))
@@ -2505,8 +2557,10 @@ def secure_upload():
         file.save(temp_path)
         
         # 1. Get current admin (not user, since we use Admin model)
-        current_admin = Admin.query.get(session.get('admin_id'))
-        if not current_admin or not current_admin.public_key:
+        current_admin, auth_redirect = load_session_admin_or_redirect()
+        if auth_redirect:
+            return auth_redirect
+        if not current_admin.public_key:
             flash("You haven't set up your public key for encryption.")
             return redirect(url_for('file_portal'))
 
@@ -2528,7 +2582,9 @@ def secure_download(filename):
     user_password = request.form.get('confirm_password') or "default_pass" # User should provide this
     
     try:
-        current_admin = Admin.query.get(session.get('admin_id'))
+        current_admin, auth_redirect = load_session_admin_or_redirect()
+        if auth_redirect:
+            return auth_redirect
         # Decrypt the file in RAM
         decrypted_data = security.decrypt_file(
             vault_path, 

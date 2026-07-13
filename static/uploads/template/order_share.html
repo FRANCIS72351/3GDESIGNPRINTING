@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ og_title }}</title>
     {% include '_favicon.html' %}
     {% include '_brand_font.html' %}
 
-    <!-- WhatsApp / social link preview (Option C) -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="{{ og_title }}">
     <meta property="og:description" content="{{ og_description }}">
@@ -21,266 +20,356 @@
     <meta name="twitter:description" content="{{ og_description }}">
     <meta name="twitter:image" content="{{ og_image }}">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
+        :root {
+            --share-navy: #0B1F3A;
+            --share-navy-deep: #061428;
+            --share-gold: #C9A84C;
+            --share-cream: #FAF8F4;
+        }
+        * { box-sizing: border-box; }
         body.share-order-page {
-            background: linear-gradient(160deg, var(--brand-navy-deep) 0%, var(--brand-navy) 100%);
+            margin: 0;
             min-height: 100vh;
-            padding: 1.5rem 1rem 3rem;
+            background:
+                radial-gradient(ellipse 120% 80% at 50% -20%, rgba(201, 168, 76, 0.12), transparent 50%),
+                linear-gradient(165deg, var(--share-navy-deep) 0%, var(--share-navy) 55%, #0d2847 100%);
+            padding: max(1.25rem, env(safe-area-inset-top)) 1rem max(2rem, env(safe-area-inset-bottom));
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #1a1a1a;
         }
-        .share-card {
-            max-width: 520px;
+        .share-shell {
+            max-width: 440px;
             margin: 0 auto;
-            background: #fff;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.35);
-            border-top: 4px solid var(--brand-gold);
         }
-        .share-header {
-            background: var(--brand-navy);
+        .share-top {
+            text-align: center;
             color: #fff;
-            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .share-top .brand-wordmark { justify-content: center; }
+        .share-top h1 {
+            margin: 0.5rem 0 0;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .share-top p {
+            margin: 0.35rem 0 0;
+            font-size: 0.88rem;
+            opacity: 0.78;
+        }
+        .receipt-card {
+            background: #fff;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(201, 168, 76, 0.35);
+        }
+        .receipt-label {
+            background: var(--share-navy);
+            color: var(--share-gold);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            text-align: center;
+            padding: 0.55rem 1rem;
+        }
+        .receipt-preview {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: var(--share-cream);
+        }
+        .product-strip {
+            display: flex;
+            gap: 0.65rem;
+            padding: 0.85rem 1rem;
+            overflow-x: auto;
+            background: var(--share-cream);
+            border-top: 1px solid #ece8e0;
+            -webkit-overflow-scrolling: touch;
+        }
+        .product-chip {
+            flex: 0 0 auto;
+            width: 76px;
             text-align: center;
         }
-        .share-preview-img {
-            width: 100%;
+        .product-chip img {
+            width: 76px;
+            height: 76px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid var(--share-gold);
+            background: #fff;
             display: block;
-            border-bottom: 1px solid #eee;
         }
-        .share-btn-wa {
-            background: #25d366;
+        .product-chip span {
+            display: block;
+            margin-top: 0.3rem;
+            font-size: 0.62rem;
+            color: #555;
+            line-height: 1.25;
+            max-height: 2.5em;
+            overflow: hidden;
+        }
+        .share-actions {
+            padding: 1.15rem 1.15rem 1.25rem;
+        }
+        .btn-wa-primary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            width: 100%;
             border: none;
-            color: #fff;
+            border-radius: 999px;
+            padding: 0.95rem 1.25rem;
+            font-size: 1.05rem;
             font-weight: 700;
-            font-size: 1.1rem;
-            padding: 0.9rem;
+            color: #fff;
+            background: linear-gradient(135deg, #25d366 0%, #1ebe5d 100%);
+            box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35);
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .share-btn-wa:hover { background: #1da851; color: #fff; }
-        .share-btn-wa:disabled { opacity: 0.7; }
-        .share-text-box {
-            background: #faf8f4;
-            border-radius: 10px;
+        .btn-wa-primary:active:not(:disabled) { transform: scale(0.98); }
+        .btn-wa-primary:disabled { opacity: 0.72; cursor: wait; }
+        .share-status {
+            margin-top: 0.85rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 12px;
             font-size: 0.82rem;
+            line-height: 1.45;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .share-status.success {
+            background: rgba(37, 211, 102, 0.12);
+            border-color: rgba(37, 211, 102, 0.35);
+            color: #b8f5cd;
+        }
+        .share-secondary {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn-ghost {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: transparent;
+            cursor: pointer;
+        }
+        .btn-ghost:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+        .order-summary {
+            margin-top: 0.85rem;
+            padding: 0.75rem 0.85rem;
+            border-radius: 12px;
+            background: var(--share-cream);
+            font-size: 0.78rem;
+            line-height: 1.5;
+            color: #444;
             white-space: pre-wrap;
-            max-height: 180px;
+            max-height: 140px;
             overflow-y: auto;
         }
-        .product-thumbs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: #faf8f4;
-            border-bottom: 1px solid #eee;
+        .fallback-details {
+            margin-top: 0.65rem;
         }
-        .product-thumb {
-            width: 72px;
+        .fallback-details summary {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.55);
+            cursor: pointer;
             text-align: center;
+            list-style: none;
         }
-        .product-thumb img {
-            width: 72px;
-            height: 72px;
-            object-fit: cover;
-            border-radius: 10px;
-            border: 2px solid var(--brand-gold);
-            background: #fff;
+        .fallback-details summary::-webkit-details-marker { display: none; }
+        .fallback-links {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
         }
-        .product-thumb span {
-            display: block;
-            font-size: 0.65rem;
-            color: #666;
-            margin-top: 0.25rem;
-            line-height: 1.2;
-            max-height: 2.4em;
-            overflow: hidden;
-        }
-        .share-hint {
-            font-size: 0.8rem;
-            color: #666;
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            border-radius: 10px;
-            padding: 0.65rem 0.85rem;
+        .fallback-links a {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.65);
+            text-align: center;
         }
     </style>
 </head>
 <body class="share-order-page">
-    <div class="share-card">
-        <div class="share-header">
-            {{ brand_wordmark('light', 'brand-wordmark--login mb-1') }}
-            <h1 class="h5 fw-bold mb-0">Your Order is Ready</h1>
-            <div class="small mt-1 opacity-75">Share with visual images in WhatsApp</div>
-        </div>
+    <div class="share-shell">
+        <header class="share-top">
+            {{ brand_wordmark('light', 'brand-wordmark--login') }}
+            <h1>Order Ready to Send</h1>
+            <p>Professional receipt with product images — share directly in WhatsApp</p>
+        </header>
 
-        <img src="{{ image_fetch_url }}" alt="Order preview" class="share-preview-img" id="orderImage">
+        <div class="receipt-card">
+            <div class="receipt-label">Order Receipt Preview</div>
+            <img src="{{ image_fetch_url }}" alt="3G Design order receipt" class="receipt-preview" id="orderImage">
 
-        {% if items %}
-        <div class="product-thumbs" aria-label="Product images in this order">
-            {% for item in items %}
-            <div class="product-thumb">
-                <img src="{{ item.image_url or url_for('static', filename='img/LOGO.png') }}"
-                     alt="{{ item.product_name }}">
-                <span>{{ item.product_name }}</span>
+            {% if items %}
+            <div class="product-strip" aria-label="Products in this order">
+                {% for item in items %}
+                <div class="product-chip">
+                    <img src="{{ url_for('static', filename='uploads/' + item.image) if item.image else url_for('static', filename='img/LOGO.png') }}"
+                         alt="{{ item.product_name }}"
+                         loading="lazy">
+                    <span>{{ item.product_name }}</span>
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+            {% endif %}
 
-        <div class="p-4">
-            <div class="share-hint mb-3" id="shareHint">
-                <i class="fas fa-images me-1 text-success"></i>
-                <strong>Mobile:</strong> tap <em>Share with Images</em> — the order receipt and product photos attach as real images in WhatsApp.
-                <br>
-                <strong>Desktop:</strong> save the image below, then use <em>Open WhatsApp with Link</em> for a visual preview.
-            </div>
-
-            <button type="button" class="btn share-btn-wa w-100 rounded-pill mb-2" id="shareBtn" onclick="shareWithImages()">
-                <i class="fas fa-images me-2"></i>Share with Images
-            </button>
-
-            <a href="{{ wa_preview_url }}" class="btn btn-outline-success w-100 rounded-pill mb-2" id="previewLinkBtn">
-                <i class="fab fa-whatsapp me-1"></i>Open WhatsApp with Link Preview
-            </a>
-
-            <a href="{{ wa_fallback_url }}" class="btn btn-outline-secondary w-100 rounded-pill btn-sm mb-3" id="textOnlyBtn">
-                <i class="fas fa-comment me-1"></i>Text only (full details)
-            </a>
-
-            <div class="share-text-box p-3 text-muted mb-3" id="orderText">{{ message_text }}</div>
-
-            <div class="d-flex gap-2">
-                <a href="{{ image_fetch_url }}" download="3G-DESIGN-Order.png" class="btn btn-outline-primary btn-sm rounded-pill flex-fill" id="downloadBtn">
-                    <i class="fas fa-download me-1"></i>Save Image
-                </a>
-                <button type="button" class="btn btn-outline-dark btn-sm rounded-pill flex-fill" onclick="copyText()">
-                    <i class="fas fa-copy me-1"></i>Copy Text
+            <div class="share-actions">
+                <button type="button" class="btn-wa-primary" id="shareBtn" onclick="sendOrderToWhatsApp()">
+                    <i class="fab fa-whatsapp"></i>
+                    Send to WhatsApp with Images
                 </button>
-            </div>
 
-            <p class="small text-muted text-center mt-3 mb-0" id="desktopHint">
-                Desktop: download the image, open WhatsApp Web, attach it, then paste the copied text.
-            </p>
+                <div class="share-status" id="shareStatus">
+                    <i class="fas fa-mobile-alt me-1"></i>
+                    Tap the button above — choose <strong>WhatsApp</strong> in the share sheet. The receipt image appears directly in chat.
+                </div>
+
+                <div class="share-secondary">
+                    <button type="button" class="btn-ghost" onclick="copyOrderText()">
+                        <i class="fas fa-copy"></i> Copy text
+                    </button>
+                    <a href="{{ image_fetch_url }}" download="3G-Order-Receipt.png" class="btn-ghost" id="saveImageLink">
+                        <i class="fas fa-download"></i> Save image
+                    </a>
+                </div>
+
+                <div class="order-summary" id="orderSummary">{{ message_text }}</div>
+
+                <details class="fallback-details">
+                    <summary>Other sharing options</summary>
+                    <div class="fallback-links">
+                        <a href="{{ wa_preview_url }}" id="waLinkFallback">
+                            <i class="fab fa-whatsapp"></i> Open WhatsApp with order link (text + preview)
+                        </a>
+                    </div>
+                </details>
+            </div>
         </div>
     </div>
 
     <script>
-    const messageText = {{ message_text|tojson }};
     const shortMessage = {{ short_message|tojson }};
     const imageFetchUrl = {{ image_fetch_url|tojson }};
     const imageAbsoluteUrl = {{ image_url|tojson }};
-    const sharePageUrl = {{ share_page_url|tojson }};
     const waPreviewUrl = {{ wa_preview_url|tojson }};
-    const waFallback = {{ wa_fallback_url|tojson }};
-    const productImages = {{ product_images|tojson }};
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = isIOS || /Android/i.test(navigator.userAgent);
 
-    function safeFilename(name) {
-        return (name || 'product').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 40) || 'product';
+    function setStatus(html, success) {
+        const el = document.getElementById('shareStatus');
+        el.innerHTML = html;
+        el.classList.toggle('success', !!success);
     }
 
-    async function fetchImageFile(url, filename, mime) {
-        const resp = await fetch(url, { credentials: 'same-origin' });
-        if (!resp.ok) throw new Error('fetch failed: ' + url);
-        const blob = await resp.blob();
-        return new File([blob], filename, { type: mime || blob.type || 'image/png' });
-    }
-
-    async function buildShareFiles() {
-        const files = [];
-        try {
-            files.push(await fetchImageFile(imageFetchUrl, '3G-DESIGN-Order.png', 'image/png'));
-        } catch (e) {
-            console.warn('Composite image fetch failed, trying absolute URL', e);
+    async function fetchReceiptFile() {
+        const urls = [imageFetchUrl, imageAbsoluteUrl];
+        let lastError;
+        for (const url of urls) {
+            if (!url) continue;
             try {
-                files.push(await fetchImageFile(imageAbsoluteUrl, '3G-DESIGN-Order.png', 'image/png'));
-            } catch (e2) {
-                console.warn('Absolute image fetch also failed', e2);
-            }
-        }
-
-        for (const p of productImages) {
-            if (!p.fetch_url) continue;
-            try {
-                const ext = (p.fetch_url.match(/\.(png|jpe?g|webp)$/i) || [,'jpg'])[1].toLowerCase();
-                const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-                files.push(await fetchImageFile(p.fetch_url, safeFilename(p.name) + '.' + ext, mime));
+                const resp = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const blob = await resp.blob();
+                const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
+                return new File([blob], '3G-Order-Receipt.png', { type: type });
             } catch (e) {
-                console.warn('Product image skip', p.name, e);
+                lastError = e;
             }
         }
-        return files;
+        throw lastError || new Error('Could not load receipt image');
     }
 
-    async function shareWithImages() {
+    async function sendOrderToWhatsApp() {
         const btn = document.getElementById('shareBtn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Preparing images...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing receipt...';
 
         try {
-            const files = await buildShareFiles();
+            const receiptFile = await fetchReceiptFile();
 
-            if (files.length && navigator.share) {
-                const shareData = {
-                    files: files,
-                    text: shortMessage,
-                    title: '3G Design Order',
-                };
-                if (!navigator.canShare || navigator.canShare(shareData)) {
+            if (navigator.share && typeof navigator.canShare === 'function') {
+                // iOS: image-only share attaches inline in WhatsApp (text causes preview/download page)
+                const shareData = isIOS
+                    ? { files: [receiptFile] }
+                    : { files: [receiptFile], text: shortMessage, title: '3G Design Order' };
+
+                if (navigator.canShare(shareData)) {
                     await navigator.share(shareData);
-                    btn.innerHTML = '<i class="fab fa-whatsapp me-2"></i>Shared — pick WhatsApp';
+                    setStatus(
+                        '<i class="fas fa-check-circle me-1"></i> Shared! Pick <strong>WhatsApp</strong> in the sheet. ' +
+                        (isIOS ? 'Paste your order text in WhatsApp after the image sends.' : 'Your receipt image is attached.'),
+                        true
+                    );
                     return;
                 }
             }
+
+            // Desktop or browsers without file share
+            const blobUrl = URL.createObjectURL(receiptFile);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = '3G-Order-Receipt.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+            setStatus(
+                '<i class="fas fa-download me-1"></i> Receipt saved. Opening WhatsApp — attach the saved image, then paste copied text.',
+                true
+            );
+            try { await navigator.clipboard.writeText(shortMessage); } catch (_) {}
+            window.location.href = waPreviewUrl;
         } catch (e) {
             if (e.name === 'AbortError') {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-images me-2"></i>Share with Images';
-                return;
+                setStatus('<i class="fas fa-info-circle me-1"></i> Share cancelled. Tap the button to try again.');
+            } else {
+                console.warn('Share failed', e);
+                setStatus('<i class="fas fa-exclamation-circle me-1"></i> Could not share image. Use the link fallback below.');
+                window.location.href = waPreviewUrl;
             }
-            console.warn('Web Share failed', e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fab fa-whatsapp"></i> Send to WhatsApp with Images';
         }
-
-        await desktopFallback();
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-images me-2"></i>Share with Images';
     }
 
-    async function desktopFallback() {
-        const hint = document.getElementById('shareHint');
-        try {
-            const files = await buildShareFiles();
-            if (files.length) {
-                const url = URL.createObjectURL(files[0]);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = '3G-DESIGN-Order.png';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                hint.innerHTML = '<i class="fas fa-check text-success me-1"></i>Image saved! Opening WhatsApp with your order link (shows image preview). Attach the saved image if needed.';
-            }
-        } catch (e) {
-            hint.innerHTML = '<i class="fas fa-info-circle me-1"></i>Opening WhatsApp with your order link — the image preview will appear automatically.';
-        }
-        window.location.href = waPreviewUrl;
-    }
-
-    function copyText() {
-        navigator.clipboard.writeText(messageText).then(() => {
-            alert('Order text copied! Paste it in WhatsApp after attaching the image.');
+    function copyOrderText() {
+        navigator.clipboard.writeText(shortMessage).then(() => {
+            setStatus('<i class="fas fa-check me-1"></i> Order text copied — paste it in WhatsApp after sending the image.', true);
+        }).catch(() => {
+            alert('Copy failed. Select and copy the order summary below.');
         });
     }
 
-    (function initHints() {
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const desktopHint = document.getElementById('desktopHint');
-        if (isMobile) {
-            desktopHint.textContent = 'After sharing, choose WhatsApp in the share sheet to send images directly in chat.';
-        } else if (!navigator.share) {
-            document.getElementById('shareBtn').innerHTML = '<i class="fas fa-download me-2"></i>Download & Open WhatsApp';
+    (function initPage() {
+        if (!isMobile) {
+            setStatus('<i class="fas fa-desktop me-1"></i> On desktop: click the button to save the receipt, then attach it in WhatsApp Web.');
+        }
+        if (!navigator.share) {
+            document.getElementById('shareBtn').innerHTML = '<i class="fab fa-whatsapp"></i> Save Receipt & Open WhatsApp';
         }
     })();
     </script>

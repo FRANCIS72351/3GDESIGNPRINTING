@@ -15,7 +15,18 @@ _is_production = os.getenv('FLASK_ENV', '').lower() == 'production'
 if _is_production:
     application.config['DEBUG'] = False
     application.config['PREFERRED_URL_SCHEME'] = 'https'
-    application.config['PUBLIC_SITE_URL'] = os.getenv('PUBLIC_SITE_URL', '').strip()
+    from site_config import _read_env_url, _sanitize_public_url
+
+    _public = _read_env_url('PUBLIC_SITE_URL')
+    _pa = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip() or os.environ.get('PYTHONANYWHERE_SITE', '').strip()
+    if _public:
+        application.config['PUBLIC_SITE_URL'] = _public
+    elif _pa:
+        application.config['PUBLIC_SITE_URL'] = _sanitize_public_url(
+            f'https://{_pa.lstrip("https://").lstrip("http://").strip("/")}'
+        )
+    else:
+        application.config['PUBLIC_SITE_URL'] = ''
 
     log_dir = os.getenv('LOG_DIR', os.path.join(project_folder, 'logs'))
     os.makedirs(log_dir, exist_ok=True)

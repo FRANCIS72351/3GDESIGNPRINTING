@@ -10,6 +10,7 @@ os.environ.setdefault('PUBLIC_SITE_URL', 'https://example.test')
 from app import app, finalize_whatsapp_order, get_public_base_url
 from models import db, PendingReceipt
 from order_share import build_whatsapp_short_message, generate_order_image
+from site_config import _sanitize_public_url, get_public_site_url
 
 
 class WhatsAppOrderTests(unittest.TestCase):
@@ -39,6 +40,18 @@ class WhatsAppOrderTests(unittest.TestCase):
     def test_flask_app_has_no_get_current_object(self):
         self.assertFalse(hasattr(app, '_get_current_object'))
 
+    def test_sanitize_rejects_bare_pythonanywhere(self):
+        self.assertEqual(_sanitize_public_url('https://pythonanywhere.com'), '')
+        self.assertEqual(
+            _sanitize_public_url('https://3gdesign.pythonanywhere.com'),
+            'https://3gdesign.pythonanywhere.com',
+        )
+
+    @patch.dict(os.environ, {'PUBLIC_SITE_URL': '', 'WEBHOOK_BASE_URL': '', 'PYTHONANYWHERE_DOMAIN': '3gdesign.pythonanywhere.com'}, clear=False)
+    def test_pythonanywhere_domain_resolves_correctly(self):
+        url = get_public_site_url()
+        self.assertEqual(url, 'https://3gdesign.pythonanywhere.com')
+
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_test.png')
     def test_finalize_whatsapp_order(self, _mock_image, _mock_bg):
@@ -49,15 +62,16 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertEqual(image_rel, 'orders/order_test.png')
         self.assertIn('Test Mug', message_text)
         base = get_public_base_url()
-        self.assertIn(f'{base}/static/uploads/test-mug.jpg', message_text)
-        self.assertIn(f'{base}/static/uploads/orders/order_test.png', message_text)
         self.assertIn(f'{base}/order/share/{token}', message_text)
+        self.assertNotIn('🖼', message_text)
+        self.assertNotIn('pythonanywhere.com/static', message_text.replace(base, ''))
 
         receipt = PendingReceipt.query.filter_by(token=token).first()
         self.assertIsNotNone(receipt)
         data = json.loads(receipt.payload)
         self.assertEqual(data['share_image_url'], f'{base}/static/uploads/orders/order_test.png')
         self.assertIn('image_url', data['items'][0])
+        self.assertIn(f'{base}/static/uploads/test-mug.jpg', data['items'][0]['image_url'])
 
         _mock_bg.assert_called_once()
         self.assertIs(_mock_bg.call_args[0][0], app)
@@ -74,9 +88,12 @@ class WhatsAppOrderTests(unittest.TestCase):
     def test_generate_order_image_creates_png(self):
         with tempfile.TemporaryDirectory() as tmp:
             logo = os.path.join(tmp, 'static', 'img')
+            uploads = os.path.join(tmp, 'static', 'uploads')
             os.makedirs(logo, exist_ok=True)
+            os.makedirs(uploads, exist_ok=True)
             from PIL import Image
             Image.new('RGB', (10, 10), 'red').save(os.path.join(logo, 'LOGO.png'))
+            Image.new('RGB', (80, 80), 'blue').save(os.path.join(uploads, 'shirt.png'))
 
             items = [{
                 'product_name': 'Banner',
@@ -84,7 +101,7 @@ class WhatsAppOrderTests(unittest.TestCase):
                 'price': 25.0,
                 'currency': 'USD',
                 'quantity': 1,
-                'image': '',
+                'image': '/static/uploads/shirt.png',
             }]
             rel = generate_order_image(items, 'unittesttoken', tmp)
             self.assertEqual(rel, 'orders/order_unittesttoken.png')
@@ -134,9 +151,10 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         base = get_public_base_url()
         self.assertIn(f'{base}/static/uploads/orders/order_page.png', html)
-        self.assertIn(f'{base}/static/uploads/test-mug.jpg', html)
+        self.assertIn('/static/uploads/test-mug.jpg', html)
         self.assertIn('Test Mug', html)
-        self.assertIn('product-thumbs', html)
+        self.assertIn('product-strip', html)
+        self.assertIn('receipt-preview', html)
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_og.png')
@@ -152,9 +170,8 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('property="og:title"', html)
         self.assertIn('property="og:description"', html)
         self.assertIn(f'{base}/order/share/{token}', html)
-        self.assertIn('Share with Images', html)
-        self.assertIn('shareWithImages', html)
-        self.assertIn('Open WhatsApp with Link Preview', html)
+        self.assertIn('Send to WhatsApp with Images', html)
+        self.assertIn('sendOrderToWhatsApp', html)
         self.assertIn('wa.me/', html)
 
     @patch('app.run_in_background')
@@ -167,6 +184,7 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         self.assertIn('https://example.test/static/uploads/orders/order_abs.png', html)
         self.assertIn('https://example.test/order/share/', html)
+        self.assertNotIn('https://pythonanywhere.com/', html)
 
 
 if __name__ == '__main__':

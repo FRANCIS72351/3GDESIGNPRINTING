@@ -5,10 +5,12 @@ import unittest
 
 from sqlalchemy import text
 
+from werkzeug.security import generate_password_hash
+
 os.environ.setdefault('GHOST_ADMIN_USER', 'ghost_test_user')
 
 from app import app, db
-from models import AboutContent
+from models import AboutContent, Admin
 from server_stability import get_about_content
 
 
@@ -23,6 +25,14 @@ class AboutSettingsTests(unittest.TestCase):
         with app.app_context():
             db.engine.dispose()
             db.create_all()
+            admin = Admin(
+                id=1,
+                username='test_admin',
+                password_hash=generate_password_hash('adminpass', method='pbkdf2:sha256'),
+                role='admin',
+            )
+            db.session.add(admin)
+            db.session.commit()
 
         self.admin_id = 1
 

@@ -10,6 +10,55 @@ WHATSAPP_DEFAULT_CHAT_TEXT = (
     'Hello! I would like to inquire about your printing services.'
 )
 
+_BARE_PYTHONANYWHERE_HOSTS = frozenset({
+    'pythonanywhere.com',
+    'www.pythonanywhere.com',
+})
+
+
+def _read_env_url(key):
+    """Read an env var and normalize it as a public URL (strip whitespace, trailing slashes)."""
+    raw = os.getenv(key)
+    if not raw:
+        return ''
+    return _sanitize_public_url(str(raw).strip())
+
+
+def _sanitize_public_url(url):
+    """Reject malformed hosts (e.g. bare pythonanywhere.com without username subdomain)."""
+    if not url:
+        return ''
+    raw = str(url).strip().rstrip('/')
+    if not raw:
+        return ''
+    if '://' not in raw:
+        raw = f'https://{raw}'
+    parsed = urllib.parse.urlparse(raw)
+    host = (parsed.hostname or '').lower()
+    if host in _BARE_PYTHONANYWHERE_HOSTS:
+        return ''
+    if not host:
+        return ''
+    scheme = parsed.scheme or 'https'
+    port = f':{parsed.port}' if parsed.port else ''
+    path = parsed.path.rstrip('/') if parsed.path and parsed.path != '/' else ''
+    return f'{scheme}://{host}{port}{path}'
+
+
+def _pythonanywhere_site_url():
+    """Build canonical PA URL from env vars PA sets or you configure explicitly."""
+    for key in ('PYTHONANYWHERE_DOMAIN', 'PYTHONANYWHERE_SITE'):
+        domain = os.environ.get(key, '').strip()
+        if not domain:
+            continue
+        domain = domain.replace('https://', '').replace('http://', '').strip('/')
+        if domain in _BARE_PYTHONANYWHERE_HOSTS:
+            continue
+        if '.' not in domain:
+            continue
+        return _sanitize_public_url(f'https://{domain}')
+    return ''
+
 
 def get_whatsapp_number():
     """E.164 number for click-to-chat links (from WHATSAPP_NUMBER env)."""
@@ -31,29 +80,23 @@ def get_whatsapp_chat_url(text=None):
 def get_public_site_url(request_root=None):
     """
     Canonical public URL for webhooks, WhatsApp, and share links.
-    Priority: PUBLIC_SITE_URL → WEBHOOK_BASE_URL → PythonAnywhere → request → localhost.
+    Priority: PUBLIC_SITE_URL → WEBHOOK_BASE_URL → PythonAnywhere → SITE_DOMAIN → request → localhost.
     """
-    explicit = os.getenv('PUBLIC_SITE_URL', '').strip()
-    if explicit:
-        return explicit.rstrip('/')
+    for env_key in ('PUBLIC_SITE_URL', 'WEBHOOK_BASE_URL'):
+        explicit = _read_env_url(env_key)
+        if explicit:
+            return explicit
 
-    webhook = os.getenv('WEBHOOK_BASE_URL', '').strip()
-    if webhook:
-        return webhook.rstrip('/')
+    pa_url = _pythonanywhere_site_url()
+    if pa_url:
+        return pa_url
 
-    pa_domain = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip()
-    if pa_domain:
-        return f'https://{pa_domain}'
-
-    custom_domain = os.getenv('SITE_DOMAIN', '').strip()
-    if custom_domain:
-        scheme = 'https' if not custom_domain.startswith('http') else ''
-        if custom_domain.startswith('http'):
-            return custom_domain.rstrip('/')
-        return f'https://{custom_domain.rstrip("/")}'
+    sanitized = _read_env_url('SITE_DOMAIN')
+    if sanitized:
+        return sanitized
 
     if request_root:
-        root = request_root.rstrip('/')
+        root = _sanitize_public_url(request_root.rstrip('/'))
         if root and not root.startswith('http://127.') and not root.startswith('http://localhost'):
             return root
 
@@ -68,8 +111,9 @@ def get_whatsapp_webhook_url(request_root=None):
 def is_production():
     return bool(
         os.environ.get('PYTHONANYWHERE_DOMAIN')
-        or os.getenv('PUBLIC_SITE_URL', '').strip()
-        or os.getenv('WEBHOOK_BASE_URL', '').strip()
+        or os.environ.get('PYTHONANYWHERE_SITE')
+        or _read_env_url('PUBLIC_SITE_URL')
+        or _read_env_url('WEBHOOK_BASE_URL')
     )
 
 

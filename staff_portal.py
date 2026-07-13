@@ -24,6 +24,12 @@ def staff_roles_required(*roles):
         def wrapper(*args, **kwargs):
             if 'admin_logged_in' not in session:
                 return redirect(url_for('login'))
+            admin = Admin.query.get(session.get('admin_id'))
+            if not admin:
+                for key in ('admin_logged_in', 'admin_id', 'role', 'username'):
+                    session.pop(key, None)
+                flash('Your session expired. Please log in again.', 'warning')
+                return redirect(url_for('login'))
             if session.get('role') not in roles:
                 flash('This area is for shop staff only.', 'danger')
                 return redirect(url_for('login'))

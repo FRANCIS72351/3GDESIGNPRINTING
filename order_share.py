@@ -15,12 +15,27 @@ BRAND_GOLD = '#C9A84C'
 BRAND_CREAM = '#FAF8F4'
 
 
-def _resolve_image_path(app_root, image_file):
+def _normalize_local_image(image_file):
+    """Strip URL prefixes so relative upload paths resolve on disk."""
     if not image_file:
-        return os.path.join(app_root, 'static', 'img', 'LOGO.png')
-    if image_file.startswith('http'):
+        return ''
+    value = str(image_file).strip()
+    if value.startswith('http'):
         return None
-    path = os.path.join(app_root, 'static', 'uploads', image_file)
+    value = value.replace('\\', '/')
+    for prefix in ('/static/uploads/', 'static/uploads/', '/uploads/', 'uploads/'):
+        if value.startswith(prefix):
+            value = value[len(prefix):]
+    return value.lstrip('/')
+
+
+def _resolve_image_path(app_root, image_file):
+    normalized = _normalize_local_image(image_file)
+    if normalized is None:
+        return None
+    if not normalized:
+        return os.path.join(app_root, 'static', 'img', 'LOGO.png')
+    path = os.path.join(app_root, 'static', 'uploads', normalized)
     if os.path.exists(path):
         return path
     return os.path.join(app_root, 'static', 'img', 'LOGO.png')
@@ -40,50 +55,35 @@ def _paste_brand_header(canvas, draw, app_root, x, y, img_height=22):
     paste_brand_header_pil(canvas, draw, app_root, x, y, variant='gold', img_height=img_height)
 
 
-def build_whatsapp_text(cart_items, *, share_image_url=None, share_page_url=None):
-    """Professional order text for WhatsApp — includes product image URLs when available."""
-    total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
-    total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
+def _paste_thumbnail(canvas, draw, img_path, box, thumb_size, placeholder_font):
+    """Fit product photo inside a rounded gold-bordered tile."""
+    x0, y0, x1, y1 = box
+    draw.rounded_rectangle(box, radius=10, outline=BRAND_GOLD, width=2, fill='#FFFFFF')
+    if not img_path or not os.path.exists(img_path):
+        draw.text((x0 + 28, y0 + 40), '3G', fill=BRAND_NAVY, font=placeholder_font)
+        return
+    try:
+        thumb = Image.open(img_path).convert('RGB')
+        inner = thumb_size - 10
+        thumb.thumbnail((inner, inner), Image.Resampling.LANCZOS)
+        tx = x0 + (thumb_size - thumb.width) // 2
+        ty = y0 + (thumb_size - thumb.height) // 2
+        canvas.paste(thumb, (tx, ty))
+    except Exception:
+        draw.text((x0 + 28, y0 + 40), '3G', fill=BRAND_NAVY, font=placeholder_font)
 
-    lines = [
-        '🛒 NEW ORDER — 3G Design',
-        '━━━━━━━━━━━━━━━━━━━━',
-        '',
-    ]
-    for item in cart_items:
-        sym = '$' if item.get('currency') == 'USD' else 'L$'
-        subtotal = item['price'] * item['quantity']
-        lines.append(f"📦 {item['product_name']}")
-        variant = item.get('variant_name', '')
-        if variant and variant not in ('Base', 'Original Design'):
-            lines.append(f"   Design: {variant}")
-        lines.append(f"   Qty: {item['quantity']}  ·  {sym}{subtotal:.2f}")
-        img_url = item.get('image_url')
-        if img_url:
-            lines.append(f"   🖼 {img_url}")
-        lines.append('')
-    lines.append('━━━━━━━━━━━━━━━━━━━━')
-    if total_usd:
-        lines.append(f'💰 Total USD: ${total_usd:.2f}')
-    if total_lrd:
-        lines.append(f'💰 Total LRD: L${total_lrd:.2f}')
-    if share_image_url:
-        lines.append('')
-        lines.append('📋 Order summary image:')
-        lines.append(share_image_url)
-    if share_page_url:
-        lines.append('')
-        lines.append('🔗 View order:')
-        lines.append(share_page_url)
-    lines.append('')
-    lines.append('Please confirm availability and lead time. Thank you! 🙏')
-    return '\n'.join(lines)
+
+def build_whatsapp_text(cart_items, *, share_page_url=None):
+    """
+    Professional order text for WhatsApp — concise summary with share page link.
+    Raw image URLs in plain text do not render inline in WhatsApp chat.
+    """
+    return build_whatsapp_short_message(cart_items, share_page_url=share_page_url)
 
 
 def build_whatsapp_short_message(cart_items, *, share_page_url):
     """
     Concise WhatsApp text for wa.me fallback — share page link triggers og:image preview.
-    Image URLs in plain text do not render inline in WhatsApp; the link preview does.
     """
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
@@ -117,24 +117,25 @@ def generate_order_image(cart_items, token, app_root):
     Build one PNG with product thumbnails + order details.
     Saved to static/uploads/orders/order_{token}.png
     """
-    thumb_size = 110
-    row_h = 130
-    pad = 24
-    header_h = 72
-    footer_h = 56
-    width = 640
+    thumb_size = 112
+    row_h = 132
+    pad = 28
+    header_h = 78
+    footer_h = 58
+    width = 680
     n = max(len(cart_items), 1)
     height = header_h + (n * row_h) + footer_h + pad
 
     canvas = Image.new('RGB', (width, height), BRAND_CREAM)
     draw = ImageDraw.Draw(canvas)
-    body_font = _load_font(16)
+    body_font = _load_font(17)
     small_font = _load_font(13)
-    gold_font = _load_font(14, bold=True)
+    gold_font = _load_font(15, bold=True)
+    placeholder_font = _load_font(18, bold=True)
 
     draw.rectangle([0, 0, width, header_h], fill=BRAND_NAVY)
-    _paste_brand_header(canvas, draw, app_root, pad, 18, img_height=24)
-    draw.text((pad, 48), 'ORDER RECEIPT', fill='#FFFFFF', font=small_font)
+    _paste_brand_header(canvas, draw, app_root, pad, 20, img_height=26)
+    draw.text((pad, 52), 'ORDER RECEIPT', fill='#FFFFFF', font=small_font)
 
     y = header_h + pad // 2
     total_usd = 0.0
@@ -143,23 +144,14 @@ def generate_order_image(cart_items, token, app_root):
     for item in cart_items:
         img_path = _resolve_image_path(app_root, item.get('image', ''))
         box = (pad, y, pad + thumb_size, y + thumb_size)
-        draw.rounded_rectangle(box, radius=10, outline=BRAND_GOLD, width=2, fill='#FFFFFF')
-        if img_path and os.path.exists(img_path):
-            try:
-                thumb = Image.open(img_path).convert('RGB')
-                thumb.thumbnail((thumb_size - 8, thumb_size - 8))
-                tx = pad + (thumb_size - thumb.width) // 2
-                ty = y + (thumb_size - thumb.height) // 2
-                canvas.paste(thumb, (tx, ty))
-            except Exception:
-                draw.text((pad + 20, y + 40), '3G', fill=BRAND_NAVY, font=body_font)
+        _paste_thumbnail(canvas, draw, img_path, box, thumb_size, placeholder_font)
 
-        text_x = pad + thumb_size + 18
-        name = (item.get('product_name') or 'Product')[:36]
-        draw.text((text_x, y + 8), name, fill=BRAND_NAVY, font=body_font)
+        text_x = pad + thumb_size + 20
+        name = (item.get('product_name') or 'Product')[:38]
+        draw.text((text_x, y + 10), name, fill=BRAND_NAVY, font=body_font)
         variant = item.get('variant_name', '')
         if variant and variant not in ('Base', 'Original Design'):
-            draw.text((text_x, y + 32), f'Design: {variant[:30]}', fill='#555555', font=small_font)
+            draw.text((text_x, y + 36), f'Design: {variant[:32]}', fill='#555555', font=small_font)
 
         sym = '$' if item.get('currency') == 'USD' else 'L$'
         subtotal = item['price'] * item['quantity']
@@ -168,15 +160,15 @@ def generate_order_image(cart_items, token, app_root):
         else:
             total_lrd += subtotal
         draw.text(
-            (text_x, y + 54),
+            (text_x, y + 62),
             f"Qty: {item['quantity']}   {sym}{subtotal:.2f}",
             fill=BRAND_NAVY,
             font=gold_font,
         )
-        draw.line([(pad, y + row_h - 8), (width - pad, y + row_h - 8)], fill='#E8E4DC', width=1)
+        draw.line([(pad, y + row_h - 6), (width - pad, y + row_h - 6)], fill='#E8E4DC', width=1)
         y += row_h
 
-    footer_y = height - footer_h + 8
+    footer_y = height - footer_h + 10
     draw.rectangle([0, height - footer_h, width, height], fill=BRAND_NAVY)
     parts = []
     if total_usd:

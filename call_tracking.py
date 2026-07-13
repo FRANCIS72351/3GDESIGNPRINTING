@@ -365,7 +365,7 @@ def whatsapp_webhook():
 
     try:
         payload = request.get_json(silent=True) or {}
-        app_obj = current_app._get_current_object()
+        app_obj = current_app
         run_in_background(app_obj, _process_whatsapp_webhook_payload, payload, app_obj.root_path)
         queued = sum(
             len(change.get('value', {}).get('messages', []))
