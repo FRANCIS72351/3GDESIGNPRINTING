@@ -145,62 +145,78 @@ def _hex_rgb(hex_color):
     return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def _format_money(amount, currency='USD'):
+    sym = '$' if currency == 'USD' else 'L$'
+    if float(amount).is_integer():
+        return f'{sym}{int(amount)}'
+    return f'{sym}{amount:.2f}'
+
+
 def build_order_copy_text(cart_items):
     """
-    Order details for clipboard / paste AFTER the receipt image is shared.
-    No URLs — keeps WhatsApp chat image-first and avoids broken line-wrapped links.
+    Clean order caption for WhatsApp — image-first, no URLs.
     """
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
-    n = len(cart_items)
 
-    lines = [
-        'NEW ORDER — 3G Design',
-        f'{n} item{"s" if n != 1 else ""}',
-        '',
-    ]
+    lines = ['🛒 Order from 3G Design']
     for item in cart_items:
-        sym = '$' if item.get('currency') == 'USD' else 'L$'
+        currency = item.get('currency', 'USD')
         subtotal = item['price'] * item['quantity']
         name = item.get('product_name', 'Product')
         variant = item.get('variant_name', '')
+        money = _format_money(subtotal, currency)
         if variant and variant not in ('Base', 'Original Design'):
-            lines.append(f"• {name} ({variant}) ×{item['quantity']} — {sym}{subtotal:.2f}")
+            lines.append(f"• {name} ({variant}) ×{item['quantity']} — {money}")
         else:
-            lines.append(f"• {name} ×{item['quantity']} — {sym}{subtotal:.2f}")
-    lines.append('')
+            lines.append(f"• {name} ×{item['quantity']} — {money}")
+
+    totals = []
     if total_usd:
-        lines.append(f'Total USD: ${total_usd:.2f}')
+        totals.append(f'{_format_money(total_usd, "USD")} USD')
     if total_lrd:
-        lines.append(f'Total LRD: L${total_lrd:.2f}')
-    lines.append('')
-    lines.append('Please confirm availability and lead time. Thank you!')
+        totals.append(f'{_format_money(total_lrd, "LRD")} LRD')
+    if totals:
+        lines.append(f"Total: {' · '.join(totals)}")
+    lines.append('Please confirm availability. Thank you!')
     return '\n'.join(lines)
 
 
 def build_whatsapp_text(cart_items, *, share_page_url=None):
-    """
-    Professional order text for WhatsApp — concise summary with optional share page link.
-    Raw image URLs in plain text do not render inline in WhatsApp chat.
-    """
-    return build_whatsapp_short_message(cart_items, share_page_url=share_page_url)
+    """Professional order text for WhatsApp — caption only, never raw image URLs."""
+    return build_whatsapp_short_message(cart_items)
 
 
 def build_whatsapp_short_message(cart_items, *, share_page_url=None):
     """
-    Order text plus optional one-line share page URL (for copy / link fallback only).
-    Do not use as primary wa.me prefill — long URLs wrap badly in WhatsApp composer.
+    Order caption for WhatsApp text fields. Never includes share-page or upload URLs.
+    share_page_url is accepted for backward compatibility but intentionally ignored.
     """
-    text = build_order_copy_text(cart_items)
-    if share_page_url:
-        url = str(share_page_url).strip()
-        if url:
-            text = f"{text}\n\nView order: {url}"
-    return text
+    del share_page_url  # URLs belong in the receipt image, not chat text
+    return build_order_copy_text(cart_items)
 
 
-def build_wa_me_fallback_text():
-    """Minimal wa.me prefill — never include long URLs (they break on mobile WhatsApp)."""
+def build_wa_me_caption(cart_items):
+    """Short wa.me prefill from order summary — no URLs."""
+    full = build_order_copy_text(cart_items)
+    if len(full) <= 300:
+        return full
+    n = len(cart_items)
+    total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
+    total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
+    lines = [f'🛒 Order from 3G Design ({n} item{"s" if n != 1 else ""})']
+    if total_usd:
+        lines.append(f'Total: {_format_money(total_usd, "USD")} USD')
+    if total_lrd:
+        lines.append(f'Total: {_format_money(total_lrd, "LRD")} LRD')
+    lines.append('Receipt image attached. Please confirm. Thank you!')
+    return '\n'.join(lines)
+
+
+def build_wa_me_fallback_text(cart_items=None):
+    """wa.me prefill — order summary when possible, never long URLs."""
+    if cart_items:
+        return build_wa_me_caption(cart_items)
     return 'New order from 3G Design — receipt image attached. Please confirm.'
 
 
@@ -368,10 +384,9 @@ def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root, 
         except Exception:
             pass
 
-    # Caption: order details only — never raw static upload URLs
+    # Caption: order details only — never raw static upload URLs or share links
     caption = build_order_copy_text(cart_items)[:1024]
-    if share_page_url:
-        caption = f"{caption}\n\nView order: {share_page_url}"[:1024]
+    del share_page_url
 
     if media_id:
         send_payload({

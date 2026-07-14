@@ -534,13 +534,14 @@ def event_portal():
 
 from order_share import (
     build_order_copy_text,
+    build_wa_me_caption,
     build_wa_me_fallback_text,
     build_whatsapp_text,
     build_whatsapp_short_message,
     generate_order_image,
     try_notify_shop_via_api,
 )
-from site_config import CANONICAL_CLOUD_SITE_URL, get_whatsapp_number, _sanitize_public_url
+from site_config import CANONICAL_CLOUD_SITE_URL, get_whatsapp_number, whatsapp_env_status, _sanitize_public_url
 
 WHATSAPP_NUMBER = get_whatsapp_number()
 
@@ -620,7 +621,7 @@ def finalize_whatsapp_order(cart_items):
     base_url = get_public_base_url()
     share_image_url = f"{base_url}/static/uploads/{image_rel}" if image_rel else None
     share_page_url = f"{base_url}/order/share/{token}"
-    message_text = build_whatsapp_short_message(enriched, share_page_url=share_page_url)
+    message_text = build_order_copy_text(enriched)
 
     total_usd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in enriched if i.get('currency') == 'LRD')
@@ -743,17 +744,18 @@ def order_share_page(token):
     # Copy/paste text: order details only (no URL). Image goes via Web Share.
     copy_text = build_order_copy_text(items)
     short_message = copy_text
-    message_text = build_whatsapp_short_message(items, share_page_url=share_page_url)
+    message_text = copy_text
     item_count = len(items)
     og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
     og_description = ', '.join(i.get('product_name', 'Product') for i in items[:3])
     if item_count > 3:
         og_description += f' +{item_count - 3} more'
     phone = WHATSAPP_NUMBER.lstrip('+')
-    # Soft fallback: short hint only — NEVER dump long share URLs into wa.me (breaks on iPhone)
-    wa_hint = build_wa_me_fallback_text()
+    wa_caption = build_wa_me_caption(items)
     wa_chat_url = f"https://wa.me/{phone}"
-    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(wa_hint)}"
+    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(wa_caption)}"
+    wa_status = whatsapp_env_status()
+    shop_api_ready = bool(wa_status.get('can_send'))
     product_images = [
         {
             'url': item.get('image_url') or absolute_product_image_url(item.get('image', '')),
@@ -779,6 +781,8 @@ def order_share_page(token):
         wa_phone=phone,
         wa_chat_url=wa_chat_url,
         wa_preview_url=wa_preview_url,
+        wa_caption=wa_caption,
+        shop_api_ready=shop_api_ready,
         og_title=og_title,
         og_description=og_description,
         og_image=image_url,

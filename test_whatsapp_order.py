@@ -11,6 +11,7 @@ from app import app, finalize_whatsapp_order, get_public_base_url
 from models import db, PendingReceipt
 from order_share import (
     build_order_copy_text,
+    build_wa_me_caption,
     build_wa_me_fallback_text,
     build_whatsapp_short_message,
     generate_order_image,
@@ -81,10 +82,13 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertTrue(token)
         self.assertEqual(image_rel, 'orders/order_test.png')
         self.assertIn('Test Mug', message_text)
+        self.assertIn('🛒 Order from 3G Design', message_text)
         base = get_public_base_url()
-        self.assertIn(f'{base}/order/share/{token}', message_text)
+        self.assertNotIn(f'{base}/order/share/{token}', message_text)
+        self.assertNotIn('http', message_text)
         self.assertNotIn('🖼', message_text)
-        self.assertNotIn('pythonanywhere.com/static', message_text.replace(base, ''))
+        self.assertNotIn('pythonanywhere.com/static', message_text)
+        self.assertNotIn('/static/uploads/', message_text)
 
         receipt = PendingReceipt.query.filter_by(token=token).first()
         self.assertIsNotNone(receipt)
@@ -100,18 +104,26 @@ class WhatsAppOrderTests(unittest.TestCase):
     def test_build_order_copy_text_has_no_url(self):
         text = build_order_copy_text([self._sample_item()])
         self.assertIn('Test Mug', text)
-        self.assertIn('NEW ORDER', text)
+        self.assertIn('🛒 Order from 3G Design', text)
         self.assertNotIn('http', text)
         self.assertNotIn('order/share', text)
         self.assertNotIn('static/uploads', text)
+        self.assertNotIn('NEW ORDER', text)
 
-    def test_build_whatsapp_short_message_uses_share_link(self):
+    def test_build_whatsapp_short_message_has_no_share_link(self):
         items = [self._sample_item()]
         url = 'https://example.test/order/share/abc123'
         text = build_whatsapp_short_message(items, share_page_url=url)
         self.assertIn('Test Mug', text)
-        self.assertIn(url, text)
+        self.assertNotIn(url, text)
+        self.assertNotIn('View order', text)
         self.assertNotIn('🖼', text)
+
+    def test_wa_me_caption_has_no_url(self):
+        caption = build_wa_me_caption([self._sample_item()])
+        self.assertIn('Test Mug', caption)
+        self.assertNotIn('http', caption)
+        self.assertNotIn('order/share', caption)
 
     def test_wa_me_fallback_has_no_long_url(self):
         hint = build_wa_me_fallback_text()
@@ -192,7 +204,7 @@ class WhatsAppOrderTests(unittest.TestCase):
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_og.png')
-    def test_order_share_page_has_og_tags(self, _mock_image, _mock_bg):
+    def test_order_share_page_has_single_primary_cta(self, _mock_image, _mock_bg):
         with app.test_request_context('/'):
             token, _, _ = finalize_whatsapp_order([self._sample_item('Poster', 'poster.jpg')])
 
@@ -204,16 +216,16 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('property="og:title"', html)
         self.assertIn('property="og:description"', html)
         self.assertIn(f'{base}/order/share/{token}', html)
-        self.assertIn('Send to WhatsApp with Images', html)
+        self.assertIn('Send Order to 3G Design on WhatsApp', html)
         self.assertIn('sendOrderToWhatsApp', html)
-        self.assertIn('shareImageFiles', html)
-        self.assertIn('Copy order text', html)
+        self.assertIn('More options', html)
+        self.assertIn('steps-guide', html)
+        self.assertIn('Choose WhatsApp', html)
         self.assertIn('wa.me/', html)
-        # wa.me must NOT be prefilled with the full multi-line share page URL
+        self.assertNotIn('View order with images', html)
+        self.assertNotIn('Send to WhatsApp with Images', html)
+        self.assertNotIn('sharePageLink', html)
         self.assertNotIn('order%2Fshare', html)
-        self.assertNotIn('View%20order', html)
-        self.assertIn('chat-preview', html)
-        self.assertIn('Exact image that will attach', html)
 
     @patch('app.run_in_background')
     @patch('app.generate_order_image', return_value='orders/order_abs.png')
@@ -237,9 +249,7 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         self.assertIn('const copyText =', html)
         self.assertIn('Test Mug', html)
-        self.assertIn('shareImageFiles', html)
-        self.assertIn('files: files', html)
-        # Clipboard / caption must not expose raw static upload URLs
+        self.assertIn('const waCaption =', html)
         self.assertNotIn('/static/uploads/test-mug.jpg', html.split('const copyText =')[1].split('const shortMessage')[0])
 
 
