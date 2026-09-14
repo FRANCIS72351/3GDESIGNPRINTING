@@ -1,7 +1,9 @@
 """Helpers to keep the app stable under concurrent traffic."""
+import gzip
 import threading
 import time
 from datetime import datetime, timedelta
+from io import BytesIO
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -13,7 +15,11 @@ SETTINGS_CACHE_SECONDS = 30
 
 
 def configure_sqlite(app, db):
-    """WAL mode + busy timeout so SQLite survives multi-threaded Waitress."""
+    """WAL mode + busy timeout so SQLite survives multi-threaded Waitress.
+
+    Keep these pragmas. WAL lets many readers proceed together; writers still
+    serialize, so this is capacity for reads, not thousands of concurrent writes.
+    """
     app.config.setdefault(
         'SQLALCHEMY_ENGINE_OPTIONS',
         {
@@ -63,6 +69,29 @@ ABOUT_CONTENT_COLUMN_MIGRATIONS = [
 ]
 
 
+PERFORMANCE_INDEXES = (
+    ('ix_daily_report_date_posted', 'daily_report', 'date_posted'),
+    ('ix_daily_report_report_date', 'daily_report', 'report_date'),
+    ('ix_expense_timestamp', 'expense', 'timestamp'),
+    ('ix_call_log_timestamp', 'call_log', 'timestamp'),
+)
+
+
+def ensure_performance_indexes(db):
+    """Create high-traffic date indexes on existing SQLite tables (idempotent)."""
+    from sqlalchemy import inspect, text
+
+    tables = set(inspect(db.engine).get_table_names())
+    with db.engine.begin() as conn:
+        for index_name, table_name, column_name in PERFORMANCE_INDEXES:
+            if table_name not in tables:
+                continue
+            conn.execute(text(
+                f'CREATE INDEX IF NOT EXISTS {index_name} '
+                f'ON "{table_name}" ({column_name})'
+            ))
+
+
 def ensure_table_columns(db, table_name, columns):
     """Add missing columns to an existing SQLite table (idempotent)."""
     from sqlalchemy import inspect, text
@@ -104,6 +133,54 @@ def get_about_content(db, AboutContent):
     if content is None:
         content = AboutContent(description='', services='')
         db.session.add(content)
+        commit_with_retry(db)
+    return content
+
+
+HOMEPAGE_CONTENT_COLUMN_MIGRATIONS = [
+    ('title', "VARCHAR(200) DEFAULT ''"),
+    ('video_heading', "VARCHAR(150) DEFAULT 'See What We Do'"),
+    ('video_caption', "TEXT DEFAULT ''"),
+    ('video_url', "VARCHAR(500) DEFAULT ''"),
+    ('banner_image', "VARCHAR(255) DEFAULT ''"),
+    ('is_published', 'BOOLEAN DEFAULT 1'),
+    ('updated_at', 'DATETIME'),
+]
+
+
+def ensure_homepage_content_schema(db, HomepageContent):
+    """Create homepage_content and add missing columns on first use."""
+    from sqlalchemy import inspect
+
+    table_name = HomepageContent.__tablename__
+    if table_name not in inspect(db.engine).get_table_names():
+        HomepageContent.__table__.create(db.engine, checkfirst=True)
+    ensure_table_columns(db, table_name, HOMEPAGE_CONTENT_COLUMN_MIGRATIONS)
+
+
+def get_homepage_content(db, HomepageContent):
+    """Return the singleton homepage promo row, creating schema/row if needed."""
+    ensure_homepage_content_schema(db, HomepageContent)
+    try:
+        content = HomepageContent.query.first()
+    except OperationalError:
+        db.session.rollback()
+        ensure_homepage_content_schema(db, HomepageContent)
+        content = HomepageContent.query.first()
+
+    if content is None:
+        content = HomepageContent(
+            title='',
+            video_heading='See What We Do',
+            video_caption='watch this video',
+            video_url='',
+            banner_image='',
+            is_published=True,
+        )
+        db.session.add(content)
+        commit_with_retry(db)
+    elif content.video_caption == 'Watch this short video to learn more about our services, process, and current offerings.':
+        content.video_caption = 'watch this video'
         commit_with_retry(db)
     return content
 
@@ -183,3 +260,151 @@ def commit_with_retry(db, retries=5, base_delay=0.05):
             if 'locked' not in str(exc).lower() or attempt >= retries - 1:
                 raise
             time.sleep(base_delay * (attempt + 1))
+
+
+# ---------------------------------------------------------------------------
+# HTTP payload tuning (slow/mobile networks + many concurrent readers)
+# ---------------------------------------------------------------------------
+_COMPRESSIBLE_TYPES = frozenset((
+    'text/html',
+    'text/css',
+    'text/javascript',
+    'text/plain',
+    'text/xml',
+    'application/javascript',
+    'application/json',
+    'application/xml',
+    'application/xhtml+xml',
+    'image/svg+xml',
+))
+_MIN_GZIP_BYTES = 500
+_MAX_GZIP_BYTES = 2 * 1024 * 1024
+_PRIVATE_PREFIXES = (
+    '/admin',
+    '/dashboard',
+    '/moderator',
+    '/staff',
+    '/login',
+    '/verify',
+    '/setup-2fa',
+    '/ghost',
+    '/billing',
+    '/operations',
+    '/api/',
+)
+_late_check_lock = threading.Lock()
+_late_check_next = 0.0
+LATE_CHECK_SPAWN_SECONDS = 60
+
+
+def schedule_late_staff_check(app, func, *args, interval=LATE_CHECK_SPAWN_SECONDS):
+    """Spawn the daily late-staff job at most once per minute (not per request)."""
+    global _late_check_next
+    now = time.monotonic()
+    with _late_check_lock:
+        if now < _late_check_next:
+            return False
+        _late_check_next = now + interval
+    run_in_background(app, func, *args)
+    return True
+
+
+def _response_mimetype(response):
+    return (response.mimetype or '').split(';')[0].strip().lower()
+
+
+def _apply_cache_headers(request, response):
+    path = request.path or ''
+    mime = _response_mimetype(response)
+
+    if path == '/health' or path == '/media/homepage-video':
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    if mime == 'text/html' or response.headers.get('Set-Cookie'):
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+
+    if any(path.startswith(prefix) for prefix in _PRIVATE_PREFIXES):
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+
+    if path.startswith('/static/uploads/'):
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        return response
+
+    if path.endswith('/style.css') or path == '/static/style.css':
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    if path.startswith('/static/img/') or path.startswith('/static/fonts/') or path == '/favicon.ico':
+        response.headers['Cache-Control'] = 'public, max-age=604800'
+        return response
+
+    if path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=604800'
+        return response
+
+    if path.startswith('/media/'):
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        return response
+
+    return response
+
+
+def _maybe_gzip(request, response):
+    """Compress text HTML/CSS/JS/JSON. Never buffer video/images or Range streams."""
+    if response.status_code not in (200, 201):
+        return response
+    if request.method == 'HEAD':
+        return response
+    if request.headers.get('Range') or response.status_code == 206:
+        return response
+    if response.headers.get('Content-Encoding'):
+        return response
+    if 'gzip' not in (request.headers.get('Accept-Encoding') or '').lower():
+        return response
+
+    mime = _response_mimetype(response)
+    if mime.startswith(('video/', 'image/', 'audio/')) or mime not in _COMPRESSIBLE_TYPES:
+        return response
+
+    length = response.calculate_content_length()
+    if length is not None and (length < _MIN_GZIP_BYTES or length > _MAX_GZIP_BYTES):
+        return response
+
+    if getattr(response, 'direct_passthrough', False):
+        # Flask send_file often has no Content-Length yet; only buffer
+        # compressible text (CSS/JS), never unknown binary streams.
+        if length is not None and length > _MAX_GZIP_BYTES:
+            return response
+        response.direct_passthrough = False
+
+    data = response.get_data()
+    if not data or len(data) < _MIN_GZIP_BYTES or len(data) > _MAX_GZIP_BYTES:
+        return response
+
+    buf = BytesIO()
+    with gzip.GzipFile(mode='wb', fileobj=buf, compresslevel=5) as gz:
+        gz.write(data)
+    compressed = buf.getvalue()
+    if len(compressed) >= len(data):
+        return response
+
+    response.set_data(compressed)
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Length'] = str(len(compressed))
+    vary = response.headers.get('Vary', '')
+    if 'Accept-Encoding' not in vary:
+        response.headers['Vary'] = (vary + ', Accept-Encoding').lstrip(', ')
+    return response
+
+
+def configure_http_performance(app):
+    """Browser cache for static files + gzip for text. HTML/admin stay uncached."""
+    from flask import request
+
+    @app.after_request
+    def _cache_and_compress(response):
+        _apply_cache_headers(request, response)
+        return _maybe_gzip(request, response)

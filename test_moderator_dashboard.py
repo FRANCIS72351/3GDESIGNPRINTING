@@ -8,6 +8,8 @@ from werkzeug.security import generate_password_hash
 
 os.environ.setdefault('GHOST_ADMIN_USER', 'ghost_test_user')
 
+from datetime import date, datetime
+
 from app import app, db
 from models import Admin, DailyReport, Expense
 
@@ -75,6 +77,7 @@ class ModeratorDashboardTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b'Command Center', resp.data)
         self.assertIn(b'Annual Performance', resp.data)
+        self.assertIn(b'Year-to-Year Performance', resp.data)
         self.assertIn(b'Manual Daily Income', resp.data)
         self.assertIn(b'Daily Summary Report', resp.data)
 
@@ -132,6 +135,50 @@ class ModeratorDashboardTests(unittest.TestCase):
         with app.app_context():
             self.assertEqual(DailyReport.query.count(), 3)
 
+    def test_admin_dashboard_shows_yoy_performance(self):
+        self._login_as(self.admin_id, 'admin', 'test_admin')
+        this_year = datetime.utcnow().year
+        last_year = this_year - 1
+        with app.app_context():
+            db.session.add_all([
+                DailyReport(
+                    report_text='Prior year income',
+                    total_sales=1000.00,
+                    currency='USD',
+                    report_date=date(last_year, 6, 15),
+                    staff_name='test_admin',
+                ),
+                DailyReport(
+                    report_text='This year income',
+                    total_sales=1500.00,
+                    currency='USD',
+                    report_date=date(this_year, 3, 1),
+                    staff_name='test_admin',
+                ),
+                Expense(
+                    amount=200.00,
+                    currency='USD',
+                    description='Prior year cost',
+                    timestamp=datetime(last_year, 4, 1),
+                ),
+                Expense(
+                    amount=100.00,
+                    currency='USD',
+                    description='This year cost',
+                    timestamp=datetime(this_year, 2, 1),
+                ),
+            ])
+            db.session.commit()
+
+        resp = self.client.get('/dashboard')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+        self.assertIn('Year-to-Year Performance', html)
+        self.assertIn(f'{this_year} vs {last_year}', html)
+        self.assertIn('$1500.00', html)
+        self.assertIn('$1000.00', html)
+        self.assertIn('50.0%', html)
+
     def test_moderator_cannot_access_admin_dashboard(self):
         self._login_as(self.mod_full_id, 'moderator', 'mod_full')
         resp = self.client.get('/dashboard', follow_redirects=False)
@@ -145,6 +192,7 @@ class ModeratorDashboardTests(unittest.TestCase):
         self.assertIn(b'Daily', resp.data)
         self.assertIn(b'weekly records only', resp.data)
         self.assertNotIn(b'Annual Performance', resp.data)
+        self.assertNotIn(b'Year-to-Year Performance', resp.data)
         self.assertNotIn(b'Year to Date', resp.data)
 
     def test_limited_moderator_sees_only_assigned_actions(self):

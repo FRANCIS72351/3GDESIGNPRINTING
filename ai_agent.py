@@ -1,5 +1,5 @@
 """
-3G Design — Customer AI assistant.
+3G DESIGN GLOBAL — Customer AI assistant.
 Session token = phone number (WhatsApp) or browser localStorage UUID (web chat).
 Conversation history persisted in SQLite for continuity across sessions.
 """
@@ -13,7 +13,7 @@ from models import db, AIChatMessage, Product, Customer, Order, AboutContent
 from server_stability import get_about_content
 
 MAX_HISTORY = 16
-BUSINESS_NAME = '3G Design'
+BUSINESS_NAME = '3G DESIGN GLOBAL'
 BUSINESS_PHONE = '+231 775 323 731'
 BUSINESS_ADDRESS = 'Newport & Benson Street, Monrovia, Liberia'
 BUSINESS_HOURS = 'Monday–Saturday, 8:00 AM – 6:00 PM'
@@ -178,7 +178,7 @@ def _rule_based_reply(session_token, user_message):
 
     if any(w in msg for w in ('hello', 'hi', 'hey', 'good morning', 'good afternoon')):
         return (
-            "Hello! Welcome to *3G Design Printing* — Monrovia’s premium print and branding studio.\n\n"
+            "Hello! Welcome to *3G DESIGN GLOBAL Printing* — Monrovia’s premium print and branding studio.\n\n"
             "Here are our featured services:\n"
             "• Graphic Design\n"
             "• Flex / Banner\n"

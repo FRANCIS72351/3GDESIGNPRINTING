@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title %}Document Audit — Billing{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-3">Document Audit Log</h3>
+    <div class="small text-muted mb-3">Recent document actions (generated, downloaded, previewed, printed)</div>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Document</th>
+                <th>Action</th>
+                <th>By</th>
+                <th>Role</th>
+                <th>IP</th>
+                <th>User-Agent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in audits %}
+            <tr>
+                <td>{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    {% if a.document %}
+                        <a href="{{ url_for('billing.document_preview', doc_id=a.document.id) }}">{{ a.document.doc_number }}</a>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>{{ a.action }}</td>
+                <td>{{ a.admin.username if a.admin else 'System' }}</td>
+                <td>{{ a.performed_by_role }}</td>
+                <td>{{ a.ip_address }}</td>
+                <td class="text-truncate" style="max-width:300px">{{ a.user_agent }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <a href="{{ url_for('billing.billing_portal') }}" class="btn btn-outline-secondary">Back</a>
+        <div>
+            {% if page > 1 %}
+            <a href="{{ url_for('billing.billing_audit', page=page-1, search=search, action=action, user=user, role=role) }}" class="btn btn-sm btn-light">Previous</a>
+            {% endif %}
+            <a href="{{ url_for('billing.billing_audit', page=page+1, search=search, action=action, user=user, role=role) }}" class="btn btn-sm btn-light">Next</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

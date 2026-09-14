@@ -38,6 +38,7 @@ class ProductVariant(db.Model):
     price = db.Column(db.Float) # Price for this specific variant
     stock = db.Column(db.Integer, default=0)
     image = db.Column(db.String(100))
+    currency = db.Column(db.String(10), default='USD')
 
 class Leaders(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -61,7 +62,7 @@ class CallLog(db.Model):
     duration_seconds = db.Column(db.Integer)
     call_sid = db.Column(db.String(64))
     logged_by = db.Column(db.String(50))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -92,6 +93,19 @@ class AboutContent(db.Model):
     slider1 = db.Column(db.String(100), default='slider.1.jpg')
     slider2 = db.Column(db.String(100), default='slider.2.jpg')
     slider3 = db.Column(db.String(100), default='slider.3.jpg')
+
+
+class HomepageContent(db.Model):
+    """Singleton row for the public homepage promotional banner + video."""
+    __tablename__ = 'homepage_content'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), default='')
+    video_heading = db.Column(db.String(150), default='See What We Do')
+    video_caption = db.Column(db.Text, default='')
+    video_url = db.Column(db.String(500), default='')
+    banner_image = db.Column(db.String(255), default='')
+    is_published = db.Column(db.Boolean, default=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -143,9 +157,9 @@ class DailyReport(db.Model):
     report_text = db.Column(db.Text, nullable=False)
     total_sales = db.Column(db.Float, default=0.0)
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
-    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     staff_name = db.Column(db.String(50)) # To easily see who wrote it
-    report_date = db.Column(db.Date)  # Business date for manual income entry
+    report_date = db.Column(db.Date, index=True)  # Business date for manual income entry
     payment_method = db.Column(db.String(30))  # cash, mobile_money, bank_transfer, other
     reference = db.Column(db.String(100))  # Receipt or transaction reference
 
@@ -219,13 +233,28 @@ class GeneratedDocument(db.Model):
     creator = db.relationship('Admin', backref='documents')
     order = db.relationship('Order', backref='documents', lazy=True)
 
+
+class DocumentAudit(db.Model):
+    """Audit trail for generated documents and PDF actions."""
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('generated_document.id'), nullable=True)
+    action = db.Column(db.String(50))  # generated, downloaded, printed, previewed
+    performed_by = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    performed_by_role = db.Column(db.String(20))
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(255))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    document = db.relationship('GeneratedDocument', backref='audits')
+    admin = db.relationship('Admin', backref='document_audits')
+
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(3), default='USD') # 'USD' or 'LRD'
     description = db.Column(db.String(255), nullable=False)
     recorded_by = db.Column(db.Integer, db.ForeignKey('admin.id'))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     admin = db.relationship('Admin', backref='expenses')
 # halidays

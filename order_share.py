@@ -12,8 +12,8 @@ from brand_mark import paste_brand_header_pil
 
 BRAND_NAVY = '#0B1F3A'
 BRAND_NAVY_DEEP = '#061428'
-BRAND_GOLD = '#C9A84C'
-BRAND_GOLD_SOFT = '#E8D5A3'
+BRAND_GOLD = '#4FC3F7'
+BRAND_GOLD_SOFT = '#B3E5FC'
 BRAND_CREAM = '#FAF8F4'
 BRAND_MUTED = '#6B7280'
 BRAND_LINE = '#E6E1D8'
@@ -159,7 +159,7 @@ def build_order_copy_text(cart_items):
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
 
-    lines = ['🛒 Order from 3G Design']
+    lines = ['🛒 Order from 3G DESIGN GLOBAL']
     for item in cart_items:
         currency = item.get('currency', 'USD')
         subtotal = item['price'] * item['quantity']
@@ -204,7 +204,7 @@ def build_wa_me_caption(cart_items):
     n = len(cart_items)
     total_usd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'USD')
     total_lrd = sum(i['price'] * i['quantity'] for i in cart_items if i.get('currency') == 'LRD')
-    lines = [f'🛒 Order from 3G Design ({n} item{"s" if n != 1 else ""})']
+    lines = [f'🛒 Order from 3G DESIGN GLOBAL ({n} item{"s" if n != 1 else ""})']
     if total_usd:
         lines.append(f'Total: {_format_money(total_usd, "USD")} USD')
     if total_lrd:
@@ -217,7 +217,7 @@ def build_wa_me_fallback_text(cart_items=None):
     """wa.me prefill — order summary when possible, never long URLs."""
     if cart_items:
         return build_wa_me_caption(cart_items)
-    return 'New order from 3G Design — receipt image attached. Please confirm.'
+    return 'New order from 3G DESIGN GLOBAL — receipt image attached. Please confirm.'
 
 
 def generate_order_image(cart_items, token, app_root):
@@ -324,7 +324,7 @@ def generate_order_image(cart_items, token, app_root):
     draw.text((pad, height - footer_h + 22), total_line, fill=BRAND_GOLD, font=total_font)
     draw.text(
         (pad, height - footer_h + 56),
-        '3G Design  ·  Please confirm availability & lead time',
+        '3G DESIGN GLOBAL  ·  Please confirm availability & lead time',
         fill=BRAND_GOLD_SOFT,
         font=caption_font,
     )

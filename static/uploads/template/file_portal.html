@@ -1,6 +1,6 @@
 ﻿{% extends "layout.html" %}
 
-{% block title %}File Share Portal - 3G Design{% endblock %}
+{% block title %}File Share Portal - 3G DESIGN GLOBAL{% endblock %}
 
 {% block body_class %}admin-page file-portal-page{% endblock %}
 
@@ -119,9 +119,8 @@
                     {% if search_results %}
                     <div class="file-items file-items-grid" data-view-container>
                         {% for file in search_results %}
-                        <a href="{{ url_for('static', filename='uploads/portal/' + file.date_folder + '/' + file.path) }}"
-                           class="file-item file-item-file" target="_blank" rel="noopener"
-                           title="Open {{ file.name }}">
+                                <a href="{{ url_for('download_portal_item', date_folder=file.date_folder, item_path=file.path) }}"
+                                    class="file-item file-item-file" title="Download {{ file.name }}">
                             <div class="file-item-icon">
                                 <i class="fas {{ file_icon(file.ext) }}"></i>
                             </div>
@@ -129,6 +128,7 @@
                             <div class="file-item-meta">
                                 <span class="file-item-date">{{ file.date_folder }}</span>
                                 <span>{{ file.size_label }}</span>
+                                <span class="file-item-download-label"><i class="fas fa-download"></i> Download</span>
                             </div>
                         </a>
                         {% endfor %}
@@ -163,6 +163,9 @@
                                 {% endfor %}
                             </ol>
                         </nav>
+                        <a href="{{ url_for('download_portal_item', date_folder=selected_date, item_path=current_path) }}" class="btn btn-sm btn-outline-primary file-download-folder">
+                            <i class="fas fa-file-zipper me-1"></i>Download ZIP
+                        </a>
                     </div>
 
                     <!-- Upload zone -->
@@ -214,20 +217,23 @@
                     {% if folders or files %}
                     <div class="file-items file-items-grid" data-view-container>
                         {% for folder in folders %}
-                        <a href="{{ url_for('file_portal', date=selected_date, path=folder.path) }}"
-                           class="file-item file-item-folder" title="Open {{ folder.name }}">
+                        <div class="file-item file-item-folder">
+                            <a href="{{ url_for('file_portal', date=selected_date, path=folder.path) }}" class="file-item-open" title="Open {{ folder.name }}">
                             <div class="file-item-icon">
                                 <i class="fas fa-folder"></i>
                             </div>
                             <div class="file-item-name" title="{{ folder.name }}">{{ folder.name }}</div>
+                            </a>
                             <div class="file-item-meta"><span>Folder</span></div>
-                        </a>
+                            <a href="{{ url_for('download_portal_item', date_folder=selected_date, item_path=folder.path) }}" class="file-item-download" title="Download {{ folder.name }} as ZIP">
+                                <i class="fas fa-file-zipper"></i><span>Download ZIP</span>
+                            </a>
+                        </div>
                         {% endfor %}
 
                         {% for file in files %}
-                        <a href="{{ url_for('static', filename='uploads/portal/' + selected_date + '/' + file.path) }}"
-                           class="file-item file-item-file" target="_blank" rel="noopener"
-                           title="Open {{ file.name }}">
+                                <a href="{{ url_for('download_portal_item', date_folder=selected_date, item_path=file.path) }}"
+                                    class="file-item file-item-file" title="Download {{ file.name }}">
                             <div class="file-item-icon">
                                 <i class="fas {{ file_icon(file.ext) }}"></i>
                             </div>
@@ -235,6 +241,7 @@
                             <div class="file-item-meta">
                                 <span>{{ file.size_label }}</span>
                                 <span>{{ file.modified.strftime('%b %d, %Y') }}</span>
+                                <span class="file-item-download-label"><i class="fas fa-download"></i> Download</span>
                             </div>
                         </a>
                         {% endfor %}
@@ -301,12 +308,13 @@
                     {% if date_folders %}
                     <div class="file-items file-items-grid" data-view-container>
                         {% for date_folder in date_folders %}
-                        <a href="{{ url_for('file_portal', date=date_folder) }}"
-                           class="file-item file-item-folder file-item-date" title="Open {{ date_folder }}">
+                        <div class="file-item file-item-folder file-item-date">
+                            <a href="{{ url_for('file_portal', date=date_folder) }}" class="file-item-open" title="Open {{ date_folder }}">
                             <div class="file-item-icon">
                                 <i class="fas fa-folder"></i>
                             </div>
                             <div class="file-item-name">{{ date_folder }}</div>
+                            </a>
                             <div class="file-item-meta">
                                 {% if date_folder == today_folder %}
                                 <span class="file-badge-inline">Today</span>
@@ -314,7 +322,10 @@
                                 <span>Date folder</span>
                                 {% endif %}
                             </div>
-                        </a>
+                            <a href="{{ url_for('download_portal_item', date_folder=date_folder) }}" class="file-item-download" title="Download {{ date_folder }} as ZIP">
+                                <i class="fas fa-file-zipper"></i><span>Download ZIP</span>
+                            </a>
+                        </div>
                         {% endfor %}
                     </div>
                     {% else %}

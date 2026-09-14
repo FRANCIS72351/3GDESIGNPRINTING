@@ -1,11 +1,15 @@
 """
-3G Design — Billing: professional invoices & receipts
+3G DESIGN GLOBAL — Billing: professional invoices & receipts
 """
 import io
 import json
 import os
 from datetime import datetime
 from functools import wraps
+import csv
+from flask import Blueprint
+
+billing_bp = Blueprint('billing', __name__)
 
 from flask import (
     Blueprint, abort, current_app, flash, jsonify, redirect,
@@ -17,7 +21,9 @@ from reportlab.pdfgen import canvas
 
 from sqlalchemy.exc import IntegrityError
 
-from models import db, Product, Customer, Order, OrderItem, GeneratedDocument, Admin
+from app import mail
+from flask_mail import Message
+from models import db, Product, Customer, Order, OrderItem, GeneratedDocument, Admin, DocumentAudit
 from brand_mark import draw_brand_wordmark_pdf
 from server_stability import commit_with_retry
 from moderator_permissions import check_moderator_route_access
@@ -25,9 +31,9 @@ from moderator_permissions import check_moderator_route_access
 billing_bp = Blueprint('billing', __name__)
 
 BRAND_NAVY = '#0B1F3A'
-BRAND_GOLD = '#C9A84C'
+BRAND_GOLD = '#4FC3F7'
 COMPANY = {
-    'name': '3G Design',
+    'name': '3G DESIGN GLOBAL',
     'tagline': 'Quality in Every Print, Excellence in Every Design',
     'phone': '+231 77 532 3731',
     'email': 'info@3GDESIGNprinting.com',
@@ -471,6 +477,15 @@ def issue_document():
     buffer = render_pdf(payload)
     filename = f"{payload['doc_number']}_{payload['customer']['name'].replace(' ', '_')}.pdf"
     flash(f"{'Receipt' if doc_type == 'receipt' else 'Invoice'} {payload['doc_number']} issued successfully.", 'success')
+    # Audit: record that a document was generated/downloaded
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='generated', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
@@ -484,6 +499,14 @@ def log_manual_order():
         return payload
     buffer = render_pdf(payload)
     flash(f"Order saved and {doc_type} {payload['doc_number']} generated.", 'success')
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='generated', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return send_file(buffer, as_attachment=True, download_name=f"{payload['doc_number']}.pdf", mimetype='application/pdf')
 
 
@@ -492,6 +515,15 @@ def log_manual_order():
 def document_preview(doc_id):
     doc = GeneratedDocument.query.get_or_404(doc_id)
     payload = json.loads(doc.content) if doc.content else {}
+    # Audit preview
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='previewed', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return render_template('document_print.html', doc=doc, payload=payload, company=COMPANY)
 
 
@@ -502,7 +534,89 @@ def document_pdf(doc_id):
     payload = json.loads(doc.content) if doc.content else {}
     buffer = render_pdf(payload)
     filename = f"{doc.doc_number}.pdf"
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='downloaded', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
+@billing_bp.route('/admin/billing/document/<int:doc_id>/printed', methods=['POST'])
+@billing_roles_required('admin', 'moderator')
+def document_printed(doc_id):
+    """Called from the client when a user prints a document preview/page."""
+    doc = GeneratedDocument.query.get_or_404(doc_id)
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='printed', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+        return jsonify({'status': 'ok'})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'status': 'error'}), 500
+
+
+@billing_bp.route('/admin/billing/audit')
+@billing_roles_required('admin', 'moderator')
+def billing_audit():
+    # Only admins and moderators with billing permission should view audits; the decorator enforces role.
+    page = int(request.args.get('page', 1))
+    per = 50
+    search = request.args.get('search', '').strip()
+    action = request.args.get('action', '').strip()
+    user = request.args.get('user', '').strip()
+    role = request.args.get('role', '').strip()
+
+    q = DocumentAudit.query.join(DocumentAudit.document, isouter=True)
+    if search:
+        q = q.filter(
+            (GeneratedDocument.doc_number.ilike(f'%{search}%')) |
+            (DocumentAudit.ip_address.ilike(f'%{search}%')) |
+            (DocumentAudit.user_agent.ilike(f'%{search}%'))
+        )
+    if action:
+        q = q.filter(DocumentAudit.action == action)
+    if user:
+        q = q.filter(DocumentAudit.performed_by_role.ilike(f'%{user}%') if user.isalpha() else DocumentAudit.performed_by == int(user))
+    if role:
+        q = q.filter(DocumentAudit.performed_by_role.ilike(f'%{role}%'))
+
+    q = q.order_by(DocumentAudit.timestamp.desc())
+    audits = q.limit(per).offset((page - 1) * per).all()
+
+    if request.args.get('export') == 'csv':
+        import csv
+        from io import StringIO
+
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Timestamp', 'Document', 'Action', 'Performed By', 'Role', 'IP', 'User-Agent'])
+        for a in audits:
+            writer.writerow([
+                a.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                a.document.doc_number if a.document else '',
+                a.action,
+                a.admin.username if a.admin else 'System',
+                a.performed_by_role,
+                a.ip_address,
+                a.user_agent,
+            ])
+        output.seek(0)
+        return current_app.response_class(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=billing_audit.csv'
+            }
+        )
+
+    return render_template('billing_audit.html', audits=audits, page=page, search=search, action=action, user=user, role=role)
 
 
 @billing_bp.route('/admin/billing/history')
@@ -533,6 +647,14 @@ def order_document(order_id, doc_type):
     if action == 'preview':
         return redirect(url_for('billing.document_preview', doc_id=doc.id))
     buffer = render_pdf(payload)
+    try:
+        ip = request.remote_addr
+        ua = request.headers.get('User-Agent')
+        audit = DocumentAudit(document_id=doc.id, action='generated', performed_by=session.get('admin_id'), performed_by_role=session.get('role'), ip_address=ip, user_agent=ua)
+        db.session.add(audit)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return send_file(buffer, as_attachment=True, download_name=f"{payload['doc_number']}.pdf", mimetype='application/pdf')
 
 

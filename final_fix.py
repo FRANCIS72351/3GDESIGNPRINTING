@@ -12,6 +12,6 @@ with app.app_context():
             conn.execute(text("ALTER TABLE sale ADD COLUMN sms_status VARCHAR(20) DEFAULT 'Pending'"))
             
             conn.commit()
-            print("3G DESIGN Database is now fully updated!")
+            print("3G DESIGN GLOBAL Database is now fully updated!")
         except Exception as e:
             print(f"Note: Some columns might already exist. Error: {e}")

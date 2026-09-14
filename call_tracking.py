@@ -1,5 +1,5 @@
 """
-3G Design — Communications & Call Tracking
+3G DESIGN GLOBAL — Communications & Call Tracking
 Supports cloud (Twilio webhooks) and local desktop API logging.
 """
 import os
@@ -192,7 +192,7 @@ def api_communications_status():
     """Health check for local tracker — no auth required."""
     wa = whatsapp_env_status()
     return jsonify({
-        'service': '3G Design Communications API',
+        'service': '3G DESIGN GLOBAL Communications API',
         'status': 'online',
         'local_tracking': bool(os.getenv('LOCAL_API_KEY', '').strip()),
         'twilio_configured': bool(os.getenv('TWILIO_ACCOUNT_SID') and os.getenv('TWILIO_AUTH_TOKEN')),

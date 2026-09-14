@@ -1,5 +1,5 @@
 """
-3G DESIGN — Meta WhatsApp Embedded Signup (OAuth code exchange).
+3G DESIGN GLOBAL — Meta WhatsApp Embedded Signup (OAuth code exchange).
 https://developers.facebook.com/docs/whatsapp/embedded-signup
 """
 import os

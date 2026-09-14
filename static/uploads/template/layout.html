@@ -4,13 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}3G Design{% endblock %}</title>
+    <title>{% block title %}3G DESIGN GLOBAL{% endblock %}</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     {% include '_favicon.html' %}
     {% include '_brand_font.html' %}
+    <link rel="preload" href="{{ url_for('static', filename='style.css') }}" as="style">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% include '_theme_override.html' %}
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -24,7 +28,7 @@
 
         <div class="container">
             <a class="navbar-brand animate__animated animate__fadeIn" href="{{ url_for('home') }}">
-                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G Design Logo">
+                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN GLOBAL Logo">
                 {{ brand_wordmark('light', 'brand-subtext brand-wordmark--nav') }}
             </a>
             

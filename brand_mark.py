@@ -1,9 +1,9 @@
-"""Shared 3G Design wordmark — Ethnocentric text (3G + Design)."""
+"""Shared 3G DESIGN GLOBAL wordmark — Ethnocentric text (3G + Design)."""
 import re
 
 from markupsafe import Markup, escape
 
-BRAND_TEXT = '3G Design'
+BRAND_TEXT = '3G DESIGN GLOBAL'
 BRAND_PATTERN = re.compile(r'3G\s*Design', re.IGNORECASE)
 
 
@@ -20,7 +20,7 @@ def brand_wordmark_markup(static_url_fn=None, variant='navy', extra_class='', su
     """Render logo-style wordmark as Ethnocentric text, not PNG images."""
     classes = _wordmark_classes(variant, extra_class, lockup)
     if suffix:
-        body = Markup('<span class="brand-3g">3G</span><span class="brand-design"> Design</span>')
+        body = Markup('<span class="brand-3g">3G DESIGN GLOBAL</span>')
     else:
         body = Markup('<span class="brand-3g">3G</span>')
     return Markup(f'<span class="{classes}">{body}</span>')
@@ -79,12 +79,12 @@ def brandify_html(text, static_url_fn, variant='navy', extra_class='brand-wordma
 
 def _variant_color(variant):
     if variant in ('light', 'white', 'gold'):
-        return (232, 213, 163)
+        return (179, 229, 252)
     return (11, 31, 58)
 
 
 def draw_brand_wordmark_pdf(canvas, x, y, app_root, variant='navy', img_height=14, suffix_size=10):
-    """Draw Ethnocentric 3G Design wordmark on a ReportLab canvas."""
+    """Draw Ethnocentric 3G DESIGN GLOBAL wordmark on a ReportLab canvas."""
     from io import BytesIO
 
     from brand_font import brand_font_path, get_reportlab_brand_font

@@ -1,5 +1,5 @@
 """
-3G DESIGN — Site URL & environment detection (local, VS port-forward, cloud).
+3G DESIGN GLOBAL — Site URL & environment detection (local, VS port-forward, cloud).
 """
 import os
 import urllib.parse

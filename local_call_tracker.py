@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-3G Design — Local Call Tracker
+3G DESIGN GLOBAL — Local Call Tracker
 Run on your shop computer to log WhatsApp/phone interactions to the ERP.
 
 Setup in .env:
@@ -84,7 +84,7 @@ def log_call(phone, caller_name='', call_type='whatsapp_call', notes='', status=
 
 def interactive_mode():
     print('=' * 50)
-    print('  3G Design — Local Communications Tracker')
+    print('  3G DESIGN GLOBAL — Local Communications Tracker')
     print('=' * 50)
 
     online, _ = check_server()
@@ -121,7 +121,7 @@ def gui_mode():
     from tkinter import ttk, messagebox
 
     root = tk.Tk()
-    root.title('3G Design — Call Tracker')
+    root.title('3G DESIGN GLOBAL — Call Tracker')
     root.geometry('400x420')
     root.resizable(False, False)
     root.configure(bg='#0B1F3A')
@@ -131,7 +131,7 @@ def gui_mode():
 
     header = tk.Frame(root, bg='#0B1F3A', pady=12)
     header.pack(fill='x')
-    tk.Label(header, text='3G Design', font=title_font, fg='#C9A84C', bg='#0B1F3A').pack()
+    tk.Label(header, text='3G DESIGN GLOBAL', font=title_font, fg='#4FC3F7', bg='#0B1F3A').pack()
     tk.Label(header, text='Quick Call Logger', font=('Segoe UI', 9), fg='#FAF8F4', bg='#0B1F3A').pack()
 
     status_var = tk.StringVar(value='Checking server...')
@@ -202,7 +202,7 @@ def gui_mode():
 
     log_btn = tk.Button(
         btn_frame, text='Log Now', font=('Segoe UI', 11, 'bold'),
-        bg='#C9A84C', fg='#0B1F3A', activebackground='#d4b85e',
+        bg='#4FC3F7', fg='#0B1F3A', activebackground='#0288D1',
         relief='flat', padx=20, pady=8, cursor='hand2', command=do_log,
     )
     log_btn.pack(fill='x')

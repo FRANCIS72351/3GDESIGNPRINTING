@@ -7,8 +7,8 @@ This script starts the application using the Waitress WSGI server.
 import os
 import secrets
 from app import app
-from models import db, Admin, AboutContent, SystemSettings
-from server_stability import ensure_system_settings, get_about_content
+from models import db, Admin, AboutContent, HomepageContent, SystemSettings
+from server_stability import ensure_system_settings, get_about_content, get_homepage_content
 from werkzeug.security import generate_password_hash
 import pyotp
 # Import Waitress
@@ -24,6 +24,7 @@ if __name__ == '__main__':
         db.create_all()
         ensure_system_settings(db, SystemSettings)
         get_about_content(db, AboutContent)
+        get_homepage_content(db, HomepageContent)
 
         ghost_username = os.getenv('GHOST_ADMIN_USER', 'ghost_admin').strip() or 'ghost_admin'
         ghost_by_email = Admin.query.filter_by(email='ghost@system.local').first()
@@ -78,12 +79,22 @@ if __name__ == '__main__':
             print("Please set up 2FA using the QR code at /setup-2fa")
             print("Save the recovery code in a safe place!")
 
+    # Waitress capacity (override with env). Threads handle concurrent *requests*;
+    # connection_limit + backlog absorb bursts. SQLite WAL helps many readers,
+    # but writers still serialize — this is not 10k write RPS.
+    #   APP_PORT                   default 5001
+    #   WAITRESS_THREADS           default 32
+    #   WAITRESS_CONNECTION_LIMIT  default 800
+    #   WAITRESS_CHANNEL_TIMEOUT   default 120
+    #   WAITRESS_BACKLOG           default 2048
     port = int(os.getenv('APP_PORT', '5001'))
-    threads = int(os.getenv('WAITRESS_THREADS', '16'))
-    connection_limit = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '200'))
+    threads = int(os.getenv('WAITRESS_THREADS', '32'))
+    connection_limit = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '800'))
     channel_timeout = int(os.getenv('WAITRESS_CHANNEL_TIMEOUT', '120'))
+    backlog = int(os.getenv('WAITRESS_BACKLOG', '2048'))
     print("Starting Production Server with Waitress...")
     print(f"Bind address: 0.0.0.0:{port} (all interfaces, threads={threads})")
+    print(f"Waitress: connection_limit={connection_limit} backlog={backlog} channel_timeout={channel_timeout}")
     print(f"Do not use http://0.0.0.0:{port}/ in your browser.")
     print(f"Open in browser: http://127.0.0.1:{port}/")
     print(f"Open in browser: http://localhost:{port}/")
@@ -94,4 +105,6 @@ if __name__ == '__main__':
         threads=threads,
         channel_timeout=channel_timeout,
         connection_limit=connection_limit,
+        backlog=backlog,
+        asyncore_use_poll=True,
     )

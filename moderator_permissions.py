@@ -1,5 +1,5 @@
 """
-Moderator responsibility permissions for 3G Design ERP.
+Moderator responsibility permissions for 3G DESIGN GLOBAL ERP.
 
 Admins assign granular permissions to moderator accounts. Admins always have full access.
 """
@@ -280,6 +280,94 @@ def visible_dashboard_actions(admin):
     return actions
 
 
+def _totals_by_currency(db, currency_col, amount_col, *filters):
+    """One GROUP BY SUM query instead of a SUM per currency."""
+    rows = (
+        db.session.query(currency_col, func.sum(amount_col))
+        .filter(*filters)
+        .group_by(currency_col)
+        .all()
+    )
+    usd = 0.0
+    lrd = 0.0
+    for currency, total in rows:
+        value = float(total or 0)
+        code = (currency or '').upper()
+        if code == 'LRD':
+            lrd += value
+        elif code == 'USD':
+            usd += value
+    return usd, lrd
+
+
+def _pct_change(current, previous):
+    current = float(current or 0)
+    previous = float(previous or 0)
+    if previous == 0:
+        return None if current else 0.0
+    return ((current - previous) / abs(previous)) * 100.0
+
+
+def calendar_year_bounds(year):
+    """Return [Jan 1, next Jan 1) datetimes for a calendar year."""
+    start = datetime(int(year), 1, 1)
+    end = datetime(int(year) + 1, 1, 1)
+    return start, end
+
+
+def daily_report_year_filter(year):
+    """SQLAlchemy filter for DailyReport rows in a calendar year."""
+    start, end = calendar_year_bounds(year)
+    effective = daily_report_effective_date()
+    return (effective >= start.date()) & (effective < end.date())
+
+
+def year_stats(db, DailyReport, Expense, year):
+    """SQL aggregates for one calendar year (income + expense, USD/LRD)."""
+    year = int(year)
+    start, end = calendar_year_bounds(year)
+    year_filter = daily_report_year_filter(year)
+    income_usd, income_lrd = _totals_by_currency(
+        db, DailyReport.currency, DailyReport.total_sales, year_filter
+    )
+    expense_usd, expense_lrd = _totals_by_currency(
+        db,
+        Expense.currency,
+        Expense.amount,
+        Expense.timestamp >= start,
+        Expense.timestamp < end,
+    )
+    return {
+        'year': year,
+        'income_usd': income_usd,
+        'income_lrd': income_lrd,
+        'expense_usd': expense_usd,
+        'expense_lrd': expense_lrd,
+        'net_usd': income_usd - expense_usd,
+        'net_lrd': income_lrd - expense_lrd,
+    }
+
+
+def compute_yoy_stats(db, DailyReport, Expense, year=None):
+    """Compare the current calendar year against the previous calendar year."""
+    current_year = int(year or datetime.utcnow().year)
+    previous_year = current_year - 1
+    current = year_stats(db, DailyReport, Expense, current_year)
+    previous = year_stats(db, DailyReport, Expense, previous_year)
+    return {
+        'current_year': current_year,
+        'previous_year': previous_year,
+        'current': current,
+        'previous': previous,
+        'income_usd_pct': _pct_change(current['income_usd'], previous['income_usd']),
+        'income_lrd_pct': _pct_change(current['income_lrd'], previous['income_lrd']),
+        'expense_usd_pct': _pct_change(current['expense_usd'], previous['expense_usd']),
+        'expense_lrd_pct': _pct_change(current['expense_lrd'], previous['expense_lrd']),
+        'net_usd_pct': _pct_change(current['net_usd'], previous['net_usd']),
+        'net_lrd_pct': _pct_change(current['net_lrd'], previous['net_lrd']),
+    }
+
+
 def compute_period_stats(db, DailyReport, Expense, period='daily'):
     """Aggregate income/expense for daily, weekly, or annual windows."""
     now = datetime.utcnow()
@@ -294,40 +382,52 @@ def compute_period_stats(db, DailyReport, Expense, period='daily'):
         label = 'Today'
 
     period_filter = daily_report_period_filter(period)
-    income_usd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        period_filter, DailyReport.currency == 'USD'
-    ).scalar() or 0
-    income_lrd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        period_filter, DailyReport.currency == 'LRD'
-    ).scalar() or 0
-    expense_usd = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.timestamp >= start, Expense.currency == 'USD'
-    ).scalar() or 0
-    expense_lrd = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.timestamp >= start, Expense.currency == 'LRD'
-    ).scalar() or 0
+    income_usd, income_lrd = _totals_by_currency(
+        db, DailyReport.currency, DailyReport.total_sales, period_filter
+    )
+    expense_usd, expense_lrd = _totals_by_currency(
+        db, Expense.currency, Expense.amount, Expense.timestamp >= start
+    )
     report_count = DailyReport.query.filter(period_filter).count()
 
     return {
         'label': label,
         'period': period,
-        'income_usd': float(income_usd),
-        'income_lrd': float(income_lrd),
-        'expense_usd': float(expense_usd),
-        'expense_lrd': float(expense_lrd),
-        'net_usd': float(income_usd) - float(expense_usd),
-        'net_lrd': float(income_lrd) - float(expense_lrd),
+        'income_usd': income_usd,
+        'income_lrd': income_lrd,
+        'expense_usd': expense_usd,
+        'expense_lrd': expense_lrd,
+        'net_usd': income_usd - expense_usd,
+        'net_lrd': income_lrd - expense_lrd,
         'report_count': report_count,
     }
 
 
 def check_moderator_route_access(permission):
     """Return a Flask redirect if the current moderator lacks permission, else None."""
-    from flask import flash, redirect, session, url_for
+    from flask import flash, redirect, session, url_for, request
     from models import Admin
-
+    # Allow admins/staff implicitly; only enforce for moderators
     if session.get('role') != 'moderator':
         return None
+
+    # Small usability exception: allow moderators to access core billing endpoints
+    # while performing a transaction (so they can print receipts/invoices directly).
+    BILLING_TRANSACTION_ENDPOINT_WHITELIST = {
+        'billing.log_manual_order',
+        'billing.issue_document',
+        'billing.order_document',
+        'billing.document_pdf',
+        'billing.document_preview',
+        'billing.legacy_generate_order_pdf',
+    }
+    try:
+        endpoint = request.endpoint
+    except Exception:
+        endpoint = None
+    if permission == 'billing' and endpoint in BILLING_TRANSACTION_ENDPOINT_WHITELIST:
+        return None
+
     admin = Admin.query.get(session.get('admin_id'))
     if moderator_has_permission(admin, permission):
         return None

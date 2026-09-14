@@ -12,7 +12,7 @@ def reset_database():
             os.remove(db_path)
         
         # 3. Create everything fresh with the new columns (contact, email, sms_status, etc.)
-        print("Building fresh 3G DESIGN database...")
+        print("Building fresh 3G DESIGN GLOBAL database...")
         db.create_all()
         print("Success! All columns (contact, email, stock_quantity) are now created.")
 

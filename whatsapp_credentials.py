@@ -1,5 +1,5 @@
 """
-3G DESIGN — WhatsApp credential store.
+3G DESIGN GLOBAL — WhatsApp credential store.
 Priority: active DB integration (Embedded Signup) → .env fallback (manual deploy).
 """
 import os

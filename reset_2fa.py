@@ -26,7 +26,7 @@ with app.app_context():
             totp = pyotp.TOTP(new_secret)
             provisioning_uri = totp.provisioning_uri(
                 name=user.username,
-                issuer_name='3G Design'
+                issuer_name='3G DESIGN GLOBAL'
             )
             
             print(f"\n✅ 2FA Reset Complete!")

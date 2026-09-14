@@ -14,7 +14,7 @@
     <meta property="og:image:secure_url" content="{{ og_image }}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:url" content="{{ og_url }}">
-    <meta property="og:site_name" content="3G Design">
+    <meta property="og:site_name" content="3G DESIGN GLOBAL">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ og_title }}">
     <meta name="twitter:description" content="{{ og_description }}">
@@ -22,11 +22,12 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% include '_theme_override.html' %}
     <style>
         :root {
             --share-navy: #0B1F3A;
             --share-navy-deep: #061428;
-            --share-gold: #C9A84C;
+            --share-gold: #4FC3F7;
             --share-cream: #FAF8F4;
             --wa-green: #25d366;
             --chat-bg: #0e1a14;
@@ -36,7 +37,7 @@
             margin: 0;
             min-height: 100vh;
             background:
-                radial-gradient(ellipse 100% 70% at 50% -15%, rgba(201, 168, 76, 0.14), transparent 55%),
+                radial-gradient(ellipse 100% 70% at 50% -15%, rgba(79, 195, 247, 0.14), transparent 55%),
                 linear-gradient(165deg, var(--share-navy-deep) 0%, var(--share-navy) 58%, #0d2847 100%);
             padding: max(1.1rem, env(safe-area-inset-top)) 1rem max(2rem, env(safe-area-inset-bottom));
             font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -67,7 +68,7 @@
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 22px 48px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(201, 168, 76, 0.28);
+            border: 1px solid rgba(79, 195, 247, 0.28);
         }
         .chat-bar {
             display: flex;
@@ -150,7 +151,7 @@
         }
         .step {
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(201, 168, 76, 0.25);
+            border: 1px solid rgba(79, 195, 247, 0.25);
             border-radius: 12px;
             padding: 0.55rem 0.4rem;
             text-align: center;
@@ -178,7 +179,7 @@
             border-radius: 18px;
             padding: 1.1rem 1.05rem 1.15rem;
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-            border: 1px solid rgba(201, 168, 76, 0.3);
+            border: 1px solid rgba(79, 195, 247, 0.3);
         }
         .btn-wa-primary {
             display: flex;
@@ -215,8 +216,8 @@
             color: #0d5c2e;
         }
         .share-status.warn {
-            background: rgba(201, 168, 76, 0.12);
-            border-color: rgba(201, 168, 76, 0.4);
+            background: rgba(79, 195, 247, 0.12);
+            border-color: rgba(79, 195, 247, 0.4);
             color: #5c4810;
         }
         .api-note {
@@ -287,7 +288,7 @@
         <header class="share-top">
             {{ brand_wordmark('light', 'brand-wordmark--login') }}
             <h1>Almost done!</h1>
-            <p>One tap sends your order photo to 3G Design on WhatsApp</p>
+            <p>One tap sends your order photo to 3G DESIGN GLOBAL on WhatsApp</p>
         </header>
 
         <div class="chat-preview" aria-label="WhatsApp chat preview">
@@ -297,7 +298,7 @@
             </div>
             <div class="chat-stage">
                 <div class="chat-bubble">
-                    <img src="{{ image_fetch_url }}" alt="3G Design order receipt" class="receipt-preview" id="orderImage" crossorigin="anonymous">
+                    <img src="{{ image_fetch_url }}" alt="3G DESIGN GLOBAL order receipt" class="receipt-preview" id="orderImage" crossorigin="anonymous">
                     <div class="chat-caption">{{ short_message.split('\n')[0] }}</div>
                 </div>
             </div>
@@ -325,7 +326,7 @@
         <div class="share-actions">
             <button type="button" class="btn-wa-primary" id="shareBtn" onclick="sendOrderToWhatsApp()">
                 <i class="fab fa-whatsapp"></i>
-                Send Order to 3G Design on WhatsApp
+                Send Order to 3G DESIGN GLOBAL on WhatsApp
             </button>
 
             <div class="share-status" id="shareStatus">
@@ -370,7 +371,7 @@
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isMobile = isIOS || isAndroid;
-    const PRIMARY_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Send Order to 3G Design on WhatsApp';
+    const PRIMARY_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Send Order to 3G DESIGN GLOBAL on WhatsApp';
     const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Save &amp; Open WhatsApp';
 
     let cachedReceiptFile = null;

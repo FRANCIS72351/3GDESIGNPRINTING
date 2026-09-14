@@ -1,5 +1,5 @@
 """
-3G DESIGN — Operations Center
+3G DESIGN GLOBAL — Operations Center
 WhatsApp order inbox, print production pipeline, customer intelligence.
 """
 import json

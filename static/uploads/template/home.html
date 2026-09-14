@@ -25,14 +25,79 @@
 
     <div class="container hero-container">
         <div class="hero-content text-center animate__animated animate__fadeIn">
-            <span class="hero-eyebrow">Monrovia's Premier Print House</span>
-            <h1 class="animate__animated animate__fadeInDown">Welcome to {{ brand_wordmark('gold', 'hero-brand brand-wordmark--hero') }}</h1>
-            <p class="hero-tagline animate__animated animate__fadeInUp animate__delay-1s">Where craftsmanship meets creative vision.</p>
+            <span class="hero-eyebrow">Welcome To</span>
+            <h1 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'hero-brand brand-wordmark--hero') }}</h1>
+            <a href="#homepage-promo" class="hero-down-arrow animate__animated animate__fadeInUp animate__delay-1s" aria-label="Scroll to next section">
+                <i class="fas fa-chevron-down"></i>
+            </a>
             <div class="hero-divider"></div>
             <p class="animate__animated animate__fadeInUp animate__delay-1s">Creative Designs, Premium Prints, Powerful Impression.</p>
             <a href="#products" class="btn btn-primary btn-lg px-5 animate__animated animate__fadeInUp animate__delay-2s">
                 <i class="fas fa-eye me-2"></i>View Our Work
             </a>
+        </div>
+    </div>
+</section>
+
+<!-- Dynamic Promotional Section -->
+<section id="homepage-promo" class="homepage-promo-section container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-4 animate__animated animate__fadeInUp">
+                <span class="classic-heading-eyebrow">Announcement / Event</span>
+                <h2 class="classic-heading">{{ content.title if content and content.title else 'Current Promotion' }}</h2>
+                <div class="classic-heading-divider"><span>◆</span></div>
+            </div>
+
+            <div class="homepage-promo-card overflow-hidden animate__animated animate__fadeInUp">
+                {% if content and content.banner_image %}
+                <div class="homepage-promo-banner-wrap">
+                    <img src="{{ url_for('static', filename=content.banner_image) }}"
+                         alt="{{ content.title or 'Promotional flyer' }}"
+                         class="homepage-promo-banner"
+                         decoding="async">
+                </div>
+                {% else %}
+                <div class="homepage-promo-placeholder" role="img" aria-label="Promotional flyer placeholder">
+                    <i class="fas fa-image fa-2x mb-2" aria-hidden="true"></i>
+                    <p class="mb-0">Promotional flyer coming soon</p>
+                </div>
+                {% endif %}
+
+                <div class="homepage-promo-video-panel p-4 p-md-5">
+                    <h3 class="homepage-promo-video-title mb-2">{{ content.video_heading if content and content.video_heading else 'See What We Do' }}</h3>
+                    <p class="text-muted mb-3 mb-md-4">{{ content.video_caption if content and content.video_caption else 'watch this video' }}</p>
+                    {% if content and content.video_url %}
+                        {% if video_is_file %}
+                        <div class="ratio homepage-promo-video homepage-promo-video--file rounded-3 overflow-hidden">
+                            <video src="{{ video_src }}"
+                                   controls
+                                   playsinline
+                                   webkit-playsinline="true"
+                                   preload="metadata"
+                                   title="Company overview video">
+                            </video>
+                        </div>
+                        {% else %}
+                        <div class="ratio homepage-promo-video homepage-promo-video--embed rounded-3 overflow-hidden">
+                            <iframe src="{{ content.video_url }}"
+                                    title="Company overview video"
+                                    allowfullscreen
+                                    loading="lazy"
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                    <div class="ratio homepage-promo-video rounded-3 overflow-hidden">
+                        <div class="homepage-promo-video-empty">
+                            <i class="fas fa-play-circle fa-2x mb-2" aria-hidden="true"></i>
+                            <p class="mb-0">Video presentation coming soon</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -176,7 +241,7 @@
         <div class="row align-items-center">
             <div class="col-lg-6 animate__animated animate__fadeInLeft">
                 <span class="classic-heading-eyebrow">The 3G Difference</span>
-                <h2 class="classic-heading text-start mb-4">Why Choose {{ brand_wordmark('navy') }}?</h2>
+                <h2 class="classic-heading why-choose-heading text-start mb-4">Why Choose {{ brand_wordmark('navy') }}?</h2>
                 <div class="classic-heading-divider start mb-4"><span>◆</span></div>
                 <p class="lead text-muted">With years of experience in the printing industry, we combine traditional craftsmanship with cutting-edge technology to deliver exceptional results.</p>
                 <ul class="list-unstyled mt-4">
@@ -187,7 +252,7 @@
                 </ul>
             </div>
             <div class="col-lg-6 animate__animated animate__fadeInRight">
-                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G Design Workshop" class="img-fluid rounded-4 about-showcase-img">
+                <img src="{{ url_for('static', filename='img/slider.4.jpg') }}" alt="3G DESIGN GLOBAL Workshop" class="img-fluid rounded-4 about-showcase-img">
             </div>
         </div>
     </div>

@@ -1,5 +1,5 @@
 """
-3G Design — Staff portal, attendance clock-in/out, late-staff alerts.
+3G DESIGN GLOBAL — Staff portal, attendance clock-in/out, late-staff alerts.
 """
 import os
 from datetime import datetime, time as datetime_time
@@ -111,7 +111,7 @@ def check_for_late_staff(mail, app):
 
 def send_late_notification(username, mail, app):
     msg_body = (
-        f"ALERT: {username} has not clocked in at 3G Design as of "
+        f"ALERT: {username} has not clocked in at 3G DESIGN GLOBAL as of "
         f"{LATE_THRESHOLD.strftime('%H:%M')}."
     )
     current_app.logger.warning(msg_body)
@@ -120,7 +120,7 @@ def send_late_notification(username, mail, app):
     if admin_email:
         try:
             mail.send(Message(
-                subject='3G Design — Late Staff Alert',
+                subject='3G DESIGN GLOBAL — Late Staff Alert',
                 sender=admin_email,
                 recipients=[admin_email],
                 body=msg_body,

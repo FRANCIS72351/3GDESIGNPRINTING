@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Billing Center — 3G Design{% endblock %}
+{% block title %}Billing Center — 3G DESIGN GLOBAL{% endblock %}
 {% block body_class %}admin-page{% endblock %}
 
 {% block content %}
@@ -17,6 +17,9 @@
             <a href="{{ url_for('billing.billing_history') }}" class="btn btn-outline-secondary rounded-pill px-3">
                 <i class="fas fa-history me-1"></i>History
             </a>
+                <a href="{{ url_for('billing.billing_audit') }}" class="btn btn-outline-danger rounded-pill px-3">
+                    <i class="fas fa-clipboard-list me-1"></i>Audit Log
+                </a>
             <a href="{{ url_for('direct_sale_history') }}" class="btn btn-outline-primary rounded-pill px-3">
                 <i class="fas fa-shopping-bag me-1"></i>Orders
             </a>
@@ -50,6 +53,16 @@
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold text-muted">Address</label>
                                 <input type="text" name="customer_address" class="form-control admin-form-control" placeholder="Monrovia, Liberia">
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="send_email" value="1" id="sendEmailCheckbox">
+                                    <label class="form-check-label small text-muted" for="sendEmailCheckbox">
+                                        Email this document to the customer when issued
+                                    </label>
+                                </div>
                             </div>
                         </div>
 

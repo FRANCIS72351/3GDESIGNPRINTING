@@ -1,21 +1,95 @@
 import os
+import sys
 import time
 import math
 import secrets
+import types
+import threading
+import uuid
+import struct
+import mimetypes
 import pyotp
 import qrcode
 import io
 import base64
 import urllib.parse
+import zipfile
 from datetime import datetime, timedelta, time as datetime_time
 from sqlalchemy import func, text as sa_text
 from twilio.twiml.voice_response import VoiceResponse
-from flask import send_from_directory
+from flask import send_from_directory, send_file
 # Removed flask_login import as we use a custom decorator
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 
-import assemblyai as aai
+
+def _install_pygments_fallback():
+    """OneDrive-synced venvs can fail to read Pygments files (OSError 22)."""
+    try:
+        import pygments  # noqa: F401
+        import pygments.lexers  # noqa: F401
+        return
+    except Exception:
+        for name in list(sys.modules):
+            if name == 'pygments' or name.startswith('pygments.'):
+                sys.modules.pop(name, None)
+
+    pygments = types.ModuleType('pygments')
+
+    def highlight(code, lexer=None, formatter=None, outfile=None):
+        text = code if isinstance(code, str) else str(code or '')
+        if outfile is not None:
+            outfile.write(text)
+            return None
+        return text
+
+    class _Dummy:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __call__(self, *args, **kwargs):
+            return self
+
+    lexers = types.ModuleType('pygments.lexers')
+    formatters = types.ModuleType('pygments.formatters')
+    util = types.ModuleType('pygments.util')
+    token = types.ModuleType('pygments.token')
+    styles = types.ModuleType('pygments.styles')
+    util.ClassNotFound = type('ClassNotFound', (Exception,), {})
+    lexers.get_lexer_by_name = lambda *a, **k: _Dummy()
+    lexers.get_lexer_for_filename = lambda *a, **k: _Dummy()
+    lexers.PythonLexer = _Dummy
+    lexers.TextLexer = _Dummy
+    formatters.TerminalFormatter = _Dummy
+    formatters.HtmlFormatter = _Dummy
+    pygments.highlight = highlight
+    pygments.lexers = lexers
+    pygments.formatters = formatters
+    pygments.util = util
+    pygments.token = token
+    pygments.styles = styles
+    sys.modules.update({
+        'pygments': pygments,
+        'pygments.lexers': lexers,
+        'pygments.formatters': formatters,
+        'pygments.util': util,
+        'pygments.token': token,
+        'pygments.styles': styles,
+    })
+
+
+_install_pygments_fallback()
+
+try:
+    from flask_migrate import Migrate
+except Exception:
+    # Alembic/Mako/Pygments can fail to load on OneDrive-synced Windows venvs.
+    Migrate = None
+
+try:
+    import assemblyai as aai
+except Exception:
+    aai = None
 
 from werkzeug.utils import secure_filename
 from flask import Flask, abort, request, jsonify, render_template, redirect, url_for, session, flash, Response, current_app, g
@@ -31,8 +105,9 @@ from flask_mail import Mail, Message
 # Shared database instance for the app and models
 # This must be created before importing models.py so they can share the same db object.
 db = SQLAlchemy()
+migrate = None
 
-from models import Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
+from models import Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, HomepageContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
 
 from security_utils import ERPSecurity
 security = ERPSecurity()
@@ -52,7 +127,8 @@ _secret = os.getenv('SECRET_KEY', '').strip()
 if _is_production and not _secret:
     raise RuntimeError('SECRET_KEY must be set in the environment when FLASK_ENV=production')
 app.secret_key = _secret or 'fallback-key-for-dev-only'
-aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
+if aai is not None:
+    aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 
 # 3. Database Alignment (override with DATABASE_PATH on AWS EBS, e.g. /var/lib/olatricity/data/3G_ERP_V1.db)
 def _resolve_database_path():
@@ -88,6 +164,21 @@ AD_VIDEO_FOLDER = os.path.join(basedir, 'static/uploads/ads')
 app.config['AD_VIDEO_FOLDER'] = AD_VIDEO_FOLDER
 os.makedirs(AD_VIDEO_FOLDER, exist_ok=True)
 
+HOMEPAGE_BANNER_FOLDER = os.path.join(basedir, 'static/uploads/homepage')
+app.config['HOMEPAGE_BANNER_FOLDER'] = HOMEPAGE_BANNER_FOLDER
+os.makedirs(HOMEPAGE_BANNER_FOLDER, exist_ok=True)
+
+HOMEPAGE_VIDEO_FOLDER = os.path.join(basedir, 'static/uploads/homepage/videos')
+app.config['HOMEPAGE_VIDEO_FOLDER'] = HOMEPAGE_VIDEO_FOLDER
+os.makedirs(HOMEPAGE_VIDEO_FOLDER, exist_ok=True)
+
+# iOS Safari plays H.264 in .mov more reliably as video/mp4 than video/quicktime.
+mimetypes.add_type('video/mp4', '.mp4', strict=False)
+mimetypes.add_type('video/mp4', '.m4v', strict=False)
+mimetypes.add_type('video/mp4', '.mov', strict=False)
+mimetypes.add_type('video/webm', '.webm', strict=False)
+mimetypes.add_type('video/ogg', '.ogg', strict=False)
+
 # File upload settings for large storage capacity
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
 
@@ -97,6 +188,7 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME') or 'info@3GDESIGNprinting.com')
 
 # 6. Ghost Admin Identity
 def get_ghost_username():
@@ -119,21 +211,33 @@ if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
 # 8. Webhook base URL for Twilio (cloud) — set to ngrok/production URL
 app.config['WEBHOOK_BASE_URL'] = os.getenv('WEBHOOK_BASE_URL', '').rstrip('/')
 
+# Initialize Flask-Migrate when the package is available and readable
+if Migrate is not None:
+    try:
+        migrate = Migrate(app, db)
+    except Exception:
+        migrate = None
+
 # 7. Initialize Extensions
 db.init_app(app)
 mail = Mail(app)
 
 from server_stability import (
     ABOUT_CONTENT_COLUMN_MIGRATIONS,
+    configure_http_performance,
     configure_sqlite,
+    ensure_performance_indexes,
     ensure_system_settings,
     ensure_table_columns,
     get_about_content,
     get_cached_system_settings,
+    get_homepage_content,
     invalidate_settings_cache,
     run_in_background,
+    schedule_late_staff_check,
 )
 configure_sqlite(app, db)
+configure_http_performance(app)
 
 from call_tracking import call_bp
 app.register_blueprint(call_bp)
@@ -154,6 +258,7 @@ from moderator_permissions import (
     ROUTE_PERMISSION_MAP,
     can_log_manual_income,
     compute_period_stats,
+    compute_yoy_stats,
     daily_report_period_filter,
     income_log_permission_required,
     moderator_has_permission,
@@ -173,6 +278,16 @@ def _run_late_staff_check_safe(app_obj):
 def _static_url(filename):
     from flask import url_for
     return url_for('static', filename=filename)
+
+
+@app.template_global()
+def style_version():
+    """Return the stylesheet modification time for reliable cache invalidation."""
+    stylesheet = os.path.join(app.static_folder, 'style.css')
+    try:
+        return int(os.path.getmtime(stylesheet))
+    except OSError:
+        return 1
 
 
 @app.route('/health')
@@ -224,7 +339,7 @@ def social_whatsapp_url(text=None):
 
 @app.template_filter('brandify')
 def brandify_filter(text, variant='navy'):
-    """Replace 3G Design with Ethnocentric wordmark markup."""
+    """Replace 3G DESIGN GLOBAL with Ethnocentric wordmark markup."""
     from brand_mark import brandify_html
     return brandify_html(text, _static_url, variant=variant)
 
@@ -254,6 +369,7 @@ else:
 with app.app_context():
     db.create_all()
     ensure_system_settings(db, SystemSettings)
+    ensure_performance_indexes(db)
     from sqlalchemy import inspect, text
     existing_tables = set(inspect(db.engine).get_table_names())
     with db.engine.connect() as conn:
@@ -434,10 +550,10 @@ def handle_internal_error(error):
 
 @app.before_request
 def check_system_status():
-    # 1. Allow access to the Ghost Dashboard so YOU can turn it back on
-    # 2. Allow access to static files (CSS/Images)
+    # Cheap paths: no lock check, no late-staff thread.
     if ('ghost-protocol' in request.path or request.path.startswith('/static')
-            or request.path == '/login'
+            or request.path.startswith('/media/')
+            or request.path in ('/health', '/favicon.ico', '/login')
             or request.path.startswith('/order/receipt')
             or request.path.startswith('/order/share')
             or request.path in ('/voice', '/handle-recording')
@@ -450,12 +566,291 @@ def check_system_status():
     if settings and not settings.get('is_active', True):
         return render_template('system_locked.html', message=settings.get('lock_message')), 403
 
-    if not request.path.startswith('/static'):
-        run_in_background(app, _run_late_staff_check_safe, app)
+    schedule_late_staff_check(app, _run_late_staff_check_safe, app)
 
 # ----------------------------------
 # Public Routes
 # ----------------------------------
+_ALLOWED_BANNER_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+_DIRECT_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
+_VIDEO_MIME_EXTENSIONS = {
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'video/webm': '.webm',
+    'video/ogg': '.ogg',
+    'video/x-m4v': '.m4v',
+}
+
+
+_VIDEO_CONTENT_TYPES = {
+    '.mp4': 'video/mp4',
+    '.m4v': 'video/mp4',
+    '.mov': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+}
+
+
+def _is_uploaded_homepage_video(url):
+    if not url:
+        return False
+    normalized = url.replace('\\', '/').lstrip('/')
+    if not normalized.startswith('uploads/homepage/'):
+        return False
+    return any(normalized.lower().endswith(ext) for ext in _DIRECT_VIDEO_EXTENSIONS)
+
+
+def _is_direct_video_url(url):
+    if not url:
+        return False
+    if _is_uploaded_homepage_video(url):
+        return True
+    path = urllib.parse.urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in _DIRECT_VIDEO_EXTENSIONS)
+
+
+def _homepage_video_mime(url):
+    if not url:
+        return 'video/mp4'
+    ext = os.path.splitext(urllib.parse.urlparse(url).path)[1].lower()
+    return _VIDEO_CONTENT_TYPES.get(ext, 'video/mp4')
+
+
+def _homepage_video_abs_path(url):
+    if not _is_uploaded_homepage_video(url):
+        return None
+    normalized = url.replace('\\', '/').lstrip('/')
+    abs_path = os.path.normpath(os.path.join(basedir, 'static', *normalized.split('/')))
+    video_root = os.path.normpath(app.config['HOMEPAGE_VIDEO_FOLDER'])
+    try:
+        if os.path.commonpath([abs_path, video_root]) != video_root:
+            return None
+    except ValueError:
+        return None
+    if not os.path.isfile(abs_path):
+        return None
+    return abs_path
+
+
+def _iter_mp4_atoms(data, start=0, end=None):
+    if end is None:
+        end = len(data)
+    offset = start
+    while offset + 8 <= end:
+        size = struct.unpack('>I', data[offset:offset + 4])[0]
+        typ = bytes(data[offset + 4:offset + 8])
+        header = 8
+        if size == 1:
+            if offset + 16 > end:
+                break
+            size = struct.unpack('>Q', data[offset + 8:offset + 16])[0]
+            header = 16
+        elif size == 0:
+            size = end - offset
+        if size < header or offset + size > end:
+            break
+        yield offset, size, typ, header
+        offset += size
+
+
+def _patch_chunk_offsets(moov, delta):
+    """Shift stco/co64 chunk offsets after moving the moov atom."""
+    containers = {b'moov', b'trak', b'mdia', b'minf', b'stbl'}
+
+    def walk(start, end):
+        for offset, size, typ, header in _iter_mp4_atoms(moov, start, end):
+            payload = offset + header
+            limit = offset + size
+            if typ == b'stco' and payload + 8 <= limit:
+                count = struct.unpack('>I', moov[payload + 4:payload + 8])[0]
+                pos = payload + 8
+                for _ in range(count):
+                    if pos + 4 > limit:
+                        break
+                    value = struct.unpack('>I', moov[pos:pos + 4])[0] + delta
+                    if value > 0xFFFFFFFF:
+                        raise ValueError('stco offset overflow')
+                    moov[pos:pos + 4] = struct.pack('>I', value)
+                    pos += 4
+            elif typ == b'co64' and payload + 8 <= limit:
+                count = struct.unpack('>I', moov[payload + 4:payload + 8])[0]
+                pos = payload + 8
+                for _ in range(count):
+                    if pos + 8 > limit:
+                        break
+                    value = struct.unpack('>Q', moov[pos:pos + 8])[0] + delta
+                    moov[pos:pos + 8] = struct.pack('>Q', value)
+                    pos += 8
+            elif typ in containers:
+                walk(payload, limit)
+
+    header = 16 if struct.unpack('>I', moov[0:4])[0] == 1 else 8
+    walk(header, len(moov))
+
+
+def _moov_is_after_mdat(path):
+    """True when the index atom sits after media data (typical iPhone .mov)."""
+    saw_mdat = False
+    file_size = os.path.getsize(path)
+    offset = 0
+    with open(path, 'rb') as handle:
+        while offset + 8 <= file_size:
+            handle.seek(offset)
+            header = handle.read(8)
+            if len(header) < 8:
+                break
+            size = struct.unpack('>I', header[:4])[0]
+            typ = header[4:8]
+            header_len = 8
+            if size == 1:
+                ext = handle.read(8)
+                if len(ext) < 8:
+                    break
+                size = struct.unpack('>Q', ext)[0]
+                header_len = 16
+            elif size == 0:
+                size = file_size - offset
+            if size < header_len:
+                break
+            if typ == b'moov':
+                return saw_mdat
+            if typ == b'mdat':
+                saw_mdat = True
+            offset += size
+    return False
+
+
+def _ensure_moov_faststart(path):
+    """Move moov before mdat so iOS can read metadata without a Range seek to EOF."""
+    try:
+        if not _moov_is_after_mdat(path):
+            return False
+        with open(path, 'rb') as handle:
+            data = handle.read()
+        atoms = list(_iter_mp4_atoms(data))
+        types = [atom[2] for atom in atoms]
+        if b'moov' not in types or b'mdat' not in types:
+            return False
+        moov_index = types.index(b'moov')
+        mdat_index = types.index(b'mdat')
+        if moov_index < mdat_index:
+            return False
+        moov_off, moov_size, _, _ = atoms[moov_index]
+        moov = bytearray(data[moov_off:moov_off + moov_size])
+        if b'cmov' in bytes(moov):
+            return False
+        _patch_chunk_offsets(moov, moov_size)
+        output = bytearray()
+        for offset, size, typ, _header in atoms:
+            if typ == b'moov':
+                continue
+            if typ == b'mdat':
+                output.extend(moov)
+            output.extend(data[offset:offset + size])
+        tmp_path = path + '.faststart'
+        with open(tmp_path, 'wb') as handle:
+            handle.write(output)
+        os.replace(tmp_path, path)
+        return True
+    except Exception:
+        try:
+            os.remove(path + '.faststart')
+        except OSError:
+            pass
+        current_app.logger.exception('Could not faststart homepage video %s', path)
+        return False
+
+
+_homepage_video_rel_cache = {'rel': None, 'expires': 0.0}
+_homepage_video_rel_lock = threading.Lock()
+
+
+def _invalidate_homepage_video_cache():
+    with _homepage_video_rel_lock:
+        _homepage_video_rel_cache['rel'] = None
+        _homepage_video_rel_cache['expires'] = 0.0
+
+
+def _cached_homepage_video_rel():
+    """Avoid a SQLite hit on every video Range request."""
+    now = time.monotonic()
+    with _homepage_video_rel_lock:
+        if _homepage_video_rel_cache['expires'] > now and _homepage_video_rel_cache['rel'] is not None:
+            return _homepage_video_rel_cache['rel']
+    content = get_homepage_content(db, HomepageContent)
+    rel = (content.video_url or '').replace('\\', '/').lstrip('/')
+    with _homepage_video_rel_lock:
+        _homepage_video_rel_cache['rel'] = rel
+        _homepage_video_rel_cache['expires'] = time.monotonic() + 30
+    return rel
+
+
+def _homepage_video_src(url):
+    if not url:
+        return ''
+    if _is_uploaded_homepage_video(url):
+        return url_for('homepage_video_media')
+    return url
+
+
+def _normalize_homepage_video_url(raw):
+    """Accept a YouTube/Vimeo/watch URL and store a safe embed URL."""
+    if not raw:
+        return ''
+    url = raw.strip()
+    if not url or not url.lower().startswith(('http://', 'https://')):
+        return ''
+
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.netloc or '').lower().replace('www.', '')
+    path = parsed.path or ''
+
+    if host in ('youtube.com', 'm.youtube.com', 'youtube-nocookie.com'):
+        qs = urllib.parse.parse_qs(parsed.query)
+        video_id = (qs.get('v') or [None])[0]
+        if not video_id:
+            parts = [p for p in path.split('/') if p]
+            if parts and parts[0] in ('embed', 'shorts', 'live', 'v') and len(parts) > 1:
+                video_id = parts[1]
+        if video_id:
+            video_id = video_id.split('?')[0].split('&')[0]
+            return f'https://www.youtube-nocookie.com/embed/{video_id}'
+
+    if host == 'youtu.be':
+        video_id = path.strip('/').split('/')[0]
+        if video_id:
+            return f'https://www.youtube-nocookie.com/embed/{video_id.split("?")[0]}'
+
+    if host in ('vimeo.com', 'player.vimeo.com'):
+        parts = [p for p in path.split('/') if p]
+        if host == 'player.vimeo.com' and parts and parts[0] == 'video' and len(parts) > 1:
+            vid = parts[1]
+        elif parts:
+            vid = parts[0]
+        else:
+            vid = ''
+        if vid.isdigit():
+            return f'https://player.vimeo.com/video/{vid}'
+
+    if url.lower().startswith(('http://', 'https://')):
+        return url
+    return ''
+
+
+def _remove_homepage_banner_file(relative_path):
+    if not relative_path:
+        return
+    normalized = relative_path.replace('\\', '/').lstrip('/')
+    if not normalized.startswith('uploads/homepage/'):
+        return
+    abs_path = os.path.join(basedir, 'static', normalized.replace('/', os.sep))
+    if os.path.isfile(abs_path):
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
+
+
 @app.route('/')
 def home():
     category_filter = request.args.get('category')
@@ -463,7 +858,29 @@ def home():
         products = Product.query.filter(Product.category.ilike(f"%{category_filter}%")).all()
     else:
         products = Product.query.all()
-    return render_template('home.html', products=products, current_category=category_filter)
+    homepage = get_homepage_content(db, HomepageContent)
+    return render_template(
+        'home.html',
+        products=products,
+        current_category=category_filter,
+        content=homepage,
+        video_is_file=_is_direct_video_url(homepage.video_url if homepage else ''),
+        video_src=_homepage_video_src(homepage.video_url if homepage else ''),
+        video_mime=_homepage_video_mime(homepage.video_url if homepage else ''),
+    )
+
+
+@app.route('/media/homepage-video')
+def homepage_video_media():
+    rel = _cached_homepage_video_rel()
+    if not rel.startswith('uploads/homepage/videos/'):
+        abort(404)
+    folder = os.path.join(basedir, 'static', os.path.dirname(rel).replace('/', os.sep))
+    filename = os.path.basename(rel)
+    ext = os.path.splitext(filename)[1].lower()
+    mime = {'.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.ogg': 'video/ogg'}.get(ext, 'video/mp4')
+    # Stream from disk with Range support; do not cache the file body (admin can replace it).
+    return send_from_directory(folder, filename, mimetype=mime, conditional=True, max_age=0)
 
 @app.route('/contact')
 def contact():
@@ -746,7 +1163,7 @@ def order_share_page(token):
     short_message = copy_text
     message_text = copy_text
     item_count = len(items)
-    og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
+    og_title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G DESIGN GLOBAL"
     og_description = ', '.join(i.get('product_name', 'Product') for i in items[:3])
     if item_count > 3:
         og_description += f' +{item_count - 3} more'
@@ -792,7 +1209,7 @@ def order_share_page(token):
 
 @app.route('/order/receipt/<token>')
 def order_receipt(token):
-    import json
+    import json  
     receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
     data = json.loads(receipt.payload)
     items = data.get('items', [])
@@ -801,7 +1218,7 @@ def order_receipt(token):
         first = items[0]
         preview_image = first.get('image_url') or absolute_product_image_url(first.get('image'))
     item_count = len(items)
-    title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G Design"
+    title = f"Order — {item_count} item{'s' if item_count != 1 else ''} · 3G DESIGN GLOBAL"
     description = ', '.join(i['product_name'] for i in items[:3])
     if item_count > 3:
         description += f' +{item_count - 3} more'
@@ -835,7 +1252,7 @@ def checkout_whatsapp():
 @app.route("/voice", methods=['POST'])
 def voice():
     response = VoiceResponse()
-    response.say("Welcome to 3G Design. Your call is being recorded for order accuracy.")
+    response.say("Welcome to 3G DESIGN GLOBAL. Your call is being recorded for order accuracy.")
 
     call_sid = request.form.get('CallSid')
     from_number = request.form.get('From', 'Unknown')
@@ -879,7 +1296,7 @@ def handle_recording():
 
 def _process_call_recording(recording_url, from_number, call_sid, duration):
     transcript_text = None
-    if os.getenv("ASSEMBLYAI_API_KEY"):
+    if aai is not None and os.getenv("ASSEMBLYAI_API_KEY"):
         try:
             transcriber = aai.Transcriber()
             transcript = transcriber.transcribe(recording_url)
@@ -1072,6 +1489,40 @@ def file_portal():
         today_folder=datetime.now().strftime('%Y-%m-%d'),
     )
 
+
+@app.route('/admin/file-portal/download/<date_folder>/', defaults={'item_path': ''})
+@app.route('/admin/file-portal/download/<date_folder>/<path:item_path>')
+@login_required
+@moderator_permission_required('files')
+def download_portal_item(date_folder, item_path):
+    portal_root = app.config['PORTAL_FOLDER']
+    base, item = _portal_path_within_date(portal_root, date_folder, item_path)
+    base_real = os.path.realpath(base)
+    item_real = os.path.realpath(item)
+
+    if not os.path.isdir(base) or not (item_real == base_real or item_real.startswith(base_real + os.sep)):
+        flash('That file or folder is unavailable.', 'warning')
+        return redirect(url_for('file_portal'))
+
+    if os.path.isfile(item_real):
+        return send_file(item_real, as_attachment=True, download_name=os.path.basename(item_real))
+
+    if not os.path.isdir(item_real):
+        flash('That file or folder is unavailable.', 'warning')
+        return redirect(url_for('file_portal', date=date_folder))
+
+    archive = io.BytesIO()
+    archive_name = os.path.basename(item_real) or date_folder
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for root, _, filenames in os.walk(item_real):
+            for filename in filenames:
+                file_path = os.path.join(root, filename)
+                file_real = os.path.realpath(file_path)
+                if file_real.startswith(base_real + os.sep):
+                    zip_file.write(file_real, os.path.relpath(file_real, item_real))
+    archive.seek(0)
+    return send_file(archive, as_attachment=True, download_name=f'{archive_name}.zip', mimetype='application/zip')
+
 @app.route('/portal/upload', methods=['GET', 'POST'])
 @login_required
 def upload_file():
@@ -1262,7 +1713,7 @@ def check_inventory_alerts(product):
     level = product_stock_level(product)
     if level <= (product.min_stock_threshold or 0):
         message_body = (
-            f"⚠️ 3G Design INVENTORY ALERT ⚠️\n"
+            f"⚠️ 3G DESIGN GLOBAL INVENTORY ALERT ⚠️\n"
             f"Item: {product.name} is running low!\n"
             f"Current Stock: {level}\n"
             f"Threshold: {product.min_stock_threshold}\n"
@@ -1298,7 +1749,7 @@ def trigger_order_sms(sale):
     name = customer.name if customer else 'Customer'
     amount = sale.amount or 0
     message_body = (
-        f"3G Design: Order #{sale.id} confirmed for ${amount:.2f}. "
+        f"3G DESIGN GLOBAL: Order #{sale.id} confirmed for ${amount:.2f}. "
         f"Thank you, {name}!"
     )
 
@@ -1413,6 +1864,89 @@ def delete_about_content():
     flash('About page content has been reset to defaults.', 'success')
 
     return redirect(url_for('about_settings'))
+
+
+# ----------------------------------
+# Admin: Homepage Promotional Section
+# ----------------------------------
+@app.route('/admin/homepage-edit', methods=['GET', 'POST'])
+@login_required
+@role_required(['admin', 'moderator'])
+def edit_homepage():
+    content = get_homepage_content(db, HomepageContent)
+
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        video_heading = (request.form.get('video_heading') or '').strip() or 'See What We Do'
+        video_caption = (request.form.get('video_caption') or '').strip()
+        video_url = _normalize_homepage_video_url(request.form.get('video_url'))
+        is_published = request.form.get('is_published') == '1'
+        clear_banner = request.form.get('clear_banner') == '1'
+        clear_video = request.form.get('clear_video') == '1'
+        file = request.files.get('banner_image')
+        video_file = request.files.get('video_file')
+
+        content.title = title
+        content.video_heading = video_heading
+        content.video_caption = video_caption
+        content.is_published = is_published
+
+        if video_file and video_file.filename:
+            ext = os.path.splitext(secure_filename(video_file.filename))[1].lower()
+            if ext not in _DIRECT_VIDEO_EXTENSIONS:
+                ext = _VIDEO_MIME_EXTENSIONS.get((video_file.mimetype or '').lower(), '')
+            if ext not in _DIRECT_VIDEO_EXTENSIONS:
+                flash('Please upload an MP4, MOV, WEBM, or M4V video from your phone.', 'danger')
+                return redirect(url_for('edit_homepage'))
+
+            os.makedirs(app.config['HOMEPAGE_VIDEO_FOLDER'], exist_ok=True)
+            filename = f'{uuid.uuid4().hex}{ext}'
+            saved_path = os.path.join(app.config['HOMEPAGE_VIDEO_FOLDER'], filename)
+            video_file.save(saved_path)
+            _ensure_moov_faststart(saved_path)
+            if _is_uploaded_homepage_video(content.video_url):
+                _remove_homepage_banner_file(content.video_url)
+            content.video_url = f'uploads/homepage/videos/{filename}'
+        elif clear_video:
+            if _is_uploaded_homepage_video(content.video_url):
+                _remove_homepage_banner_file(content.video_url)
+            content.video_url = ''
+        elif video_url:
+            if _is_uploaded_homepage_video(content.video_url):
+                _remove_homepage_banner_file(content.video_url)
+            content.video_url = video_url
+        elif not _is_uploaded_homepage_video(content.video_url):
+            content.video_url = video_url
+
+        if file and file.filename:
+            ext = os.path.splitext(secure_filename(file.filename))[1].lower()
+            if ext not in _ALLOWED_BANNER_EXTENSIONS:
+                flash('Please upload a JPG, PNG, WEBP, or GIF banner image.', 'danger')
+                return redirect(url_for('edit_homepage'))
+
+            os.makedirs(app.config['HOMEPAGE_BANNER_FOLDER'], exist_ok=True)
+            filename = f'{uuid.uuid4().hex}{ext}'
+            file.save(os.path.join(app.config['HOMEPAGE_BANNER_FOLDER'], filename))
+            _remove_homepage_banner_file(content.banner_image)
+            content.banner_image = f'uploads/homepage/{filename}'
+        elif clear_banner:
+            _remove_homepage_banner_file(content.banner_image)
+            content.banner_image = ''
+
+        content.updated_at = datetime.utcnow()
+        db.session.commit()
+        _invalidate_homepage_video_cache()
+        flash('Homepage promotional section updated successfully.', 'success')
+        return redirect(url_for('edit_homepage'))
+
+    return render_template(
+        'edit_homepage.html',
+        content=content,
+        video_is_file=_is_direct_video_url(content.video_url if content else ''),
+        video_src=_homepage_video_src(content.video_url if content else ''),
+        video_mime=_homepage_video_mime(content.video_url if content else ''),
+    )
+
 
 @app.route("/admin/financials")
 @login_required
@@ -1848,7 +2382,7 @@ def send_welcome_email(customer_email, customer_name):
     from flask import request
 
     msg = Message(
-        subject="Welcome to 3G Design!",
+        subject="Welcome to 3G DESIGN GLOBAL!",
         sender=app.config['MAIL_USERNAME'],
         recipients=[customer_email]
     )
@@ -1996,73 +2530,56 @@ def moderator_portal():
 @app.route("/dashboard")
 @role_required(['admin'])
 def dashboard():
-    calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(50).all()
-    sales = Sale.query.order_by(Sale.timestamp.desc()).limit(100).all()
-    products = Product.query.all()
-    leaders = Leaders.query.all()
-    reports = DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(5).all()
-    
-    # Attendance data
+    calls = CallLog.query.order_by(CallLog.timestamp.desc()).limit(5).all()
+    product_count = Product.query.count()
+    leader_count = Leaders.query.count()
+    recent_reports = DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(10).all()
+    reports = recent_reports[:5]
+
     today = datetime.now().date()
-    today_attendance = Attendance.query.filter(db.func.date(Attendance.check_in) == today).all()
+    today_start = datetime.combine(today, datetime.min.time())
+    tomorrow_start = today_start + timedelta(days=1)
+    today_attendance = Attendance.query.filter(
+        Attendance.check_in >= today_start,
+        Attendance.check_in < tomorrow_start,
+    ).all()
     late_threshold = datetime_time(8, 15)
 
-    # 1. Calculate admin_log (The missing piece!)
-    # This sums the total_amount of all manual WhatsApp orders
     admin_log = db.session.query(func.sum(Order.total_amount)).filter(
         Order.order_source == 'WhatsApp Direct'
     ).scalar() or 0
 
-    # Financial summary for today
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    today_filter = daily_report_period_filter('daily')
-    today_income_usd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        today_filter, DailyReport.currency == 'USD'
-    ).scalar() or 0
-    today_income_lrd = db.session.query(func.sum(DailyReport.total_sales)).filter(
-        today_filter, DailyReport.currency == 'LRD'
-    ).scalar() or 0
-
-    today_expense_usd = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.timestamp >= today_start, Expense.currency == 'USD'
-    ).scalar() or 0
-    today_expense_lrd = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.timestamp >= today_start, Expense.currency == 'LRD'
-    ).scalar() or 0
-
-    from models import PendingReceipt
     pending_inbox = PendingReceipt.query.filter(
         (PendingReceipt.status == 'pending') | (PendingReceipt.status.is_(None))
     ).count()
     active_jobs = Order.query.filter(Order.production_stage != 'delivered').count()
     ready_jobs = Order.query.filter_by(production_stage='ready').count()
-    annual_stats = compute_period_stats(db, DailyReport, Expense, 'annual')
     daily_stats = compute_period_stats(db, DailyReport, Expense, 'daily')
-    recent_reports = DailyReport.query.order_by(DailyReport.date_posted.desc()).limit(10).all()
+    annual_stats = compute_period_stats(db, DailyReport, Expense, 'annual')
+    yoy_stats = compute_yoy_stats(db, DailyReport, Expense)
 
     return render_template(
         "dashboard.html",
         calls=calls,
-        sales=sales,
-        products=products,
-        leaders=leaders,
+        product_count=product_count,
+        leader_count=leader_count,
         reports=reports,
         recent_reports=recent_reports,
         payment_methods=INCOME_PAYMENT_METHODS,
         today_income_date=today.isoformat(),
         today_attendance=today_attendance,
         late_threshold=late_threshold,
-        today_income_usd=today_income_usd,
-        today_income_lrd=today_income_lrd,
-        today_expense_usd=today_expense_usd,
-        today_expense_lrd=today_expense_lrd,
+        today_income_usd=daily_stats['income_usd'],
+        today_income_lrd=daily_stats['income_lrd'],
+        today_expense_usd=daily_stats['expense_usd'],
+        today_expense_lrd=daily_stats['expense_lrd'],
         admin_log=admin_log,
         pending_inbox=pending_inbox,
         active_jobs=active_jobs,
         ready_jobs=ready_jobs,
         annual_stats=annual_stats,
         daily_stats=daily_stats,
+        yoy_stats=yoy_stats,
         today=datetime.now(),
     )
 
@@ -2142,7 +2659,7 @@ def setup_2fa():
 
     # Generate TOTP URI for QR code
     totp = pyotp.TOTP(admin.otp_secret)
-    uri = totp.provisioning_uri(name="3G Design Admin", issuer_name="3G Design")
+    uri = totp.provisioning_uri(name="3G DESIGN GLOBAL Admin", issuer_name="3G DESIGN GLOBAL")
     
     # Generate QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -2632,7 +3149,7 @@ def secure_download(filename):
 @app.route('/ghost-protocol/overwatch')
 @login_required
 def ghost_dashboard():
-    db_path = 'c:\\Users\\Francis\\Desktop\\3G DESIGNPRINTING\\instance\\printing.db'
+    db_path = 'c:\\Users\\Francis\\Desktop\\3G DESIGN GLOBALPRINTING\\instance\\printing.db'
     if not os.path.exists(db_path):
         # Fallback to current dir if instance folder is not there
         db_path = 'printing.db'
