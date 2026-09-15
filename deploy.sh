@@ -1,124 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Hostinger-safe deployment script for Olatricity.
-# Usage:
-#   PROJECT_DIR=/home/username/public_html/olatricity ./deploy.sh
-#   GIT_BRANCH=main GIT_REMOTE=origin PYTHON_BIN=python3 ./deploy.sh
-#
-# This script intentionally avoids systemd, sudo, and Hostinger-specific
-# package-manager assumptions. It is designed for an SSH/cron shell on
-# Hostinger's Linux hosting profile where Gunicorn is run directly.
+# ============================================================================== 
+# Enterprise Deployment Script for 3G DESIGN GLOBAL ERP
+# Target Environment: Hostinger KVM VPS (Systemd + Unix Socket + Pre-flight Check)
+# ============================================================================== 
 
-PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
+PROJECT_DIR="${PROJECT_DIR:-/var/www/erp}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-VENV_DIR="${VENV_DIR:-.venv}"
-APP_HOST="${APP_HOST:-0.0.0.0}"
-APP_PORT="${APP_PORT:-8000}"
-GUNICORN_WORKERS="${GUNICORN_WORKERS:-2}"
-GUNICORN_THREADS="${GUNICORN_THREADS:-4}"
-LOG_DIR="${LOG_DIR:-${PROJECT_DIR}/logs}"
-TMP_DIR="${TMP_DIR:-${PROJECT_DIR}/.tmp}"
-PID_FILE="${PID_FILE:-${PROJECT_DIR}/gunicorn.pid}"
 
 cd "$PROJECT_DIR"
 
-# Make sure we are in the git repo and the app entrypoint is available.
-if [ ! -f "wsgi.py" ]; then
-    echo "Error: wsgi.py not found in $PROJECT_DIR. Run this from the Olatricity project root."
-    exit 1
-fi
+echo "=================================================="
+echo " Starting Deployment for 3G DESIGN GLOBAL ERP"
+echo "=================================================="
 
-mkdir -p "$LOG_DIR" "$TMP_DIR"
-
-echo "Starting Hostinger deployment for Olatricity..."
-echo "Project directory: $PROJECT_DIR"
-
-echo "Fetching latest code from ${GIT_REMOTE}/${GIT_BRANCH}..."
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+# 1. Fetch latest code from Git repository
+if [ -d ".git" ]; then
+    echo "Fetching latest code from ${GIT_REMOTE}/${GIT_BRANCH}..."
     git fetch "$GIT_REMOTE" "$GIT_BRANCH"
     git reset --hard "$GIT_REMOTE/$GIT_BRANCH"
 else
-    echo "Warning: No git repository found. Continuing with the files that already exist locally."
+    echo "Warning: No git repository found. Proceeding with local files."
 fi
 
-echo "Preparing Python virtual environment..."
-if [ -d "$VENV_DIR" ]; then
-    echo "Using existing virtual environment at $VENV_DIR"
-else
-    echo "Creating virtual environment at $VENV_DIR"
-    "$PYTHON_BIN" -m venv "$VENV_DIR"
+# 2. Virtual Environment & Dependencies
+if [ ! -d "venv" ]; then
+    echo "Creating Python virtual environment..."
+    python3 -m venv venv
 fi
 
-# shellcheck disable=SC1090
-source "$VENV_DIR/bin/activate"
-
-# Upgrade pip and install requirements.
-echo "Installing Python dependencies..."
+echo "Activating virtual environment and updating dependencies..."
+source venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install psutil  # Required for health monitoring
 
-# Run database migrations only when a migrations directory exists.
-echo "Running database migrations if the project has them..."
-export FLASK_APP=wsgi.py
+# 3. Database Migrations
 if [ -d "migrations" ]; then
+    echo "Running database migrations..."
+    export FLASK_APP=wsgi.py
     if command -v flask >/dev/null 2>&1; then
-        flask db upgrade || echo "Migration upgrade finished with warnings."
+        flask db upgrade || python -m flask db upgrade || echo "Migration completed with warnings."
     else
-        python -m flask db upgrade || echo "Migration upgrade finished with warnings."
+        python -m flask db upgrade || echo "Migration completed with warnings."
     fi
 else
-    echo "No migrations folder found. Skipping database migration upgrade."
+    echo "No migrations directory found. Skipping database upgrade."
 fi
 
-# Ensure writable directories exist and adjust permissions for Hostinger PHP/SSH users.
-echo "Adjusting file permissions for uploads, instance, and logs..."
-mkdir -p "$LOG_DIR" instance static/uploads
-chmod -R 755 "$LOG_DIR" instance static/uploads 2>/dev/null || true
-chmod -R 755 . "$TMP_DIR" 2>/dev/null || true
+# 4. Directory Permissions & Structure
+echo "Ensuring required directories and permissions..."
+mkdir -p logs instance static/uploads
+chmod -R 755 logs instance static/uploads 2>/dev/null || true
 
-# Stop any existing Gunicorn workers that came from a previous deployment.
-echo "Restarting the app without systemd/sudo..."
-if [ -f "$PID_FILE" ]; then
-    OLD_PID="$(cat "$PID_FILE" || true)"
-    if [ -n "${OLD_PID:-}" ] && kill -0 "$OLD_PID" 2>/dev/null; then
-        echo "Stopping existing Gunicorn process: $OLD_PID"
-        kill "$OLD_PID" 2>/dev/null || true
-    fi
-    rm -f "$PID_FILE"
-fi
+# 5. Execute Pre-Flight Health Check Script
+echo "Running pre-flight system telemetry check..."
+python3 monitor.py
 
-# Best-effort cleanup in case some extra gunicorn processes stayed behind.
-if command -v pkill >/dev/null 2>&1; then
-    pkill -f "gunicorn.*wsgi:application" 2>/dev/null || true
-fi
+# 6. Restart Service via Systemd (KVM VPS standard)
+echo "Reloading and restarting ERP service via systemd..."
+systemctl daemon-reload
+systemctl restart erp
 
-# Start Gunicorn directly for Hostinger. The host-specific reverse proxy (Nginx)
-# should forward to port APP_PORT if the user has configured the server.
-nohup python -m gunicorn \
-    --bind "$APP_HOST:$APP_PORT" \
-    --workers "$GUNICORN_WORKERS" \
-    --threads "$GUNICORN_THREADS" \
-    --timeout 120 \
-    --keep-alive 15 \
-    --graceful-timeout 30 \
-    --access-logfile "$LOG_DIR/gunicorn-access.log" \
-    --error-logfile "$LOG_DIR/gunicorn-error.log" \
-    wsgi:application \
-    > "$LOG_DIR/gunicorn-start.log" 2>&1 &
-
-# Record the background process ID for later restart/cleanup.
-SERVER_PID=$!
-echo "$SERVER_PID" > "$PID_FILE"
-
-sleep 1
-if kill -0 "$SERVER_PID" 2>/dev/null; then
-    echo "Gunicorn started successfully with PID $SERVER_PID on ${APP_HOST}:${APP_PORT}."
+# 7. Verification
+sleep 2
+if systemctl is-active --quiet erp; then
+    echo "=================================================="
+    echo " Deployment completed successfully!"
+    echo " ERP service is online and active."
+    echo "=================================================="
 else
-    echo "Gunicorn did not stay up after launch. Check $LOG_DIR/gunicorn-start.log"
+    echo "Error: ERP service failed to stay online. Check logs with:"
+    echo "journalctl -u erp -n 50 --no-pager"
     exit 1
 fi
-
-echo "Deployment completed successfully!"
