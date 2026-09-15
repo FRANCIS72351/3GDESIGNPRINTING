@@ -15,8 +15,8 @@ _BARE_PYTHONANYWHERE_HOSTS = frozenset({
     'www.pythonanywhere.com',
 })
 
-# Canonical cloud host when env is missing/misconfigured (never bare pythonanywhere.com)
-CANONICAL_CLOUD_SITE_URL = 'https://3gdesign.pythonanywhere.com'
+# Canonical cloud host when env is missing/misconfigured
+CANONICAL_CLOUD_SITE_URL = 'https://3gdesignglobal.com'
 
 
 def _read_env_url(key):

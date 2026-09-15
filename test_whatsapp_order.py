@@ -49,14 +49,14 @@ class WhatsAppOrderTests(unittest.TestCase):
     def test_sanitize_rejects_bare_pythonanywhere(self):
         self.assertEqual(_sanitize_public_url('https://pythonanywhere.com'), '')
         self.assertEqual(
-            _sanitize_public_url('https://3gdesign.pythonanywhere.com'),
-            'https://3gdesign.pythonanywhere.com',
+            _sanitize_public_url('https://3gdesignglobal.com'),
+            'https://3gdesignglobal.com',
         )
 
-    @patch.dict(os.environ, {'PUBLIC_SITE_URL': '', 'WEBHOOK_BASE_URL': '', 'PYTHONANYWHERE_DOMAIN': '3gdesign.pythonanywhere.com'}, clear=False)
+    @patch.dict(os.environ, {'PUBLIC_SITE_URL': '', 'WEBHOOK_BASE_URL': '', 'PYTHONANYWHERE_DOMAIN': '3gdesignglobal.com'}, clear=False)
     def test_pythonanywhere_domain_resolves_correctly(self):
         url = get_public_site_url()
-        self.assertEqual(url, 'https://3gdesign.pythonanywhere.com')
+        self.assertEqual(url, 'https://3gdesignglobal.com')
 
     @patch.dict(
         os.environ,
