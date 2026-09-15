@@ -9,9 +9,6 @@ set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-/var/www/erp}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
-LOCAL_DB_FILE="${LOCAL_DB_FILE:-${PROJECT_DIR}/3G_ERP_V1.db}"
-REMOTE_DB_PATH="${DATABASE_PATH:-${PROJECT_DIR}/3G_ERP_V1.db}"
-DB_OVERRIDE="${DB_OVERRIDE:-1}"
 
 cd "$PROJECT_DIR"
 
@@ -28,21 +25,7 @@ else
     echo "Warning: No git repository found. Proceeding with local files."
 fi
 
-# 2. Local database override: keep the deployment database aligned with the local app source of truth.
-if [ "$DB_OVERRIDE" = "1" ]; then
-    if [ -f "$LOCAL_DB_FILE" ]; then
-        echo "Local DB source detected at $LOCAL_DB_FILE. Overriding cloud database with local DB..."
-        mkdir -p "$(dirname "$REMOTE_DB_PATH")"
-        cp -f "$LOCAL_DB_FILE" "$REMOTE_DB_PATH"
-        export DATABASE_PATH="$REMOTE_DB_PATH"
-    else
-        echo "No local DB file found at $LOCAL_DB_FILE. Keeping the existing cloud database in place."
-    fi
-else
-    echo "DB override disabled. Keeping the existing cloud database in place."
-fi
-
-# 3. Virtual Environment & Dependencies
+# 2. Virtual Environment & Dependencies
 if [ ! -d "venv" ]; then
     echo "Creating Python virtual environment..."
     python3 -m venv venv
