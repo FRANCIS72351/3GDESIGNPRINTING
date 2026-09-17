@@ -179,7 +179,7 @@ h4, h5, h6, .subtitle {
 }
 
 .brand-wordmark--nav {
-    margin-top: 5px;
+    margin-top: 0;
 }
 
 .brand-wordmark--nav .brand-3g,
@@ -412,27 +412,32 @@ img {
 }
 
 .navbar-brand {
-    display: flex;
+    display: inline-flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.7rem;
     text-decoration: none;
-    padding: 0;
+    padding: 0.1rem 0;
     font-weight: 800;
     font-size: 1.25rem;
+    line-height: 1;
 }
 
-.navbar-brand img {
-    height: 38px !important;
-    width: auto;
+.navbar-brand img,
+.navbar-brand-mark {
+    height: 44px !important;
+    width: 44px;
     margin-right: 0 !important;
     object-fit: contain;
-    
+    flex-shrink: 0;
+    display: block;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .navbar-brand:hover img {
-    transform: scale(1.05);
+    transform: scale(1.06);
 }
 
 .brand-subtext {
@@ -440,9 +445,11 @@ img {
     text-transform: none;
 }
 
-.navbar-brand .brand-subtext {
+.navbar-brand .brand-subtext,
+.navbar-brand .brand-wordmark--nav {
     display: inline-flex;
     align-items: center;
+    margin-top: 0;
     white-space: nowrap;
 }
 
@@ -800,42 +807,9 @@ img {
     font-weight: 500;
 }
 
-.hero-brand-lockup {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 0.7rem 0.9rem;
-    flex-wrap: nowrap;
-}
-
-.hero-brand-logo {
-    height: clamp(52px, 8vw, 82px);
-    width: auto;
-    object-fit: contain;
-    flex-shrink: 0;
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
-}
-
 .hero-section h1 .hero-brand {
-    display: inline-flex;
-    margin-top: 0;
-    white-space: nowrap;
-}
-
-.home-page .navbar-brand-mark {
-    display: none;
-}
-
-.hero-brand-lockup .brand-wordmark--hero {
-    flex-wrap: nowrap;
-    white-space: nowrap;
-    margin-top: 0;
-}
-
-.hero-brand-lockup .brand-wordmark--hero .brand-3g,
-.hero-brand-lockup .brand-wordmark--hero .brand-design {
-    font-size: clamp(1.35rem, 3.8vw, 2.2rem);
+    display: block;
+    margin-top: 0.15rem;
 }
 
 .receipt-brand {
@@ -3013,18 +2987,15 @@ body.dashboard-page {
         font-size: 2.25rem;
     }
 
-    .hero-brand-lockup {
-        gap: 0.45rem 0.6rem;
+    .navbar-brand img,
+    .navbar-brand-mark {
+        height: 36px !important;
+        width: 36px;
     }
 
-    .hero-brand-logo {
-        height: 44px;
-    }
-
-    .hero-brand-lockup .hero-brand,
-    .hero-brand-lockup .brand-3g,
-    .hero-brand-lockup .brand-design {
-        font-size: clamp(1.2rem, 5.2vw, 1.85rem);
+    .brand-wordmark--nav .brand-3g,
+    .brand-wordmark--nav .brand-design {
+        font-size: 1.05rem;
     }
 
     .hero-section p {

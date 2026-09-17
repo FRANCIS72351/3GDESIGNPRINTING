@@ -1,4 +1,4 @@
-"""Homepage hero shows logo inline with brand text, not in the top navbar."""
+"""Navbar shows the logo in front of 3G DESIGN GLOBAL; homepage hero does not."""
 import os
 import tempfile
 import unittest
@@ -8,7 +8,7 @@ os.environ.setdefault('GHOST_ADMIN_USER', 'ghost_test_user')
 from app import app, db
 
 
-class HomepageHeroLogoTests(unittest.TestCase):
+class NavbarBrandLogoTests(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix='.db')
         app.config['TESTING'] = True
@@ -27,31 +27,38 @@ class HomepageHeroLogoTests(unittest.TestCase):
         os.close(self.db_fd)
         os.unlink(self.db_path)
 
-    def test_homepage_hero_puts_logo_in_front_of_text(self):
+    def _assert_navbar_logo_before_wordmark(self, html):
+        brand_start = html.find('class="navbar-brand')
+        self.assertGreater(brand_start, -1)
+        brand_end = html.find('</a>', brand_start)
+        brand = html[brand_start:brand_end]
+        logo_pos = brand.find('navbar-brand-mark')
+        text_pos = brand.find('brand-wordmark')
+        self.assertGreater(logo_pos, -1)
+        self.assertGreater(text_pos, logo_pos)
+        self.assertIn('img/LOGO.png', brand)
+        self.assertIn('3G DESIGN GLOBAL', brand)
+
+    def test_homepage_navbar_has_logo_in_front_of_text(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
 
-        self.assertIn('class="home-page"', html)
-        self.assertIn('hero-brand-lockup', html)
-        self.assertIn('hero-brand-logo', html)
-        self.assertIn('img/LOGO.png', html)
-        self.assertIn('3G DESIGN GLOBAL', html)
+        self.assertNotIn('hero-brand-lockup', html)
+        self.assertNotIn('hero-brand-logo', html)
+        self.assertNotIn('class="home-page"', html)
+        self._assert_navbar_logo_before_wordmark(html)
 
-        lockup_start = html.find('hero-brand-lockup')
-        lockup_end = html.find('</h1>', lockup_start)
-        lockup = html[lockup_start:lockup_end]
-        logo_pos = lockup.find('hero-brand-logo')
-        text_pos = lockup.find('brand-wordmark')
-        self.assertGreater(logo_pos, -1)
-        self.assertGreater(text_pos, logo_pos)
+        hero_start = html.find('hero-content')
+        hero_end = html.find('</h1>', hero_start)
+        hero = html[hero_start:hero_end]
+        self.assertNotIn('LOGO.png', hero)
 
-    def test_about_page_keeps_navbar_logo(self):
+    def test_about_page_navbar_has_logo_in_front_of_text(self):
         response = self.client.get('/about')
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertNotIn('class="home-page"', html)
-        self.assertIn('navbar-brand-mark', html)
+        self._assert_navbar_logo_before_wordmark(html)
         self.assertNotIn('hero-brand-lockup', html)
 
 

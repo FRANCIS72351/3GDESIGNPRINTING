@@ -1,7 +1,5 @@
 {% extends "layout.html" %}
 
-{% block body_class %}home-page{% endblock %}
-
 {% block content %}
 <section class="hero-section">
     <div id="heroSlider" class="carousel slide carousel-fade" data-bs-ride="carousel">
@@ -28,10 +26,7 @@
     <div class="container hero-container">
         <div class="hero-content text-center animate__animated animate__fadeIn">
             <span class="hero-eyebrow">Welcome To</span>
-            <h1 class="hero-brand-lockup animate__animated animate__fadeInDown">
-                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="" class="hero-brand-logo">
-                {{ brand_wordmark('gold', 'hero-brand brand-wordmark--hero') }}
-            </h1>
+            <h1 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'hero-brand brand-wordmark--hero') }}</h1>
             <a href="#homepage-promo" class="hero-down-arrow animate__animated animate__fadeInUp animate__delay-1s" aria-label="Scroll to next section">
                 <i class="fas fa-chevron-down"></i>
             </a>
