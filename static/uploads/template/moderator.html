@@ -79,7 +79,7 @@
     {% endif %}
 
     <div class="row g-4 mb-4">
-        <div class="col-lg-6">
+        <div class="col-lg-4">
             <a href="{{ url_for('about_settings') }}" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 hover-lift bg-white">
                     <div class="card-body p-4">
@@ -95,7 +95,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-lg-6">
+        <div class="col-lg-4">
             <a href="{{ url_for('edit_homepage') }}" class="text-decoration-none">
                 <div class="card border-0 shadow-sm h-100 hover-lift bg-white">
                     <div class="card-body p-4">
@@ -107,6 +107,22 @@
                             <span class="badge bg-soft-primary text-primary rounded-pill">Open</span>
                         </div>
                         <h4 class="fw-bold mb-0">Homepage Promo Editor</h4>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-lg-4">
+            <a href="{{ url_for('edit_our_business') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 hover-lift bg-white">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h6 class="text-uppercase small fw-bold text-muted mb-1"><i class="fas fa-building me-2 text-primary"></i>Our Business Gallery</h6>
+                                <p class="small text-muted mb-0">Post photos of the building, workshop, and storefront.</p>
+                            </div>
+                            <span class="badge bg-soft-primary text-primary rounded-pill">Open</span>
+                        </div>
+                        <h4 class="fw-bold mb-0">Business Photo Editor</h4>
                     </div>
                 </div>
             </a>

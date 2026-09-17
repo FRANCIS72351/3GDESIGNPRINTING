@@ -55,8 +55,8 @@ static/uploads/leaders/*
 !static/uploads/leaders/.gitkeep
 static/uploads/orders/*
 !static/uploads/orders/.gitkeep
-static/uploads/whatsapp/*
-!static/uploads/whatsapp/.gitkeep
+static/uploads/business/*
+!static/uploads/business/.gitkeep
 
 # IDEs
 .vscode/

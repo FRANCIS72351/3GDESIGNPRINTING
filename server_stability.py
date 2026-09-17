@@ -192,6 +192,38 @@ def get_homepage_content(db, HomepageContent):
     return content
 
 
+def ensure_business_gallery_schema(db, BusinessGalleryImage):
+    """Create business_gallery_image on first use."""
+    from sqlalchemy import inspect
+
+    table_name = BusinessGalleryImage.__tablename__
+    if table_name not in inspect(db.engine).get_table_names():
+        BusinessGalleryImage.__table__.create(db.engine, checkfirst=True)
+
+
+def list_business_gallery_images(db, BusinessGalleryImage, published_only=True):
+    """Return gallery rows, creating the table if the live database is older."""
+    ensure_business_gallery_schema(db, BusinessGalleryImage)
+    try:
+        query = BusinessGalleryImage.query
+        if published_only:
+            query = query.filter_by(is_published=True)
+        return query.order_by(
+            BusinessGalleryImage.sort_order.asc(),
+            BusinessGalleryImage.created_at.desc(),
+        ).all()
+    except OperationalError:
+        db.session.rollback()
+        ensure_business_gallery_schema(db, BusinessGalleryImage)
+        query = BusinessGalleryImage.query
+        if published_only:
+            query = query.filter_by(is_published=True)
+        return query.order_by(
+            BusinessGalleryImage.sort_order.asc(),
+            BusinessGalleryImage.created_at.desc(),
+        ).all()
+
+
 def ensure_system_settings(db, SystemSettings):
     """Create system_settings if missing and seed a default active row."""
     from sqlalchemy import inspect
