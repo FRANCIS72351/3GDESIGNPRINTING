@@ -100,7 +100,7 @@ class HomepageContent(db.Model):
     __tablename__ = 'homepage_content'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), default='')
-    video_heading = db.Column(db.String(150), default='See What We Do')
+    video_heading = db.Column(db.String(150), default='Advertisement / Events')
     video_caption = db.Column(db.Text, default='')
     video_url = db.Column(db.String(500), default='')
     banner_image = db.Column(db.String(255), default='')

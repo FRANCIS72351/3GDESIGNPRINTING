@@ -63,7 +63,7 @@
 
                         <div class="mb-3">
                             <label for="video_heading" class="form-label fw-semibold">Video Heading</label>
-                            <input type="text" class="form-control admin-form-control" id="video_heading" name="video_heading" maxlength="150" value="{{ content.video_heading if content and content.video_heading else 'See What We Do' }}">
+                            <input type="text" class="form-control admin-form-control" id="video_heading" name="video_heading" maxlength="150" value="{{ content.video_heading if content and content.video_heading else 'Advertisement / Events' }}">
                         </div>
                         <div class="mb-3">
                             <label for="video_caption" class="form-label fw-semibold">Video Description</label>
@@ -109,6 +109,10 @@
                 <div class="admin-card-body">
                     <p class="small text-muted mb-3">This is how the section appears on the homepage when published.</p>
                     <div class="homepage-promo-card homepage-promo-card--admin overflow-hidden">
+                        <header class="homepage-promo-heading">
+                            <h4 class="classic-heading homepage-promo-heading-title">Advertisement / Events</h4>
+                            <div class="classic-heading-divider"><span>◆</span></div>
+                        </header>
                         {% if content and content.banner_image %}
                         <div class="homepage-promo-banner-wrap">
                             <img src="{{ url_for('static', filename=content.banner_image) }}" alt="Promotional flyer" class="homepage-promo-banner">
@@ -120,8 +124,13 @@
                         </div>
                         {% endif %}
                         <div class="homepage-promo-video-panel p-3">
-                            <h6 class="homepage-promo-video-title h6 mb-1">{{ content.video_heading if content and content.video_heading else 'See What We Do' }}</h6>
-                            <p class="small text-muted mb-3">{{ content.video_caption if content and content.video_caption else 'watch this video' }}</p>
+                            <header class="homepage-promo-heading homepage-promo-heading--panel">
+                                <h6 class="classic-heading homepage-promo-heading-title">Advertisement / Events</h6>
+                                <div class="classic-heading-divider"><span>◆</span></div>
+                            </header>
+                            {% if content and content.video_caption %}
+                            <p class="small text-muted text-center mb-3">{{ content.video_caption }}</p>
+                            {% endif %}
                             {% if content and content.video_url %}
                                 {% if video_is_file %}
                                 <div class="ratio homepage-promo-video homepage-promo-video--file rounded-3 overflow-hidden">

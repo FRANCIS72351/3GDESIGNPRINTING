@@ -928,6 +928,25 @@ img {
     box-shadow: var(--shadow-lg);
 }
 
+.homepage-promo-heading {
+    text-align: center;
+    padding: 1.6rem 1.25rem 0.85rem;
+}
+
+.homepage-promo-heading--panel {
+    padding: 0 0 0.85rem;
+}
+
+.homepage-promo-heading-title {
+    font-size: clamp(1.4rem, 3.2vw, 1.9rem);
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.homepage-promo-heading .classic-heading-divider {
+    margin: 0.7rem auto 0;
+}
+
 .homepage-promo-card--admin {
     box-shadow: var(--shadow-sm);
 }

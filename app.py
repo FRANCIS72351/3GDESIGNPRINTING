@@ -2153,7 +2153,7 @@ def edit_homepage():
 
     if request.method == 'POST':
         title = (request.form.get('title') or '').strip()
-        video_heading = (request.form.get('video_heading') or '').strip() or 'See What We Do'
+        video_heading = (request.form.get('video_heading') or '').strip() or 'Advertisement / Events'
         video_caption = (request.form.get('video_caption') or '').strip()
         video_url = _normalize_homepage_video_url(request.form.get('video_url'))
         is_published = request.form.get('is_published') == '1'

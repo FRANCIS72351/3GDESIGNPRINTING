@@ -44,6 +44,10 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="homepage-promo-card overflow-hidden animate__animated animate__fadeInUp">
+                <header class="homepage-promo-heading">
+                    <h2 class="classic-heading homepage-promo-heading-title">Advertisement / Events</h2>
+                    <div class="classic-heading-divider"><span>◆</span></div>
+                </header>
                 {% if content and content.banner_image %}
                 <div class="homepage-promo-banner-wrap">
                     <img src="{{ url_for('static', filename=content.banner_image) }}"
@@ -59,8 +63,13 @@
                 {% endif %}
 
                 <div class="homepage-promo-video-panel p-4 p-md-5">
-                    <h3 class="homepage-promo-video-title mb-2">{{ content.video_heading if content and content.video_heading else 'See What We Do' }}</h3>
-                    <p class="text-muted mb-3 mb-md-4">{{ content.video_caption if content and content.video_caption else 'watch this video' }}</p>
+                    <header class="homepage-promo-heading homepage-promo-heading--panel">
+                        <h3 class="classic-heading homepage-promo-heading-title">Advertisement / Events</h3>
+                        <div class="classic-heading-divider"><span>◆</span></div>
+                    </header>
+                    {% if content and content.video_caption %}
+                    <p class="text-muted text-center mb-3 mb-md-4">{{ content.video_caption }}</p>
+                    {% endif %}
                     {% if content and content.video_url %}
                         {% if video_is_file %}
                         <div class="ratio homepage-promo-video homepage-promo-video--file rounded-3 overflow-hidden">

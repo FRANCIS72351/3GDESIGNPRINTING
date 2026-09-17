@@ -61,6 +61,24 @@ class NavbarBrandLogoTests(unittest.TestCase):
         self._assert_navbar_logo_before_wordmark(html)
         self.assertNotIn('hero-brand-lockup', html)
 
+    def test_homepage_promo_uses_advertisement_events_headings(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+
+        self.assertNotIn('See What We Do', html)
+        self.assertGreaterEqual(html.count('Advertisement / Events'), 2)
+
+        promo_start = html.find('id="homepage-promo"')
+        self.assertGreater(promo_start, -1)
+        promo = html[promo_start:html.find('id="products"', promo_start)]
+        flyer_pos = promo.find('Promotional flyer coming soon')
+        first_heading = promo.find('Advertisement / Events')
+        second_heading = promo.find('Advertisement / Events', first_heading + 1)
+        self.assertGreater(first_heading, -1)
+        self.assertGreater(flyer_pos, first_heading)
+        self.assertGreater(second_heading, flyer_pos)
+
 
 if __name__ == '__main__':
     unittest.main()
