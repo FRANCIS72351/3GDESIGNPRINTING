@@ -800,9 +800,42 @@ img {
     font-weight: 500;
 }
 
+.hero-brand-lockup {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem 0.9rem;
+    flex-wrap: nowrap;
+}
+
+.hero-brand-logo {
+    height: clamp(52px, 8vw, 82px);
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+}
+
 .hero-section h1 .hero-brand {
-    display: block;
-    margin-top: 0.15rem;
+    display: inline-flex;
+    margin-top: 0;
+    white-space: nowrap;
+}
+
+.home-page .navbar-brand-mark {
+    display: none;
+}
+
+.hero-brand-lockup .brand-wordmark--hero {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    margin-top: 0;
+}
+
+.hero-brand-lockup .brand-wordmark--hero .brand-3g,
+.hero-brand-lockup .brand-wordmark--hero .brand-design {
+    font-size: clamp(1.35rem, 3.8vw, 2.2rem);
 }
 
 .receipt-brand {
@@ -2978,6 +3011,20 @@ body.dashboard-page {
 
     .hero-section h1 {
         font-size: 2.25rem;
+    }
+
+    .hero-brand-lockup {
+        gap: 0.45rem 0.6rem;
+    }
+
+    .hero-brand-logo {
+        height: 44px;
+    }
+
+    .hero-brand-lockup .hero-brand,
+    .hero-brand-lockup .brand-3g,
+    .hero-brand-lockup .brand-design {
+        font-size: clamp(1.2rem, 5.2vw, 1.85rem);
     }
 
     .hero-section p {
