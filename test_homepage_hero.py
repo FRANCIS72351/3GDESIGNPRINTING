@@ -79,6 +79,18 @@ class NavbarBrandLogoTests(unittest.TestCase):
         self.assertGreater(flyer_pos, first_heading)
         self.assertGreater(second_heading, flyer_pos)
 
+    def test_homepage_why_heading_drops_choose(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertNotIn('Why Choose', html)
+        about_start = html.find('about-section')
+        self.assertGreater(about_start, -1)
+        about = html[about_start:html.find('classic-footer', about_start)]
+        self.assertIn('Why ', about)
+        self.assertIn('3G DESIGN GLOBAL', about)
+        self.assertIn('?', about)
+
 
 if __name__ == '__main__':
     unittest.main()
