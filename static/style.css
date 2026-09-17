@@ -413,16 +413,17 @@ img {
 
 .navbar-brand {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    gap: 0.55rem;
     text-decoration: none;
     padding: 0;
     font-weight: 800;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
 }
 
 .navbar-brand img {
-    height: 42px !important;
+    height: 38px !important;
     width: auto;
     margin-right: 0 !important;
     object-fit: contain;
@@ -437,6 +438,12 @@ img {
 .brand-subtext {
     line-height: 1;
     text-transform: none;
+}
+
+.navbar-brand .brand-subtext {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
 }
 
 .navbar-dark .navbar-nav .nav-link {

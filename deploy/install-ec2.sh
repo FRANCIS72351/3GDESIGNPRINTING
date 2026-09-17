@@ -3,11 +3,11 @@
 # Run as root: sudo bash deploy/install-ec2.sh
 set -euo pipefail
 
-APP_USER="${APP_USER:-olatricity}"
-APP_DIR="${APP_DIR:-/opt/olatricity}"
-DATA_DIR="${DATA_DIR:-/var/lib/olatricity/data}"
-LOG_DIR="${LOG_DIR:-/var/log/olatricity}"
-DOMAIN="${DOMAIN:-erp.yourdomain.com}"
+APP_USER="${APP_USER:-erp}"
+APP_DIR="${APP_DIR:-/var/www/erp}"
+DATA_DIR="${DATA_DIR:-/var/lib/erp/data}"
+LOG_DIR="${LOG_DIR:-/var/log/erp}"
+DOMAIN="${DOMAIN:-3gdesignglobal.com}"
 REPO_URL="${REPO_URL:-}"
 
 echo "==> Installing system packages..."
@@ -60,9 +60,9 @@ echo "==> Initializing database..."
 sudo -u "$APP_USER" bash -c "cd $APP_DIR && set -a && source .env && set +a && ./venv/bin/python scripts/init_app.py"
 
 echo "==> Installing systemd service..."
-cp "$APP_DIR/deploy/systemd/olatricity.service" /etc/systemd/system/olatricity.service
+cp "$APP_DIR/deploy/systemd/olatricity.service" /etc/systemd/system/erp.service
 systemctl daemon-reload
-systemctl enable olatricity
+systemctl enable erp
 
 echo "==> Configuring nginx (HTTP initially — run certbot for HTTPS)..."
 sed "s/erp.yourdomain.com/$DOMAIN/g" "$APP_DIR/deploy/nginx/olatricity-http.conf" > /etc/nginx/sites-available/olatricity
@@ -71,7 +71,7 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 
 echo "==> Starting services..."
-systemctl restart olatricity
+systemctl restart erp
 systemctl restart nginx
 
 echo ""
@@ -79,4 +79,4 @@ echo "Deploy complete."
 echo "  App health:  curl http://127.0.0.1:8000/health"
 echo "  Create admin: cd $APP_DIR && sudo -u $APP_USER ./venv/bin/python create_ghost.py"
 echo "  SSL:         certbot --nginx -d $DOMAIN"
-echo "  Logs:        journalctl -u olatricity -f"
+echo "  Logs:        journalctl -u erp -f"

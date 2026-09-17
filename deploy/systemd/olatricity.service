@@ -1,15 +1,15 @@
 [Unit]
-Description=Olatricity ERP (Gunicorn)
+Description=3G Design Global ERP (Gunicorn)
 After=network.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=olatricity
-Group=olatricity
-WorkingDirectory=/opt/olatricity
-EnvironmentFile=/opt/olatricity/.env
-ExecStart=/opt/olatricity/venv/bin/gunicorn --config gunicorn.conf.py wsgi:application
+User=erp
+Group=erp
+WorkingDirectory=/var/www/erp
+EnvironmentFile=/var/www/erp/.env
+ExecStart=/var/www/erp/venv/bin/gunicorn --config gunicorn.conf.py wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=on-failure
 RestartSec=5
@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/olatricity /var/log/olatricity /opt/olatricity/static/uploads
+ReadWritePaths=/var/www/erp /var/log/erp
 
 [Install]
 WantedBy=multi-user.target

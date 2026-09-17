@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+
+{% block title %}Secure Checkout - 3G DESIGN GLOBAL{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center g-4">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-lg-5">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="bg-primary text-white rounded-circle p-3"><i class="fas fa-lock"></i></div>
+                        <div>
+                            <h1 class="h3 mb-1 fw-bold">Complete your order</h1>
+                            <p class="text-muted mb-0">We will text your confirmation after it is received.</p>
+                        </div>
+                    </div>
+                    <form method="post" novalidate>
+                        <div class="mb-3">
+                            <label for="checkoutName" class="form-label fw-semibold">Full name</label>
+                            <input id="checkoutName" name="name" class="form-control form-control-lg" required autocomplete="name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="checkoutPhone" class="form-label fw-semibold">Phone number</label>
+                            <input id="checkoutPhone" name="phone" type="tel" class="form-control form-control-lg" placeholder="077 532 3731 or +231 77 532 3731" required autocomplete="tel">
+                            <div class="form-text">Use a Liberia number or include the country code.</div>
+                        </div>
+                        <div class="mb-4">
+                            <label for="checkoutEmail" class="form-label fw-semibold">Email <span class="text-muted fw-normal">(optional)</span></label>
+                            <input id="checkoutEmail" name="email" type="email" class="form-control form-control-lg" autocomplete="email">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill fw-bold">
+                            <i class="fas fa-check me-2"></i>Place order
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 fw-bold mb-3">Order summary</h2>
+                    {% for item in cart %}
+                    <div class="d-flex justify-content-between gap-3 small mb-2">
+                        <span>{{ item.product_name }} × {{ item.quantity }}</span>
+                        <strong>{{ item.currency }} {{ '%.2f'|format(item.price * item.quantity) }}</strong>
+                    </div>
+                    {% endfor %}
+                    <hr>
+                    {% if total_usd %}<div class="d-flex justify-content-between fw-bold"><span>Total USD</span><span>${{ '%.2f'|format(total_usd) }}</span></div>{% endif %}
+                    {% if total_lrd %}<div class="d-flex justify-content-between fw-bold text-success"><span>Total LRD</span><span>L${{ '%.2f'|format(total_lrd) }}</span></div>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

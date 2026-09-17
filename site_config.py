@@ -120,6 +120,38 @@ def get_whatsapp_webhook_url(request_root=None):
     return f"{get_public_site_url(request_root)}/api/whatsapp/webhook"
 
 
+def get_twilio_webhook_url(path, request_root=None):
+    """Build a canonical HTTPS Twilio callback URL from the public site URL."""
+    normalized_path = '/' + str(path or '').lstrip('/')
+    return f"{get_public_site_url(request_root)}{normalized_path}"
+
+
+def validate_twilio_request(request):
+    """Validate a Twilio signature against the canonical public callback URL."""
+    if os.getenv('TWILIO_VALIDATE_SIGNATURE', 'true').lower() not in ('1', 'true', 'yes'):
+        return True
+
+    auth_token = os.getenv('TWILIO_AUTH_TOKEN', '').strip()
+    signature = request.headers.get('X-Twilio-Signature', '').strip()
+    if not auth_token or not signature:
+        return False
+
+    from twilio.request_validator import RequestValidator
+
+    callback_url = get_twilio_webhook_url(
+        request.path,
+        request_root=request.url_root,
+    )
+    if request.query_string:
+        callback_url = f'{callback_url}?{request.query_string.decode("utf-8")}'
+
+    return RequestValidator(auth_token).validate(
+        callback_url,
+        request.form.to_dict(flat=True),
+        signature,
+    )
+
+
 def is_production():
     return bool(
         os.environ.get('PYTHONANYWHERE_DOMAIN')

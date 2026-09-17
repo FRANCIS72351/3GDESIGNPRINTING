@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify, current_app
 from xml.sax.saxutils import escape
 
 from ai_agent import handle_customer_message, get_session_messages
+from site_config import validate_twilio_request
 
 ai_chat_bp = Blueprint('ai_chat', __name__)
 
@@ -110,6 +111,9 @@ def twilio_whatsapp_webhook():
     Twilio WhatsApp inbound webhook (TwiML response).
     Configure Twilio WhatsApp sender URL to: /api/whatsapp/twilio-webhook
     """
+    if not validate_twilio_request(request):
+        return 'Forbidden', 403
+
     customer_phone = request.values.get('From', '')
     incoming_text = request.values.get('Body', '')
 

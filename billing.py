@@ -9,8 +9,6 @@ from functools import wraps
 import csv
 from flask import Blueprint
 
-billing_bp = Blueprint('billing', __name__)
-
 from flask import (
     Blueprint, abort, current_app, flash, jsonify, redirect,
     render_template, request, send_file, session, url_for,
@@ -18,9 +16,7 @@ from flask import (
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-
 from sqlalchemy.exc import IntegrityError
-
 from app import mail
 from flask_mail import Message
 from models import db, Product, Customer, Order, OrderItem, GeneratedDocument, Admin, DocumentAudit
@@ -29,15 +25,14 @@ from server_stability import commit_with_retry
 from moderator_permissions import check_moderator_route_access
 
 billing_bp = Blueprint('billing', __name__)
-
 BRAND_NAVY = '#0B1F3A'
 BRAND_GOLD = '#4FC3F7'
 COMPANY = {
     'name': '3G DESIGN GLOBAL',
     'tagline': 'Quality in Every Print, Excellence in Every Design',
     'phone': '+231 77 532 3731',
-    'email': 'info@3GDESIGNprinting.com',
-    'web': 'www.olatricity.com',
+    'email': 'info@3gdesignglobal.com',
+    'web': '3gdesignglobal.com',
     'address': 'Newport & Benson Street, Monrovia, Liberia',
 }
 
@@ -61,48 +56,35 @@ def billing_roles_required(*roles, permission='billing'):
 def next_doc_number(doc_type):
     prefix = 'INV' if doc_type == 'invoice' else 'RCT'
     year = datetime.utcnow().year
-    pattern = f'{prefix}-{year}-%'
-    last = (
-        GeneratedDocument.query
-        .filter(GeneratedDocument.doc_number.like(pattern))
-        .order_by(GeneratedDocument.id.desc())
-        .first()
-    )
-    seq = 1
-    if last and last.doc_number:
-        try:
-            seq = int(last.doc_number.split('-')[-1]) + 1
-        except ValueError:
-            seq = GeneratedDocument.query.filter_by(doc_type=doc_type).count() + 1
-    return f'{prefix}-{year}-{seq:05d}'
+    last = GeneratedDocument.query.filter(
+        GeneratedDocument.doc_number.like(f'{prefix}-{year}-%')
+    ).order_by(GeneratedDocument.id.desc()).first()
+    try:
+        sequence = int(last.doc_number.split('-')[-1]) + 1 if last else 1
+    except (AttributeError, ValueError):
+        sequence = GeneratedDocument.query.filter_by(doc_type=doc_type).count() + 1
+    return f'{prefix}-{year}-{sequence:05d}'
 
 
 def format_money(amount, currency='USD'):
-    symbol = 'L$' if currency == 'LRD' else '$'
-    return f'{symbol}{amount:,.2f}'
+    return f"{'L$' if currency == 'LRD' else '$'}{amount:,.2f}"
 
 
 def parse_line_items_from_form():
     descriptions = request.form.getlist('description[]') or request.form.getlist('description')
     quantities = request.form.getlist('quantity[]') or request.form.getlist('quantity')
-    unit_prices = request.form.getlist('unit_price[]') or request.form.getlist('unit_price')
+    prices = request.form.getlist('unit_price[]') or request.form.getlist('unit_price')
     product_ids = request.form.getlist('product_id[]') or request.form.getlist('product_id')
-
     items = []
-    for i, desc in enumerate(descriptions):
-        desc = (desc or '').strip()
-        if not desc:
+    for index, description in enumerate(descriptions):
+        description = (description or '').strip()
+        if not description:
             continue
-        qty = max(1, int(quantities[i] or 1) if i < len(quantities) else 1)
-        price = float(unit_prices[i] or 0) if i < len(unit_prices) else 0.0
-        pid = int(product_ids[i]) if i < len(product_ids) and product_ids[i] else None
-        items.append({
-            'description': desc,
-            'quantity': qty,
-            'unit_price': price,
-            'line_total': round(qty * price, 2),
-            'product_id': pid,
-        })
+        quantity = max(1, int(quantities[index] or 1) if index < len(quantities) else 1)
+        price = float(prices[index] or 0) if index < len(prices) else 0.0
+        product_id = int(product_ids[index]) if index < len(product_ids) and product_ids[index] else None
+        items.append({'description': description, 'quantity': quantity, 'unit_price': price,
+                      'line_total': round(quantity * price, 2), 'product_id': product_id})
     return items
 
 
@@ -110,105 +92,198 @@ def get_or_create_customer(name, phone='', email='', address=''):
     name = (name or '').strip()
     if not name:
         return None
-    customer = None
-    if phone:
-        customer = Customer.query.filter_by(phone=phone.strip()).first()
-    if not customer and email:
-        customer = Customer.query.filter_by(email=email.strip()).first()
+    customer = Customer.query.filter_by(phone=phone.strip()).first() if phone else None
+    customer = customer or (Customer.query.filter_by(email=email.strip()).first() if email else None)
+    customer = customer or Customer.query.filter(Customer.name.ilike(name)).first()
     if not customer:
-        customer = Customer.query.filter(Customer.name.ilike(name)).first()
-    if not customer:
-        customer = Customer(
-            name=name,
-            phone=phone.strip() or None,
-            email=email.strip() or None,
-            address=address.strip() or None,
-        )
+        customer = Customer(name=name, phone=phone.strip() or None, email=email.strip() or None, address=address.strip() or None)
         db.session.add(customer)
         db.session.flush()
     else:
-        if phone and not customer.phone:
-            customer.phone = phone.strip()
-        if email and not customer.email:
-            customer.email = email.strip()
-        if address and not customer.address:
-            customer.address = address.strip()
+        customer.phone = phone.strip() or customer.phone
+        customer.email = email.strip() or customer.email
+        customer.address = address.strip() or customer.address
     return customer
 
 
 def build_document_payload(doc_type, customer_data, items, currency='USD', payment_status='Pending', notes='', discount=0):
-    subtotal = round(sum(i['line_total'] for i in items), 2)
+    subtotal = round(sum(item['line_total'] for item in items), 2)
     discount = float(discount or 0)
-    total = round(max(subtotal - discount, 0), 2)
-    doc_number = next_doc_number(doc_type)
-    return {
-        'doc_type': doc_type,
-        'doc_number': doc_number,
-        'customer': customer_data,
-        'items': items,
-        'currency': currency,
-        'subtotal': subtotal,
-        'discount': discount,
-        'total': total,
-        'payment_status': payment_status,
-        'notes': notes,
-        'issued_at': datetime.utcnow().isoformat(),
-        'issued_by_name': session.get('username', 'Staff'),
-    }
+    return {'doc_type': doc_type, 'doc_number': next_doc_number(doc_type), 'customer': customer_data,
+            'items': items, 'currency': currency, 'subtotal': subtotal, 'discount': discount,
+            'total': round(max(subtotal - discount, 0), 2), 'payment_status': payment_status,
+            'notes': notes, 'issued_at': datetime.utcnow().isoformat(),
+            'issued_by_name': session.get('username', 'Staff')}
 
 
 def persist_document(payload, order_id=None):
-    max_attempts = 5
-    for attempt in range(max_attempts):
-        doc_number = payload['doc_number'] if attempt == 0 else next_doc_number(payload['doc_type'])
-        doc = GeneratedDocument(
-            doc_type=payload['doc_type'],
-            doc_number=doc_number,
-            content=json.dumps({**payload, 'doc_number': doc_number}),
-            order_id=order_id,
-            customer_name=payload['customer'].get('name'),
-            total_amount=payload['total'],
-            currency=payload['currency'],
-            payment_status=payload['payment_status'],
-            issued_by=session.get('admin_id'),
-        )
-        db.session.add(doc)
-        try:
-            commit_with_retry(db)
-            payload['doc_number'] = doc_number
-            return doc
-        except IntegrityError:
-            db.session.rollback()
-            if attempt >= max_attempts - 1:
-                raise
-    raise RuntimeError('Could not allocate a unique document number')
+    doc = GeneratedDocument(doc_type=payload['doc_type'], doc_number=payload['doc_number'],
+        content=json.dumps(payload), order_id=order_id, customer_name=payload['customer'].get('name'),
+        total_amount=payload['total'], currency=payload['currency'], payment_status=payload['payment_status'],
+        issued_by=session.get('admin_id'))
+    db.session.add(doc)
+    commit_with_retry(db)
+    return doc
 
 
 def create_order_from_items(customer, items, currency, payment_status, source='In-Store'):
-    total = round(sum(i['line_total'] for i in items), 2)
-    order = Order(
-        customer_id=customer.id if customer else None,
-        status='Paid' if payment_status == 'Paid' else 'Pending',
-        production_stage='quote',
-        total_amount=total,
-        currency=currency,
-        order_source=source,
-    )
+    order = Order(customer_id=customer.id if customer else None,
+        status='Paid' if payment_status == 'Paid' else 'Pending', production_stage='quote',
+        total_amount=round(sum(item['line_total'] for item in items), 2), currency=currency, order_source=source)
     db.session.add(order)
     db.session.flush()
     for item in items:
-        db.session.add(OrderItem(
-            order_id=order.id,
-            product_id=item.get('product_id'),
-            quantity=item['quantity'],
-            price_at_time=item['unit_price'],
-            currency=currency,
-        ))
+        db.session.add(OrderItem(order_id=order.id, product_id=item.get('product_id'),
+            quantity=item['quantity'], price_at_time=item['unit_price'], currency=currency))
     db.session.commit()
     return order
 
-
 def render_pdf(payload):
+    buffer = io.BytesIO()
+    width, height = letter
+    p = canvas.Canvas(buffer, pagesize=letter)
+    is_receipt = payload['doc_type'] == 'receipt'
+    accent = colors.HexColor(BRAND_GOLD if is_receipt else BRAND_NAVY)
+    navy = colors.HexColor(BRAND_NAVY)
+
+    header_h = 58
+    header_x = 18
+    header_y = height - 18 - header_h
+    header_w = width - (header_x * 2)
+    p.setFillColor(colors.HexColor('#08086F'))
+    p.roundRect(header_x, header_y, header_w, header_h, 10, fill=1, stroke=0)
+    p.setFillColor(colors.HexColor('#17277B'))
+    p.rect(width / 2, header_y, header_w / 2, header_h, fill=1, stroke=0)
+
+    logo_path = os.path.join(current_app.root_path, 'static', 'img', 'LOGO.png')
+    if os.path.exists(logo_path):
+        p.drawImage(logo_path, header_x + 4, header_y + 11, width=36, height=36, preserveAspectRatio=True, mask='auto')
+    draw_brand_wordmark_pdf(p, header_x + 46, header_y + 23, current_app.root_path, variant='light', img_height=12, suffix_size=9)
+
+    contact_x = header_x + header_w - 225
+    p.setFillColor(colors.white)
+    p.setFont('Helvetica-Bold', 8.5)
+    p.drawString(contact_x, header_y + 39, '+231 88 166 9599 / +231 77 532 3731')
+    p.drawString(contact_x, header_y + 27, COMPANY['email'])
+    p.setFont('Helvetica', 7)
+    p.drawString(contact_x, header_y + 15, 'Newport & Benson Streets, Intersection, Monrovia')
+
+    p.saveState()
+    try:
+        p.setFillAlpha(0.12)
+    except AttributeError:
+        pass
+    p.setFillColor(colors.HexColor('#BFE3F3'))
+    p.circle(width / 2, height / 2 + 25, 125, fill=1, stroke=0)
+    p.setFillColor(colors.HexColor('#58C6E8'))
+    p.setFont('Helvetica-Bold', 98)
+    p.drawCentredString(width / 2, height / 2 - 12, '3G')
+    p.restoreState()
+
+    box_y = height - 380
+    p.setStrokeColor(accent)
+    p.setLineWidth(1.5)
+    p.rect(width - 230, box_y, 180, 70, fill=0, stroke=1)
+    p.setFillColor(navy)
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(width - 220, box_y + 52, f"{'RECEIPT' if is_receipt else 'INVOICE'} NO.")
+    p.setFont('Helvetica-Bold', 12)
+    p.drawString(width - 220, box_y + 36, payload['doc_number'])
+    p.setFont('Helvetica', 9)
+    p.drawString(width - 220, box_y + 20, f"Date: {datetime.utcnow().strftime('%d %b %Y')}")
+    p.drawString(width - 220, box_y + 6, f"Status: {payload['payment_status']}")
+
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(50, box_y + 150, 'RECEIPT' if is_receipt else 'INVOICE')
+    draw_brand_wordmark_pdf(p, 50, box_y + 124, current_app.root_path, variant='navy', img_height=16, suffix_size=9)
+    p.setFont('Helvetica', 9)
+    p.setFillColor(colors.HexColor('#496176'))
+    p.drawString(50, box_y + 103, COMPANY['tagline'])
+
+    cust = payload['customer']
+    p.setFillColor(navy)
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(50, box_y + 52, 'BILL TO')
+    p.setFont('Helvetica', 10)
+    p.drawString(50, box_y + 36, cust.get('name', 'Valued Customer'))
+    line_y = box_y + 22
+    for field in ('phone', 'email', 'address'):
+        value = cust.get(field)
+        if value:
+            p.setFont('Helvetica', 9)
+            p.drawString(50, line_y, str(value)[:70])
+            line_y -= 12
+
+    table_top = box_y - 30
+    p.setFillColor(colors.HexColor('#F2F4F7'))
+    p.rect(50, table_top - 22, width - 100, 22, fill=1, stroke=0)
+    p.setFillColor(colors.black)
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(55, table_top - 15, '#')
+    p.drawString(75, table_top - 15, 'DESCRIPTION')
+    p.drawRightString(width - 200, table_top - 15, 'QTY')
+    p.drawRightString(width - 130, table_top - 15, 'UNIT')
+    p.drawRightString(width - 55, table_top - 15, 'AMOUNT')
+
+    currency = payload['currency']
+    y = table_top - 40
+    for index, item in enumerate(payload['items'], 1):
+        if y < 140:
+            p.showPage()
+            y = height - 80
+        p.setFont('Helvetica', 9)
+        p.drawString(55, y, str(index))
+        description = item['description'][:55] + ('...' if len(item['description']) > 55 else '')
+        p.drawString(75, y, description)
+        p.drawRightString(width - 200, y, str(item['quantity']))
+        p.drawRightString(width - 130, y, format_money(item['unit_price'], currency))
+        p.drawRightString(width - 55, y, format_money(item['line_total'], currency))
+        y -= 18
+
+    y -= 10
+    p.setStrokeColor(navy)
+    p.line(width - 250, y + 8, width - 50, y + 8)
+    y -= 8
+    p.setFont('Helvetica', 10)
+    p.drawRightString(width - 130, y, 'Subtotal:')
+    p.drawRightString(width - 55, y, format_money(payload['subtotal'], currency))
+    y -= 16
+    if payload.get('discount', 0) > 0:
+        p.drawRightString(width - 130, y, 'Discount:')
+        p.drawRightString(width - 55, y, f"-{format_money(payload['discount'], currency)}")
+        y -= 16
+    p.setFont('Helvetica-Bold', 11)
+    p.setFillColor(navy)
+    p.drawRightString(width - 130, y, 'TOTAL:')
+    p.drawRightString(width - 55, y, format_money(payload['total'], currency))
+
+    if payload.get('notes'):
+        y -= 30
+        p.setFont('Helvetica-Bold', 9)
+        p.drawString(50, y, 'Notes / Terms')
+        p.setFont('Helvetica', 8)
+        p.drawString(50, y - 12, payload['notes'][:200])
+
+    p.setFillColor(navy)
+    p.setFont('Helvetica', 10)
+    p.drawString(50, 95, 'Authorized by:')
+    p.line(50, 75, 200, 75)
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(50, 62, payload.get('issued_by_name', 'Staff'))
+
+    p.setFillColor(colors.HexColor('#08086F'))
+    p.rect(18, 18, width - 36, 20, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont('Helvetica', 8.5)
+    p.drawCentredString(width / 2, 24, 'Goods once checked and delivered cannot not be return')
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer
+
+
+def render_pdf_legacy_unused(payload):
     buffer = io.BytesIO()
     width, height = letter
     p = canvas.Canvas(buffer, pagesize=letter)
@@ -217,47 +292,61 @@ def render_pdf(payload):
     accent = colors.HexColor(BRAND_GOLD if is_receipt else BRAND_NAVY)
     navy = colors.HexColor(BRAND_NAVY)
 
-    # Top bar
-    p.setFillColor(navy)
-    p.rect(0, height - 32, width, 32, fill=1, stroke=0)
-    p.setFillColor(colors.white)
-    draw_brand_wordmark_pdf(p, 50, height - 24, current_app.root_path, variant='light', img_height=12, suffix_size=9)
-    p.drawRightString(width - 50, height - 22, doc_type.upper())
+    # Fixed stationery header matching the browser print design.
+    header_h = 58
+    header_blue = colors.HexColor('#08086F')
+    p.setFillColor(header_blue)
+    header_x = 18
+    header_y = height - 18 - header_h
+    header_w = width - (header_x * 2)
+    p.roundRect(header_x, header_y, header_w, header_h, 10, fill=1, stroke=0)
+    p.setFillColor(colors.HexColor('#17277B'))
+    p.rect(width / 2, header_y, header_w / 2, header_h, fill=1, stroke=0)
 
-    # Logo on navy badge so gold/white artwork stays visible on white paper
     logo_path = os.path.join(current_app.root_path, 'static', 'img', 'LOGO.png')
-    y_top = height - 100
-    badge_x = 42
-    badge_y = y_top - 16
-    badge_w = 118
-    badge_h = 68
-    gold = colors.HexColor(BRAND_GOLD)
+    p.setFillColor(colors.white)
     if os.path.exists(logo_path):
-        p.setFillColor(navy)
-        p.roundRect(badge_x, badge_y, badge_w, badge_h, 6, fill=1, stroke=0)
-        p.setStrokeColor(gold)
-        p.setLineWidth(1.5)
-        p.roundRect(badge_x, badge_y, badge_w, badge_h, 6, fill=0, stroke=1)
         p.drawImage(
             logo_path,
-            badge_x + 12,
-            badge_y + 10,
-            width=94,
-            height=48,
+            header_x + 4,
+            header_y + 11,
+            width=36,
+            height=36,
             preserveAspectRatio=True,
             mask='auto',
         )
+    draw_brand_wordmark_pdf(
+        p,
+        header_x + 46,
+        header_y + 23,
+        current_app.root_path,
+        variant='light',
+        img_height=12,
+        suffix_size=9,
+    )
 
-    company_x = 178
-    p.setFillColor(colors.black)
-    draw_brand_wordmark_pdf(p, company_x, y_top + 22, current_app.root_path, variant='navy', img_height=16, suffix_size=10)
-    p.setFont('Helvetica', 9)
-    p.drawString(company_x, y_top + 10, COMPANY['address'])
-    p.drawString(company_x, y_top - 2, f"Tel: {COMPANY['phone']}  |  {COMPANY['email']}")
-    p.drawString(company_x, y_top - 14, COMPANY['web'])
+    p.setFont('Helvetica-Bold', 8.5)
+    contact_x = header_x + header_w - 225
+    p.drawString(contact_x, header_y + 39, '+231 88 166 9599 / +231 77 532 3731')
+    p.drawString(contact_x, header_y + 27, COMPANY['email'])
+    p.setFont('Helvetica', 7)
+    p.drawString(contact_x, header_y + 15, 'Newport & Benson Streets, Intersection, Monrovia')
+
+    # Pale filled watermark behind the invoice content.
+    p.saveState()
+    try:
+        p.setFillAlpha(0.12)
+    except AttributeError:
+        pass
+    p.setFillColor(colors.HexColor('#BFE3F3'))
+    p.circle(width / 2, height / 2 + 25, 125, fill=1, stroke=0)
+    p.setFillColor(colors.HexColor('#58C6E8'))
+    p.setFont('Helvetica-Bold', 98)
+    p.drawCentredString(width / 2, height / 2 - 12, '3G')
+    p.restoreState()
 
     # Doc meta box
-    box_y = height - 175
+    box_y = height - 380
     p.setStrokeColor(accent)
     p.setLineWidth(1.5)
     p.rect(width - 230, box_y, 180, 70, fill=0, stroke=1)
@@ -268,6 +357,23 @@ def render_pdf(payload):
     p.setFont('Helvetica', 9)
     p.drawString(width - 220, box_y + 20, f"Date: {datetime.utcnow().strftime('%d %b %Y')}")
     p.drawString(width - 220, box_y + 6, f"Status: {payload['payment_status']}")
+
+    # Document title and branded line match the reference stationery.
+    p.setFillColor(navy)
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(50, box_y + 150, 'RECEIPT' if is_receipt else 'INVOICE')
+    draw_brand_wordmark_pdf(
+        p,
+        50,
+        box_y + 124,
+        current_app.root_path,
+        variant='navy',
+        img_height=16,
+        suffix_size=9,
+    )
+    p.setFont('Helvetica', 9)
+    p.setFillColor(colors.HexColor('#496176'))
+    p.drawString(50, box_y + 103, COMPANY['tagline'])
 
     # Customer
     cust = payload['customer']
@@ -280,10 +386,9 @@ def render_pdf(payload):
         val = cust.get(field)
         if val:
             p.setFont('Helvetica', 9)
-            p.drawString(50, line_y, val)
+            p.drawString(50, line_y, str(val)[:70])
             line_y -= 12
 
-    # Table header
     table_top = box_y - 30
     p.setFillColor(colors.HexColor('#F2F4F7'))
     p.rect(50, table_top - 22, width - 100, 22, fill=1, stroke=0)
@@ -296,8 +401,8 @@ def render_pdf(payload):
     p.drawRightString(width - 55, table_top - 15, 'AMOUNT')
 
     # Line items
-    y = table_top - 40
     currency = payload['currency']
+    y = table_top - 40
     for idx, item in enumerate(payload['items'], 1):
         if y < 140:
             p.showPage()
@@ -345,14 +450,13 @@ def render_pdf(payload):
     p.line(50, 75, 200, 75)
     p.setFont('Helvetica-Bold', 9)
     p.drawString(50, 62, payload.get('issued_by_name', 'Staff'))
-    draw_brand_wordmark_pdf(p, 50, 48, current_app.root_path, variant='navy', img_height=10, suffix_size=7)
 
-    # Footer
-    p.setFillColor(navy)
-    p.rect(0, 0, width, 28, fill=1, stroke=0)
-    p.setFillColor(colors.HexColor(BRAND_GOLD))
-    p.setFont('Helvetica-Bold', 8)
-    p.drawCentredString(width / 2, 10, COMPANY['tagline'].upper())
+    # Footer matches the inset print footer.
+    p.setFillColor(colors.HexColor('#08086F'))
+    p.rect(18, 18, width - 36, 20, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont('Helvetica', 8.5)
+    p.drawCentredString(width / 2, 31, 'Goods once checked and delivered cannot not be return')
 
     p.showPage()
     p.save()
@@ -442,8 +546,6 @@ def document_from_order(order, doc_type):
         payment_status,
         '',
     )
-    doc = persist_document(payload, order_id=order.id)
-    return doc, payload
 
 
 @billing_bp.route('/admin/billing')

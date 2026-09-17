@@ -14,6 +14,7 @@ import io
 import base64
 import urllib.parse
 import zipfile
+import requests
 from datetime import datetime, timedelta, time as datetime_time
 from sqlalchemy import func, text as sa_text
 from twilio.twiml.voice_response import VoiceResponse
@@ -188,7 +189,12 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME') or 'info@3GDESIGNprinting.com')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME') or 'info@3gdesignglobal.com')
+app.config['RESEND_API_KEY'] = os.getenv('RESEND_API_KEY', '').strip()
+app.config['RESEND_FROM_EMAIL'] = os.getenv(
+    'RESEND_FROM_EMAIL',
+    '3G Design Global <orders@3gdesignglobal.com>',
+).strip()
 
 # 6. Ghost Admin Identity
 def get_ghost_username():
@@ -1110,6 +1116,94 @@ def view_cart():
     total_lrd = sum(item['price'] * item['quantity'] for item in cart if item['currency'] == 'LRD')
     return render_template('cart.html', cart=cart, total_usd=total_usd, total_lrd=total_lrd)
 
+
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout():
+    """Create a customer order, then send a best-effort SMS confirmation."""
+    cart = session.get('cart', [])
+    if not cart:
+        flash('Your cart is empty.', 'warning')
+        return redirect(url_for('view_cart'))
+
+    total_usd = sum(item['price'] * item['quantity'] for item in cart if item.get('currency') == 'USD')
+    total_lrd = sum(item['price'] * item['quantity'] for item in cart if item.get('currency') == 'LRD')
+
+    if request.method == 'GET':
+        return render_template(
+            'checkout.html',
+            cart=cart,
+            total_usd=total_usd,
+            total_lrd=total_lrd,
+        )
+
+    customer_name = request.form.get('name', '').strip()
+    customer_phone = normalize_customer_phone(request.form.get('phone', ''))
+    customer_email = request.form.get('email', '').strip().lower() or None
+
+    if not customer_name or not customer_phone:
+        flash('Your name and a valid phone number are required.', 'danger')
+        return render_template('checkout.html', cart=cart, total_usd=total_usd, total_lrd=total_lrd), 400
+
+    try:
+        customer = Customer.query.filter_by(phone=customer_phone).first()
+        if not customer and customer_email:
+            customer = Customer.query.filter_by(email=customer_email).first()
+        if not customer:
+            customer = Customer(name=customer_name, phone=customer_phone, email=customer_email)
+            db.session.add(customer)
+            db.session.flush()
+        else:
+            customer.name = customer_name
+            customer.phone = customer_phone
+            if customer_email:
+                customer.email = customer_email
+
+        order = Order(
+            customer_id=customer.id,
+            status='Pending',
+            production_stage='quote',
+            total_amount=total_usd or total_lrd,
+            currency='USD' if total_usd else 'LRD',
+            order_source='Website Checkout',
+        )
+        db.session.add(order)
+        db.session.flush()
+
+        for item in cart:
+            db.session.add(OrderItem(
+                order_id=order.id,
+                product_id=int(item['product_id']) if str(item.get('product_id', '')).isdigit() else None,
+                quantity=max(1, int(item.get('quantity', 1))),
+                price_at_time=float(item.get('price', 0)),
+                currency=item.get('currency', 'USD'),
+            ))
+        db.session.commit()
+        session.pop('cart', None)
+        session.modified = True
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Checkout order creation failed')
+        flash('We could not place your order. Please try again.', 'danger')
+        return render_template('checkout.html', cart=cart, total_usd=total_usd, total_lrd=total_lrd), 500
+
+    run_in_background(app, send_order_notifications, order.id)
+    flash(f'Order #{order.id} placed successfully. Confirmation notifications are being sent.', 'success')
+    return redirect(url_for('home'))
+
+
+def normalize_customer_phone(phone):
+    """Normalize Liberia local numbers to the E.164 format required by Twilio."""
+    digits = ''.join(character for character in str(phone or '') if character.isdigit())
+    if digits.startswith('00'):
+        return f'+{digits[2:]}'
+    if digits.startswith('231'):
+        return f'+{digits}'
+    if digits.startswith('0') and len(digits) >= 8:
+        return f'+231{digits[1:]}'
+    if str(phone or '').strip().startswith('+'):
+        return f'+{digits}'
+    return ''
+
 @app.route('/remove-from-cart/<int:index>')
 def remove_from_cart(index):
     cart = session.get('cart', [])
@@ -1247,10 +1341,15 @@ def checkout_whatsapp():
 
 # ----------------------------------
 # TWILIO: Answer Call & Record (Cloud)
-# Requires WEBHOOK_BASE_URL in .env when not on PythonAnywhere
+# Configure Twilio Voice URL as https://3gdesignglobal.com/voice
 # ----------------------------------
 @app.route("/voice", methods=['POST'])
 def voice():
+    from site_config import get_twilio_webhook_url, validate_twilio_request
+
+    if not validate_twilio_request(request):
+        return 'Forbidden', 403
+
     response = VoiceResponse()
     response.say("Welcome to 3G DESIGN GLOBAL. Your call is being recorded for order accuracy.")
 
@@ -1271,9 +1370,7 @@ def voice():
     except Exception:
         db.session.rollback()
 
-    recording_action = url_for('handle_recording', _external=True)
-    if app.config.get('WEBHOOK_BASE_URL'):
-        recording_action = f"{app.config['WEBHOOK_BASE_URL']}/handle-recording"
+    recording_action = get_twilio_webhook_url('/handle-recording')
 
     response.record(action=recording_action, maxLength=120, transcribe=False)
     return str(response), 200, {'Content-Type': 'text/xml'}
@@ -1281,6 +1378,11 @@ def voice():
 
 @app.route("/handle-recording", methods=['POST'])
 def handle_recording():
+    from site_config import validate_twilio_request
+
+    if not validate_twilio_request(request):
+        return 'Forbidden', 403
+
     recording_url = request.form.get('RecordingUrl')
     from_number = request.form.get('From', 'Unknown')
     call_sid = request.form.get('CallSid')
@@ -1294,29 +1396,97 @@ def handle_recording():
     return "OK", 200
 
 
-def _process_call_recording(recording_url, from_number, call_sid, duration):
-    transcript_text = None
-    if aai is not None and os.getenv("ASSEMBLYAI_API_KEY"):
-        try:
-            transcriber = aai.Transcriber()
-            transcript = transcriber.transcribe(recording_url)
-            if transcript.status != aai.TranscriptStatus.error:
-                transcript_text = transcript.text
-            else:
-                current_app.logger.error(f"Transcription Error: {transcript.error}")
-        except Exception as e:
-            current_app.logger.error(f"Transcription skipped: {e}")
+def _transcribe_twilio_recording(recording_url):
+    """Download Twilio's protected recording and transcribe it with AssemblyAI."""
+    twilio_sid = os.getenv('TWILIO_ACCOUNT_SID', '').strip()
+    twilio_token = os.getenv('TWILIO_AUTH_TOKEN', '').strip()
+    assembly_key = os.getenv('ASSEMBLYAI_API_KEY', '').strip()
+    if not twilio_sid or not twilio_token:
+        raise RuntimeError('Twilio credentials are required to download recordings.')
+    if not assembly_key:
+        raise RuntimeError('ASSEMBLYAI_API_KEY is not configured.')
 
+    download_url = recording_url
+    if not download_url.lower().endswith(('.mp3', '.wav', '.m4a', '.mp4')):
+        download_url = f'{download_url}.mp3'
+
+    audio_response = requests.get(
+        download_url,
+        auth=(twilio_sid, twilio_token),
+        timeout=(10, 120),
+    )
+    audio_response.raise_for_status()
+    if not audio_response.content:
+        raise RuntimeError('Twilio returned an empty recording.')
+    if len(audio_response.content) > 50 * 1024 * 1024:
+        raise RuntimeError('Twilio recording exceeds the 50 MB transcription limit.')
+
+    api_headers = {'authorization': assembly_key}
+    upload_response = requests.post(
+        'https://api.assemblyai.com/v2/upload',
+        headers={**api_headers, 'content-type': 'application/octet-stream'},
+        data=audio_response.content,
+        timeout=(10, 120),
+    )
+    upload_response.raise_for_status()
+    uploaded_url = upload_response.json().get('upload_url')
+    if not uploaded_url:
+        raise RuntimeError('AssemblyAI did not return an upload URL.')
+
+    transcript_payload = {'audio_url': uploaded_url}
+    language_code = os.getenv('ASSEMBLYAI_LANGUAGE_CODE', '').strip()
+    if language_code:
+        transcript_payload['language_code'] = language_code
+    else:
+        transcript_payload['language_detection'] = True
+
+    transcript_response = requests.post(
+        'https://api.assemblyai.com/v2/transcript',
+        headers={**api_headers, 'content-type': 'application/json'},
+        json=transcript_payload,
+        timeout=(10, 30),
+    )
+    transcript_response.raise_for_status()
+    transcript_id = transcript_response.json().get('id')
+    if not transcript_id:
+        raise RuntimeError('AssemblyAI did not return a transcript ID.')
+
+    poll_seconds = max(2, int(os.getenv('ASSEMBLYAI_POLL_SECONDS', '3')))
+    max_polls = max(1, int(os.getenv('ASSEMBLYAI_MAX_POLLS', '60')))
+    for _ in range(max_polls):
+        status_response = requests.get(
+            f'https://api.assemblyai.com/v2/transcript/{transcript_id}',
+            headers=api_headers,
+            timeout=(10, 30),
+        )
+        status_response.raise_for_status()
+        result = status_response.json()
+        status = result.get('status')
+        if status == 'completed':
+            return (result.get('text') or '').strip()
+        if status == 'error':
+            raise RuntimeError(result.get('error') or 'AssemblyAI transcription failed.')
+        time.sleep(poll_seconds)
+
+    raise TimeoutError('AssemblyAI transcription did not complete before the polling limit.')
+
+
+def _process_call_recording(recording_url, from_number, call_sid, duration):
+    existing = CallLog.query.filter_by(call_sid=call_sid).first() if call_sid else None
     try:
-        existing = CallLog.query.filter_by(call_sid=call_sid).first() if call_sid else None
+        if existing:
+            existing.status = 'in_progress'
+            db.session.commit()
+
+        transcript_text = _transcribe_twilio_recording(recording_url)
         if existing:
             existing.transcript = transcript_text
             existing.audio_url = recording_url
             existing.status = 'processed'
             existing.duration_seconds = int(duration) if duration and str(duration).isdigit() else None
-            existing.notes = 'Cloud recording processed'
+            existing.notes = 'Cloud recording transcribed by AssemblyAI'
         else:
-            new_call = CallLog(
+            db.session.add(CallLog(
                 phone_number=from_number,
                 transcript=transcript_text,
                 audio_url=recording_url,
@@ -1325,14 +1495,16 @@ def _process_call_recording(recording_url, from_number, call_sid, duration):
                 call_type='voice',
                 status='processed',
                 duration_seconds=int(duration) if duration and str(duration).isdigit() else None,
-                notes='Cloud recording via Twilio',
-            )
-            db.session.add(new_call)
-
+                notes='Cloud recording transcribed by AssemblyAI',
+            ))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Failed to save recording log: {e}")
+        if existing:
+            existing.notes = f'Transcription failed: {e}'[:500]
+            existing.status = 'received'
+            db.session.commit()
+        current_app.logger.error(f'AssemblyAI recording transcription failed: {e}')
 
 # ----------------------------------
 # Exponential Backoff Helper
@@ -1766,6 +1938,110 @@ def trigger_order_sms(sale):
         sale.sms_status = "Failed"
 
     db.session.commit()
+
+
+def send_order_confirmation_sms(order_id):
+    """Send a best-effort order confirmation after the order is committed."""
+    order = db.session.get(Order, order_id)
+    if not order or not order.customer or not order.customer.phone:
+        app.logger.warning('Order %s has no customer phone for confirmation SMS.', order_id)
+        return False
+    if not twilio_client or not app.config.get('TWILIO_PHONE_NUMBER'):
+        app.logger.warning('Twilio SMS is not configured; order %s was saved without SMS.', order_id)
+        return False
+
+    amount = order.total_amount or 0
+    currency = order.currency or 'USD'
+    message_body = (
+        f'Hello {order.customer.name}! Thank you for your order from 3G DESIGN GLOBAL. '
+        f'Order #{order.id} ({currency} {amount:.2f}) has been received and is being processed. '
+        'We appreciate your business!'
+    )
+    try:
+        message = twilio_client.messages.create(
+            body=message_body,
+            from_=app.config['TWILIO_PHONE_NUMBER'],
+            to=normalize_customer_phone(order.customer.phone),
+        )
+        app.logger.info('Order confirmation SMS sent for order %s: %s', order.id, message.sid)
+        return True
+    except Exception:
+        app.logger.exception('Order confirmation SMS failed for order %s', order.id)
+        return False
+
+
+def send_erp_email(to_email, subject, html_content):
+        """Send an optional transactional email through Resend."""
+        recipient = str(to_email or '').strip()
+        api_key = app.config.get('RESEND_API_KEY', '').strip()
+        if not recipient:
+                app.logger.info('Resend email skipped because the customer has no email address.')
+                return False
+        if not api_key:
+                app.logger.warning('Resend email skipped because RESEND_API_KEY is not configured.')
+                return False
+
+        try:
+                import resend
+
+                resend.api_key = api_key
+                response = resend.Emails.send({
+                        'from': app.config.get('RESEND_FROM_EMAIL'),
+                        'to': [recipient],
+                        'subject': subject,
+                        'html': html_content,
+                })
+                app.logger.info('Resend email sent successfully: %s', response.get('id'))
+                return True
+        except Exception:
+                app.logger.exception('Resend email failed for %s', recipient)
+                return False
+
+
+def send_order_confirmation_email(order):
+        """Build and send a professional customer order confirmation email."""
+        if not order or not order.customer or not order.customer.email:
+                return False
+
+        customer_name = escape(order.customer.name or 'Customer')
+        amount = order.total_amount or 0
+        currency = escape(order.currency or 'USD')
+        html_content = f'''
+        <div style="background:#f3f6f9;padding:32px 16px;font-family:Arial,sans-serif;color:#10243e;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e4e9ef;">
+                <div style="background:#0b1f3a;border-bottom:4px solid #d5a63a;padding:24px 28px;color:#ffffff;">
+                    <div style="font-size:24px;font-weight:800;letter-spacing:1px;">3G DESIGN GLOBAL</div>
+                    <div style="font-size:12px;color:#d5a63a;margin-top:6px;">ORDER CONFIRMATION</div>
+                </div>
+                <div style="padding:28px;">
+                    <h1 style="font-size:22px;margin:0 0 16px;">Thank you, {customer_name}.</h1>
+                    <p style="line-height:1.6;margin:0 0 18px;">We have received your order and our team is preparing it for processing.</p>
+                    <div style="background:#f5f8fb;border-left:4px solid #d5a63a;padding:16px;margin:20px 0;">
+                        <strong>Order #{order.id}</strong><br>
+                        Total: <strong>{currency} {amount:.2f}</strong><br>
+                        Status: <strong>Pending</strong>
+                    </div>
+                    <p style="line-height:1.6;margin:0;">We appreciate your business. Our team will contact you with the next update.</p>
+                </div>
+                <div style="background:#0b1f3a;color:#ffffff;padding:16px 28px;font-size:12px;">3G DESIGN GLOBAL · Monrovia, Liberia</div>
+            </div>
+        </div>
+        '''
+        return send_erp_email(
+                order.customer.email,
+                f'Order Confirmation #{order.id} - 3G DESIGN GLOBAL',
+                html_content,
+        )
+
+
+def send_order_notifications(order_id):
+        """Attempt email and SMS independently after the order is committed."""
+        order = db.session.get(Order, order_id)
+        if not order:
+                app.logger.warning('Order %s not found for customer notifications.', order_id)
+                return
+        send_order_confirmation_email(order)
+        send_order_confirmation_sms(order_id)
 
 @app.route("/admin/staff-sales")
 @login_required
