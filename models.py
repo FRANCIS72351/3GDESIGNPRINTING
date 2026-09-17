@@ -100,7 +100,7 @@ class HomepageContent(db.Model):
     __tablename__ = 'homepage_content'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), default='')
-    video_heading = db.Column(db.String(150), default='See What We Do')
+    video_heading = db.Column(db.String(150), default='Advertisement / Events')
     video_caption = db.Column(db.Text, default='')
     video_url = db.Column(db.String(500), default='')
     banner_image = db.Column(db.String(255), default='')
@@ -316,3 +316,16 @@ class PendingReceipt(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     order = db.relationship('Order', backref='pending_receipt', lazy=True)
+
+
+class BusinessGalleryImage(db.Model):
+    """Public Our Business gallery photos (building, workshop, storefront, etc.)."""
+    __tablename__ = 'business_gallery_image'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), default='')
+    caption = db.Column(db.String(300), default='')
+    image = db.Column(db.String(255), nullable=False)
+    sort_order = db.Column(db.Integer, default=0, index=True)
+    is_published = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+

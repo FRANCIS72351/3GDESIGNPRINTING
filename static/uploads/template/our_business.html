@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+
+{% block title %}Our Business - 3G DESIGN GLOBAL{% endblock %}
+
+{% block body_class %}business-gallery-page{% endblock %}
+
+{% block content %}
+<section class="business-gallery-hero">
+    <div class="business-gallery-hero-veil"></div>
+    <div class="container business-gallery-hero-copy text-center">
+        <span class="classic-heading-eyebrow">Inside the House</span>
+        <h1 class="classic-heading business-gallery-title">Our Business</h1>
+        <div class="classic-heading-divider"><span>◆</span></div>
+        <p class="business-gallery-lead">A visual tour of the 3G DESIGN GLOBAL house — the building, workshop, storefront, and the craft behind every print.</p>
+    </div>
+</section>
+
+<section class="business-gallery-section py-5">
+    <div class="container">
+        {% if images %}
+        <div class="business-gallery-grid">
+            {% for image in images %}
+            <figure class="business-gallery-item{% if loop.index == 1 %} business-gallery-item--feature{% elif loop.index in [2, 3] %} business-gallery-item--side{% endif %}">
+                <button type="button"
+                        class="business-gallery-frame"
+                        data-gallery-src="{{ url_for('static', filename=image.image) }}"
+                        data-gallery-title="{{ image.title or '3G DESIGN GLOBAL' }}"
+                        data-gallery-caption="{{ image.caption or '' }}">
+                    <img src="{{ url_for('static', filename=image.image) }}"
+                         alt="{{ image.title or image.caption or '3G DESIGN GLOBAL business photo' }}"
+                         loading="lazy"
+                         decoding="async">
+                    <span class="business-gallery-veil">
+                        <span class="business-gallery-index">{{ '%02d'|format(loop.index) }}</span>
+                        {% if image.title %}
+                        <span class="business-gallery-item-title">{{ image.title }}</span>
+                        {% endif %}
+                        <span class="business-gallery-open"><i class="fas fa-expand"></i> View</span>
+                    </span>
+                </button>
+            </figure>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="business-gallery-empty text-center">
+            <div class="business-gallery-empty-frame">
+                <i class="fas fa-camera" aria-hidden="true"></i>
+            </div>
+            <h2 class="h4 mt-4 mb-2">Gallery opening soon</h2>
+            <p class="text-muted mb-0">Photos of the building, workshop, and storefront will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if images %}
+<div class="business-lightbox" id="businessLightbox" hidden>
+    <button type="button" class="business-lightbox-close" aria-label="Close photo">&times;</button>
+    <figure class="business-lightbox-stage">
+        <img id="businessLightboxImage" alt="">
+        <figcaption>
+            <strong id="businessLightboxTitle"></strong>
+            <span id="businessLightboxCaption"></span>
+        </figcaption>
+    </figure>
+</div>
+<script>
+(function () {
+    const box = document.getElementById('businessLightbox');
+    const img = document.getElementById('businessLightboxImage');
+    const title = document.getElementById('businessLightboxTitle');
+    const caption = document.getElementById('businessLightboxCaption');
+    const closeBtn = box.querySelector('.business-lightbox-close');
+
+    function openLightbox(src, heading, text) {
+        img.src = src;
+        img.alt = heading || 'Business photo';
+        title.textContent = heading || '';
+        caption.textContent = text || '';
+        box.hidden = false;
+        document.body.classList.add('business-lightbox-open');
+    }
+
+    function closeLightbox() {
+        box.hidden = true;
+        img.removeAttribute('src');
+        document.body.classList.remove('business-lightbox-open');
+    }
+
+    document.querySelectorAll('.business-gallery-frame').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openLightbox(btn.dataset.gallerySrc, btn.dataset.galleryTitle, btn.dataset.galleryCaption);
+        });
+    });
+    closeBtn.addEventListener('click', closeLightbox);
+    box.addEventListener('click', function (event) {
+        if (event.target === box) closeLightbox();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !box.hidden) closeLightbox();
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

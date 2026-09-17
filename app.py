@@ -108,7 +108,7 @@ from flask_mail import Mail, Message
 db = SQLAlchemy()
 migrate = None
 
-from models import Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, HomepageContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event
+from models import Product, ProductVariant, Sale, CallLog, Leaders, Admin, AboutContent, HomepageContent, Customer, Order, OrderItem, DailyReport, Attendance, User, InventoryLog, Expense, SystemSettings, LoginLog, GeneratedDocument, PendingReceipt, Event, BusinessGalleryImage
 
 from security_utils import ERPSecurity
 security = ERPSecurity()
@@ -172,6 +172,10 @@ os.makedirs(HOMEPAGE_BANNER_FOLDER, exist_ok=True)
 HOMEPAGE_VIDEO_FOLDER = os.path.join(basedir, 'static/uploads/homepage/videos')
 app.config['HOMEPAGE_VIDEO_FOLDER'] = HOMEPAGE_VIDEO_FOLDER
 os.makedirs(HOMEPAGE_VIDEO_FOLDER, exist_ok=True)
+
+BUSINESS_GALLERY_FOLDER = os.path.join(basedir, 'static/uploads/business')
+app.config['BUSINESS_GALLERY_FOLDER'] = BUSINESS_GALLERY_FOLDER
+os.makedirs(BUSINESS_GALLERY_FOLDER, exist_ok=True)
 
 # iOS Safari plays H.264 in .mov more reliably as video/mp4 than video/quicktime.
 mimetypes.add_type('video/mp4', '.mp4', strict=False)
@@ -238,6 +242,8 @@ from server_stability import (
     get_about_content,
     get_cached_system_settings,
     get_homepage_content,
+    ensure_business_gallery_schema,
+    list_business_gallery_images,
     invalidate_settings_cache,
     run_in_background,
     schedule_late_staff_check,
@@ -2084,6 +2090,98 @@ def about():
     content = get_about_content(db, AboutContent)
     return render_template("about.html", leaders=leaders, content=content)
 
+
+def _remove_business_gallery_file(relative_path):
+    if not relative_path:
+        return
+    normalized = relative_path.replace('\\', '/').lstrip('/')
+    if not normalized.startswith('uploads/business/'):
+        return
+    abs_path = os.path.join(basedir, 'static', normalized.replace('/', os.sep))
+    if os.path.isfile(abs_path):
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
+
+
+@app.route('/our-business')
+def our_business():
+    images = list_business_gallery_images(db, BusinessGalleryImage, published_only=True)
+    return render_template('our_business.html', images=images)
+
+
+@app.route('/admin/our-business', methods=['GET', 'POST'])
+@login_required
+@role_required(['admin', 'moderator'])
+def edit_our_business():
+    images = list_business_gallery_images(db, BusinessGalleryImage, published_only=False)
+
+    if request.method == 'POST':
+        action = (request.form.get('action') or 'upload').strip()
+
+        if action == 'update':
+            image_id = request.form.get('image_id', type=int)
+            row = BusinessGalleryImage.query.get_or_404(image_id)
+            row.title = (request.form.get('title') or '').strip()[:150]
+            row.caption = (request.form.get('caption') or '').strip()[:300]
+            row.is_published = request.form.get('is_published') == '1'
+            sort_order = request.form.get('sort_order', type=int)
+            if sort_order is not None:
+                row.sort_order = sort_order
+            db.session.commit()
+            flash('Gallery photo updated.', 'success')
+            return redirect(url_for('edit_our_business'))
+
+        title = (request.form.get('title') or '').strip()[:150]
+        caption = (request.form.get('caption') or '').strip()[:300]
+        files = request.files.getlist('images')
+        saved = 0
+        next_order = (max((img.sort_order or 0) for img in images) + 1) if images else 0
+        os.makedirs(app.config['BUSINESS_GALLERY_FOLDER'], exist_ok=True)
+
+        for file in files:
+            if not file or not file.filename:
+                continue
+            ext = os.path.splitext(secure_filename(file.filename))[1].lower()
+            if ext not in _ALLOWED_BANNER_EXTENSIONS:
+                flash(f'Skipped {file.filename}: use JPG, PNG, WEBP, or GIF.', 'warning')
+                continue
+            filename = f'{uuid.uuid4().hex}{ext}'
+            file.save(os.path.join(app.config['BUSINESS_GALLERY_FOLDER'], filename))
+            row = BusinessGalleryImage(
+                title=title,
+                caption=caption,
+                image=f'uploads/business/{filename}',
+                sort_order=next_order,
+                is_published=True,
+            )
+            db.session.add(row)
+            next_order += 1
+            saved += 1
+
+        if saved:
+            db.session.commit()
+            flash(f'Added {saved} photo{"s" if saved != 1 else ""} to Our Business.', 'success')
+        else:
+            flash('Choose one or more images to upload.', 'warning')
+        return redirect(url_for('edit_our_business'))
+
+    return render_template('edit_our_business.html', images=images)
+
+
+@app.route('/admin/our-business/<int:image_id>/delete', methods=['POST'])
+@login_required
+@role_required(['admin', 'moderator'])
+def delete_our_business_image(image_id):
+    ensure_business_gallery_schema(db, BusinessGalleryImage)
+    row = BusinessGalleryImage.query.get_or_404(image_id)
+    _remove_business_gallery_file(row.image)
+    db.session.delete(row)
+    db.session.commit()
+    flash('Gallery photo removed.', 'success')
+    return redirect(url_for('edit_our_business'))
+
 # ----------------------------------
 # Admin: About Settings
 # ----------------------------------
@@ -2153,7 +2251,7 @@ def edit_homepage():
 
     if request.method == 'POST':
         title = (request.form.get('title') or '').strip()
-        video_heading = (request.form.get('video_heading') or '').strip() or 'See What We Do'
+        video_heading = (request.form.get('video_heading') or '').strip() or 'Advertisement / Events'
         video_caption = (request.form.get('video_caption') or '').strip()
         video_url = _normalize_homepage_video_url(request.form.get('video_url'))
         is_published = request.form.get('is_published') == '1'

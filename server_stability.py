@@ -139,7 +139,7 @@ def get_about_content(db, AboutContent):
 
 HOMEPAGE_CONTENT_COLUMN_MIGRATIONS = [
     ('title', "VARCHAR(200) DEFAULT ''"),
-    ('video_heading', "VARCHAR(150) DEFAULT 'See What We Do'"),
+    ('video_heading', "VARCHAR(150) DEFAULT 'Advertisement / Events'"),
     ('video_caption', "TEXT DEFAULT ''"),
     ('video_url', "VARCHAR(500) DEFAULT ''"),
     ('banner_image', "VARCHAR(255) DEFAULT ''"),
@@ -171,7 +171,7 @@ def get_homepage_content(db, HomepageContent):
     if content is None:
         content = HomepageContent(
             title='',
-            video_heading='See What We Do',
+            video_heading='Advertisement / Events',
             video_caption='watch this video',
             video_url='',
             banner_image='',
@@ -179,10 +179,49 @@ def get_homepage_content(db, HomepageContent):
         )
         db.session.add(content)
         commit_with_retry(db)
-    elif content.video_caption == 'Watch this short video to learn more about our services, process, and current offerings.':
-        content.video_caption = 'watch this video'
-        commit_with_retry(db)
+    else:
+        changed = False
+        if (content.video_heading or '').strip() in ('', 'See What We Do'):
+            content.video_heading = 'Advertisement / Events'
+            changed = True
+        if content.video_caption == 'Watch this short video to learn more about our services, process, and current offerings.':
+            content.video_caption = 'watch this video'
+            changed = True
+        if changed:
+            commit_with_retry(db)
     return content
+
+
+def ensure_business_gallery_schema(db, BusinessGalleryImage):
+    """Create business_gallery_image on first use."""
+    from sqlalchemy import inspect
+
+    table_name = BusinessGalleryImage.__tablename__
+    if table_name not in inspect(db.engine).get_table_names():
+        BusinessGalleryImage.__table__.create(db.engine, checkfirst=True)
+
+
+def list_business_gallery_images(db, BusinessGalleryImage, published_only=True):
+    """Return gallery rows, creating the table if the live database is older."""
+    ensure_business_gallery_schema(db, BusinessGalleryImage)
+    try:
+        query = BusinessGalleryImage.query
+        if published_only:
+            query = query.filter_by(is_published=True)
+        return query.order_by(
+            BusinessGalleryImage.sort_order.asc(),
+            BusinessGalleryImage.created_at.desc(),
+        ).all()
+    except OperationalError:
+        db.session.rollback()
+        ensure_business_gallery_schema(db, BusinessGalleryImage)
+        query = BusinessGalleryImage.query
+        if published_only:
+            query = query.filter_by(is_published=True)
+        return query.order_by(
+            BusinessGalleryImage.sort_order.asc(),
+            BusinessGalleryImage.created_at.desc(),
+        ).all()
 
 
 def ensure_system_settings(db, SystemSettings):
