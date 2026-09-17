@@ -14,8 +14,8 @@ from server_stability import get_about_content
 
 MAX_HISTORY = 16
 BUSINESS_NAME = '3G DESIGN GLOBAL'
-BUSINESS_PHONE = '+231 775 323 731'
-BUSINESS_ADDRESS = 'Newport & Benson Street, Monrovia, Liberia'
+BUSINESS_PHONE = '0775 323 731 / 0881 669 599'
+BUSINESS_ADDRESS = 'Newport & Benson Streets Intersection, Monrovia, Liberia'
 BUSINESS_HOURS = 'Monday–Saturday, 8:00 AM – 6:00 PM'
 
 
@@ -218,8 +218,10 @@ def _rule_based_reply(session_token, user_message):
                 body += f"\n\n*Services:*\n{content.services.strip()}"
             return f"*{BUSINESS_NAME}*\n\n{body}\n\n📍 {BUSINESS_ADDRESS}\n📞 {BUSINESS_PHONE}"
         return (
-            f"*{BUSINESS_NAME}* is Monrovia's premier print and design shop.\n\n"
-            f"We offer printing, branding, apparel, and design services.\n\n"
+            f"*{BUSINESS_NAME}* is a creative design, printing, branding, and packaging company in Monrovia.\n\n"
+            "We help individuals, businesses, organizations, and institutions present their brands with confidence. "
+            "Services include graphic design, commercial printing, customized apparel, corporate branding, "
+            "packaging, personalized gifts, signage, UV printing, and embroidery.\n\n"
             f"📍 {BUSINESS_ADDRESS}\n📞 {BUSINESS_PHONE}\n🕐 {BUSINESS_HOURS}"
         )
 
@@ -229,7 +231,8 @@ def _rule_based_reply(session_token, user_message):
             return f"Our services include:\n\n{content.services.strip()}\n\n{catalog}"
         return (
             f"Here are some of our offerings:\n\n{catalog}\n\n"
-            "We can print custom shirts, mugs, banners, flyers, stickers, and more. "
+            "We offer graphic design, commercial printing, customized apparel, corporate branding, "
+            "packaging, personalized gifts, signage, UV printing, and embroidery. "
             "Tell me the item and quantity for a quote."
         )
 

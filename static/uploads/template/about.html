@@ -1,9 +1,10 @@
 ﻿{% extends "layout.html" %}
 
 {% block title %}About Us - 3G DESIGN GLOBAL{% endblock %}
+{% block body_class %}about-page{% endblock %}
 
 {% block content %}
-<div id="aboutCarousel" class="carousel slide carousel-fade about-hero-carousel mb-5" data-bs-ride="carousel">
+<div id="aboutCarousel" class="carousel slide carousel-fade about-hero-carousel" data-bs-ride="carousel">
     <div class="carousel-inner">
         {% if content and content.slider1 %}
         <div class="carousel-item active">
@@ -12,9 +13,10 @@
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
+                <span class="about-hero-kicker animate__animated animate__fadeInDown">Monrovia, Liberia</span>
                 <h2 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'brand-wordmark--hero') }}</h2>
-                <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
-                <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
+                <p class="about-hero-tagline animate__animated animate__fadeInUp">Unleashing Creativity. Delivering Quality.</p>
+                <p class="about-hero-services animate__animated animate__fadeInUp">Creative Design • Professional Printing • Branding • Packaging • Custom Products</p>
             </div>
         </div>
         {% else %}
@@ -24,9 +26,10 @@
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
+                <span class="about-hero-kicker animate__animated animate__fadeInDown">Monrovia, Liberia</span>
                 <h2 class="animate__animated animate__fadeInDown">{{ brand_wordmark('gold', 'brand-wordmark--hero') }}</h2>
-                <p class="animate__animated animate__fadeInUp">Liberia’s Hub for Precision Printing & Media.</p>
-                <span class="badge bg-primary px-3 py-2 mt-2 font-monospace tracking-wider">EST. 2020</span>
+                <p class="about-hero-tagline animate__animated animate__fadeInUp">Unleashing Creativity. Delivering Quality.</p>
+                <p class="about-hero-services animate__animated animate__fadeInUp">Creative Design • Professional Printing • Branding • Packaging • Custom Products</p>
             </div>
         </div>
         {% endif %}
@@ -34,12 +37,13 @@
         {% if content and content.slider2 %}
         <div class="carousel-item">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider2) }}" class="carousel-img" alt="Custom Apparel">
+                <img src="{{ url_for('static', filename='img/' + content.slider2) }}" class="carousel-img" alt="Custom apparel and branding">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
                 <h2 class="animate__animated animate__fadeInDown">Custom Apparel</h2>
-                <p class="animate__animated animate__fadeInUp">Shirt Printing, DTF, and Brand Identity.</p>
+                <p class="about-hero-tagline animate__animated animate__fadeInUp">Turn clothing into a powerful branding tool.</p>
+                <p class="about-hero-services animate__animated animate__fadeInUp">DTF • Heat Transfer • Vinyl • Embroidery • Custom Finishing</p>
             </div>
         </div>
         {% endif %}
@@ -47,40 +51,92 @@
         {% if content and content.slider3 %}
         <div class="carousel-item">
             <div class="carousel-image-wrapper">
-                <img src="{{ url_for('static', filename='img/' + content.slider3) }}" class="carousel-img" alt="Quality Service">
+                <img src="{{ url_for('static', filename='img/' + content.slider3) }}" class="carousel-img" alt="Professional branding and printing">
                 <div class="carousel-overlay"></div>
             </div>
             <div class="carousel-caption">
-                <h2 class="animate__animated animate__fadeInDown">Quality Service</h2>
-                <p class="animate__animated animate__fadeInUp">We bring your ideas to life.</p>
+                <h2 class="animate__animated animate__fadeInDown">From Idea to Product</h2>
+                <p class="about-hero-tagline animate__animated animate__fadeInUp">We create. We brand. We customize. We deliver.</p>
+                <p class="about-hero-services animate__animated animate__fadeInUp">Consultation • Design • Proof • Production • Quality Check • Delivery</p>
             </div>
         </div>
         {% endif %}
     </div>
-    
-    <button class="carousel-control-prev" type="button" data-bs-target="#aboutCarousel" data-bs-slide="prev">
+
+    <button class="carousel-control-prev" type="button" data-bs-target="#aboutCarousel" aria-label="Previous slide">
         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
         <span class="visually-hidden">Previous</span>
     </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#aboutCarousel" data-bs-slide="next">
+    <button class="carousel-control-next" type="button" data-bs-target="#aboutCarousel" aria-label="Next slide">
         <span class="carousel-control-next-icon" aria-hidden="true"></span>
         <span class="visually-hidden">Next</span>
     </button>
 </div>
 
-<section class="about-story py-5">
+<nav class="about-page-nav" aria-label="About page sections">
     <div class="container">
-        <div class="row">
-            <div class="col-xl-9 col-lg-10 mx-auto">
-                <div class="glass-card glass-show-card p-4 p-md-5 animate__animated animate__fadeInUp">
-                    <div class="section-heading-block text-center">
-                        <h2 class="classic-section-title">Our Story</h2>
-                    </div>
-                    <div class="story-body-text fs-6">
-                        <p class="mb-0">3GDESIGN is not just a printing business—it is a brand-building partner dedicated to helping clients communicate, influence, and stand out in competitive markets. 3GDESIGN is a forward-thinking creative and print solutions company committed to delivering high-quality, visually compelling, and results-driven design products.</p>
-                        <p class="mt-3 mb-0">3GDESIGN specializes in transforming ideas into tangible brand assets through innovative graphic design, premium printing, and customized merchandise production. With a strong focus on precision, creativity, and customer satisfaction, 3GDESIGN serves Individuals, Businesses, Schools, Organizations and Companies seeking to elevate their visual identity and market presence. By combining modern design principles with cutting-edge production techniques, the company ensures consistency, quality, and timely delivery across all projects.</p>
-                    </div>
+        <div class="about-page-nav-track">
+            <a href="#who-we-are">Who We Are</a>
+            <a href="#vision-mission">Vision &amp; Mission</a>
+            <a href="#core-services">Services</a>
+            <a href="#why-choose">Why Choose Us</a>
+            <a href="#who-we-serve">Who We Serve</a>
+            <a href="#process">Process</a>
+            <a href="#leadership">Leadership</a>
+            <a href="#lets-create">Contact</a>
+        </div>
+    </div>
+</nav>
+
+<section id="who-we-are" class="about-intro py-5">
+    <div class="container">
+        <div class="row g-4 g-xl-5 align-items-stretch">
+            <div class="col-lg-7">
+                <div class="about-intro-copy h-100 animate__animated animate__fadeInUp">
+                    <span class="classic-heading-eyebrow">Who We Are</span>
+                    <h2 class="classic-section-title text-start">A creative house built to represent you</h2>
+                    <p class="about-lead">3G DESIGN GLOBAL is a creative design, printing, branding, and packaging company dedicated to helping individuals, businesses, organizations, and institutions present their brands with confidence and professionalism.</p>
+                    <p>We combine creative thinking, modern technology, quality materials, and attention to detail to transform ideas into impactful visual products. From a single customized item to large-scale corporate branding projects, our goal is simple: make every project look professional, memorable, and built to represent you.</p>
+                    <p class="about-intro-close mb-0">Creative Design • Professional Printing • Branding • Packaging • Custom Products</p>
                 </div>
+            </div>
+            <div class="col-lg-5">
+                <aside class="about-glance h-100 animate__animated animate__fadeInUp">
+                    <p class="about-glance-label">At a glance</p>
+                    <ul class="about-glance-list">
+                        <li><i class="fas fa-pen-nib" aria-hidden="true"></i><span>Creative Design</span></li>
+                        <li><i class="fas fa-print" aria-hidden="true"></i><span>Professional Printing</span></li>
+                        <li><i class="fas fa-bullseye" aria-hidden="true"></i><span>Brand Identity</span></li>
+                        <li><i class="fas fa-box-open" aria-hidden="true"></i><span>Packaging &amp; Labeling</span></li>
+                        <li><i class="fas fa-gift" aria-hidden="true"></i><span>Custom Products</span></li>
+                    </ul>
+                    <p class="about-glance-foot mb-0">Every printed product represents something bigger — your identity, your business, your event, or your message.</p>
+                </aside>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="vision-mission" class="about-manifesto py-5">
+    <div class="container">
+        <div class="section-heading-block text-center mb-5">
+            <span class="classic-heading-eyebrow">Purpose</span>
+            <h2 class="classic-section-title">Vision &amp; Mission</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <article class="about-manifesto-card about-manifesto-card--vision h-100">
+                    <div class="about-manifesto-icon"><i class="fas fa-eye" aria-hidden="true"></i></div>
+                    <h3>Our Vision</h3>
+                    <p class="mb-0">To become a leading creative design, printing, branding, and packaging company in Liberia and across the region, recognized for innovation, quality, reliability, and exceptional customer service.</p>
+                </article>
+            </div>
+            <div class="col-lg-6">
+                <article class="about-manifesto-card about-manifesto-card--mission h-100">
+                    <div class="about-manifesto-icon"><i class="fas fa-flag" aria-hidden="true"></i></div>
+                    <h3>Our Mission</h3>
+                    <p class="mb-0">To provide accessible, innovative, and high-quality creative and printing solutions that help businesses, organizations, and individuals communicate their ideas, strengthen their brands, and create memorable experiences.</p>
+                </article>
             </div>
         </div>
     </div>
@@ -89,113 +145,350 @@
 <section class="services-grid py-5 bg-dark text-white">
     <div class="container py-3">
         <div class="section-heading-block text-center mb-5">
-            <h2 class="classic-section-title text-white">Production Framework</h2>
+            <span class="classic-heading-eyebrow text-white">The Craft</span>
+            <h2 class="classic-section-title text-white">Signature Work</h2>
         </div>
-        
         <div class="row g-4 text-center">
             <div class="col-xl-3 col-md-6">
                 <div class="premium-service-card animate__animated animate__fadeInUp">
                     <div class="square-img-frame">
-                        <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom Shirt Printing" class="square-frame-src">
+                        <img src="{{ url_for('static', filename='img/shirts.jpg') }}" alt="Custom shirt printing" class="square-frame-src">
                     </div>
-                    <h4>Shirts</h4>
-                    <p class="small text-white mb-0">DTF & Industrial Screen Prints</p>
+                    <h4>Apparel</h4>
+                    <p class="small text-white mb-0">T-shirts, uniforms, DTF &amp; embroidery</p>
                 </div>
             </div>
-            
             <div class="col-xl-3 col-md-6">
                 <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-1s">
                     <div class="square-img-frame">
-                        <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom Mug Printing" class="square-frame-src">
+                        <img src="{{ url_for('static', filename='img/mugs.jpg') }}" alt="Custom mug printing" class="square-frame-src">
                     </div>
-                    <h4>Mugs</h4>
-                    <p class="small text-white mb-0">Sublimation Thermal Customization</p>
+                    <h4>Gifts</h4>
+                    <p class="small text-white mb-0">Mugs, tumblers &amp; personalized products</p>
                 </div>
             </div>
-
             <div class="col-xl-3 col-md-6">
                 <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-2s">
                     <div class="square-img-frame">
-                        <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large Format Banners" class="square-frame-src">
+                        <img src="{{ url_for('static', filename='img/banners.jpg') }}" alt="Large format banners" class="square-frame-src">
                     </div>
-                    <h4>Banners</h4>
-                    <p class="small text-white mb-0">Flex & Heavy Duty Outdoor Vinyl</p>
+                    <h4>Signage</h4>
+                    <p class="small text-white mb-0">Banners, backdrops &amp; outdoor displays</p>
                 </div>
             </div>
-
             <div class="col-xl-3 col-md-6">
                 <div class="premium-service-card animate__animated animate__fadeInUp animate__delay-3s">
                     <div class="square-img-frame">
-                        <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business Flyers" class="square-frame-src">
+                        <img src="{{ url_for('static', filename='img/flyers.jpg') }}" alt="Business flyers" class="square-frame-src">
                     </div>
-                    <h4>Flyers</h4>
-                    <p class="small text-white mb-0">High-Volume Digital & Offset Media</p>
+                    <h4>Print</h4>
+                    <p class="small text-white mb-0">Flyers, cards, brochures &amp; stationery</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="business-plan-section py-5 bg-light">
+<section id="core-services" class="about-services py-5">
     <div class="container py-3">
         <div class="section-heading-block text-center mb-5">
-            <h2 class="classic-section-title">Strategic Vision</h2>
+            <span class="classic-heading-eyebrow">What We Do</span>
+            <h2 class="classic-section-title">Our Core Services</h2>
+            <p class="about-section-lede mx-auto">Nine production studios under one roof — from a single customized gift to a complete corporate branding package.</p>
         </div>
-        
+
         <div class="row g-4">
-            <div class="col-xl-3 col-md-6">
-                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp">
-                    <div class="icon-square-container bg-warning bg-opacity-10 text-warning">
-                        <i class="fas fa-lightbulb fa-lg"></i>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">01</span>
+                        <div class="about-service-icon"><i class="fas fa-palette" aria-hidden="true"></i></div>
                     </div>
-                    <h4>Our Vision</h4>
-                    <p class="text-muted small mb-0">To become a leading creative blueprint matrix and print solutions house across Liberia and Africa, recognized for disruptive custom innovation and visual quality excellence.</p>
-                </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-1s">
-                    <div class="icon-square-container bg-primary bg-opacity-10 text-primary">
-                        <i class="fas fa-th-large fa-lg"></i>
-                    </div> 
-                    <h4>Our Divisions</h4>
-                    <ul class="list-unstyled d-flex flex-column gap-2 small text-muted mb-0">
-                        <li><i class="fas fa-print me-2 text-primary opacity-50"></i>Creative Graphic Design</li>
-                        <li><i class="fas fa-paint-brush me-2 text-primary opacity-50"></i>Quality Print Execution</li>
-                        <li><i class="fas fa-box me-2 text-primary opacity-50"></i>Excellence Packaging</li>
-                        <li><i class="fas fa-film me-2 text-primary opacity-50"></i>Pro Media Logistics</li>
-                        <li><i class="fas fa-code me-2 text-primary opacity-50"></i>Software Architecture</li>
+                    <h3>Graphic Design &amp; Creative Services</h3>
+                    <p>We turn ideas into professional visual communication.</p>
+                    <ul>
+                        <li>Logo &amp; Brand Identity Design</li>
+                        <li>Business Cards</li>
+                        <li>Flyers &amp; Posters</li>
+                        <li>Brochures &amp; Company Profiles</li>
+                        <li>Social Media Designs</li>
+                        <li>Invitations</li>
+                        <li>Certificates &amp; Awards</li>
+                        <li>Menus &amp; Price Lists</li>
+                        <li>Banners &amp; Advertising Artwork</li>
+                        <li>Custom Artwork &amp; Layouts</li>
                     </ul>
-                </div>
+                </article>
             </div>
 
-            <div class="col-xl-3 col-md-6">
-                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-2s">
-                    <div class="icon-square-container bg-success bg-opacity-10 text-success">
-                        <i class="fas fa-chart-line fa-lg"></i>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">02</span>
+                        <div class="about-service-icon"><i class="fas fa-print" aria-hidden="true"></i></div>
                     </div>
-                    <h4>Growth Goals</h4>
-                    <div class="mb-2">
-                        <span class="d-block text-dark fw-semibold small">Territorial Footprint:</span>
-                        <span class="text-muted small">Monrovia & Major Economic Hubs</span>
-                    </div>
-                    <div>
-                        <span class="d-block text-dark fw-semibold small">Financial Target:</span>
-                        <span class="text-muted small">$1M+ Annual Yield Metrics within 5 years.</span>
-                    </div>
-                </div>
+                    <h3>Digital &amp; Commercial Printing</h3>
+                    <p>Professional printing for everyday needs, business communication, events, and promotional campaigns.</p>
+                    <ul>
+                        <li>Business Cards</li>
+                        <li>Flyers &amp; Posters</li>
+                        <li>Brochures</li>
+                        <li>Letterheads &amp; Envelopes</li>
+                        <li>Receipts &amp; Invoices</li>
+                        <li>Certificates</li>
+                        <li>Booklets &amp; Calendars</li>
+                        <li>Labels &amp; Stickers</li>
+                        <li>Large-Format Prints</li>
+                    </ul>
+                </article>
             </div>
 
-            <div class="col-xl-3 col-md-6">
-                <div class="matrix-strategy-card h-100 animate__animated animate__fadeInUp animate__delay-3s">
-                    <div class="icon-square-container bg-danger bg-opacity-10 text-danger">
-                        <i class="fas fa-rocket fa-lg"></i>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">03</span>
+                        <div class="about-service-icon"><i class="fas fa-tshirt" aria-hidden="true"></i></div>
                     </div>
-                    <h4>Scale Strategy</h4>
-                    <p class="text-muted small mb-0">Driving localized scaling models through highly-trained internal staff matrices, strict quality checks, and aggressive deployment across domestic marketing channels.</p>
-                </div>
+                    <h3>Customized Apparel</h3>
+                    <p>Turn clothing into a powerful branding and expression tool.</p>
+                    <ul>
+                        <li>T-Shirts &amp; Polo Shirts</li>
+                        <li>Jerseys &amp; Hoodies</li>
+                        <li>Workwear &amp; Corporate Uniforms</li>
+                        <li>Event &amp; Campaign Shirts</li>
+                        <li>Personalized Clothing</li>
+                    </ul>
+                    <p class="about-service-note">Printing &amp; decoration: DTF • Heat Transfer • Vinyl • Embroidery • Custom Finishing</p>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">04</span>
+                        <div class="about-service-icon"><i class="fas fa-building" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>Corporate &amp; Business Branding</h3>
+                    <p>Make your business visible, recognizable, and professional.</p>
+                    <ul>
+                        <li>Office Branding &amp; Signage</li>
+                        <li>Vehicle Branding</li>
+                        <li>Wall Graphics &amp; Reception Branding</li>
+                        <li>Promotional Materials</li>
+                        <li>Staff Identification</li>
+                        <li>Corporate Stationery</li>
+                        <li>Outdoor Advertising Materials</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">05</span>
+                        <div class="about-service-icon"><i class="fas fa-box-open" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>Packaging &amp; Labeling</h3>
+                    <p>Professional packaging creates a strong first impression. We help businesses turn ordinary packaging into a professional brand experience.</p>
+                    <ul>
+                        <li>Custom Shopping Bags &amp; Gift Bags</li>
+                        <li>Product Boxes &amp; Food Packaging</li>
+                        <li>Product, Bottle &amp; Sleeve Labels</li>
+                        <li>Stickers &amp; Custom Tags</li>
+                        <li>Promotional Packaging</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">06</span>
+                        <div class="about-service-icon"><i class="fas fa-gift" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>Personalized Gifts &amp; Promotional Products</h3>
+                    <p>Make every occasion memorable with customized products.</p>
+                    <ul>
+                        <li>Customized Mugs, Tumblers &amp; Bottles</li>
+                        <li>Pillows, Photo Frames &amp; Tote Bags</li>
+                        <li>Keyholders &amp; Customized Gifts</li>
+                        <li>Birthday, Wedding &amp; Anniversary Packages</li>
+                        <li>Corporate Gifts &amp; Memorial Products</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">07</span>
+                        <div class="about-service-icon"><i class="fas fa-map" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>Signage &amp; Large-Format Solutions</h3>
+                    <p>Get your brand noticed from a distance.</p>
+                    <ul>
+                        <li>Flex, Vinyl &amp; Roll-Up Banners</li>
+                        <li>Posters, Backdrops &amp; Event Displays</li>
+                        <li>Indoor, Outdoor &amp; Directional Signs</li>
+                        <li>Window Graphics</li>
+                        <li>Promotional Displays</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">08</span>
+                        <div class="about-service-icon"><i class="fas fa-layer-group" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>UV Printing &amp; Premium Customization</h3>
+                    <p>Advanced printing solutions for businesses, events, and personalized products.</p>
+                    <ul>
+                        <li>Phone Cases</li>
+                        <li>Acrylic, Glass, Wood &amp; PVC</li>
+                        <li>Promotional Products &amp; Corporate Gifts</li>
+                        <li>Personalized Items</li>
+                        <li>Specialty Surfaces</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <article class="about-service-card h-100">
+                    <div class="about-service-head">
+                        <span class="about-service-num">09</span>
+                        <div class="about-service-icon"><i class="fas fa-certificate" aria-hidden="true"></i></div>
+                    </div>
+                    <h3>Embroidery &amp; Brand Decoration</h3>
+                    <p>Give your apparel and accessories a premium, professional finish.</p>
+                    <ul>
+                        <li>Corporate &amp; School Uniforms</li>
+                        <li>Caps, Polo Shirts &amp; Jackets</li>
+                        <li>Workwear &amp; Sportswear</li>
+                        <li>Organizations &amp; Associations</li>
+                    </ul>
+                </article>
             </div>
         </div>
+    </div>
+</section>
+
+<section id="why-choose" class="about-values py-5">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <span class="classic-heading-eyebrow">The Difference</span>
+            <h2 class="classic-section-title">Why Choose 3G DESIGN GLOBAL?</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-gem" aria-hidden="true"></i></div>
+                    <h3>Quality</h3>
+                    <p class="mb-0">We focus on clean designs, quality materials, accurate colors, and professional finishing.</p>
+                </article>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-lightbulb" aria-hidden="true"></i></div>
+                    <h3>Creativity</h3>
+                    <p class="mb-0">Every project receives creative attention designed to make your brand stand out.</p>
+                </article>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-microchip" aria-hidden="true"></i></div>
+                    <h3>Technology</h3>
+                    <p class="mb-0">We utilize modern printing and production technologies to deliver a wide range of customized solutions.</p>
+                </article>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-handshake" aria-hidden="true"></i></div>
+                    <h3>Reliability</h3>
+                    <p class="mb-0">We value deadlines, communication, and responsible handling of every customer project.</p>
+                </article>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-user-tie" aria-hidden="true"></i></div>
+                    <h3>Professional Service</h3>
+                    <p class="mb-0">From concept to final production, we aim to make the customer experience simple, clear, and professional.</p>
+                </article>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <article class="about-value-card h-100">
+                    <div class="about-value-icon"><i class="fas fa-sliders-h" aria-hidden="true"></i></div>
+                    <h3>Custom Solutions</h3>
+                    <p class="mb-0">Whether you need one customized gift or a complete corporate branding package, we develop solutions around your needs.</p>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="who-we-serve" class="about-audience py-5">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <span class="classic-heading-eyebrow">Clients</span>
+            <h2 class="classic-section-title">Who We Serve</h2>
+            <p class="about-section-lede mx-auto">We provide creative and printing solutions for organizations and individuals across Liberia.</p>
+        </div>
+        <ul class="about-audience-grid">
+            <li>Small &amp; Medium-Sized Businesses</li>
+            <li>Corporate Organizations</li>
+            <li>NGOs &amp; Development Organizations</li>
+            <li>Government Institutions</li>
+            <li>Schools &amp; Universities</li>
+            <li>Churches &amp; Religious Organizations</li>
+            <li>Restaurants &amp; Hospitality</li>
+            <li>Event Planners</li>
+            <li>Fashion Brands</li>
+            <li>Entrepreneurs &amp; Startups</li>
+            <li>Political &amp; Community Organizations</li>
+            <li>Individuals &amp; Families</li>
+        </ul>
+    </div>
+</section>
+
+<section id="process" class="about-process py-5">
+    <div class="container py-3">
+        <div class="section-heading-block text-center mb-5">
+            <span class="classic-heading-eyebrow">How We Work</span>
+            <h2 class="classic-section-title">From Idea to Finished Product</h2>
+        </div>
+        <ol class="about-process-list">
+            <li>
+                <span class="about-process-num">01</span>
+                <h3>Consultation</h3>
+                <p>Tell us what you need.</p>
+            </li>
+            <li>
+                <span class="about-process-num">02</span>
+                <h3>Creative Development</h3>
+                <p>Our team develops or prepares your design.</p>
+            </li>
+            <li>
+                <span class="about-process-num">03</span>
+                <h3>Proof &amp; Approval</h3>
+                <p>You review the artwork before production.</p>
+            </li>
+            <li>
+                <span class="about-process-num">04</span>
+                <h3>Production</h3>
+                <p>Your approved project goes into professional production.</p>
+            </li>
+            <li>
+                <span class="about-process-num">05</span>
+                <h3>Quality Check</h3>
+                <p>We inspect the finished product before delivery.</p>
+            </li>
+            <li>
+                <span class="about-process-num">06</span>
+                <h3>Delivery / Collection</h3>
+                <p>Your completed order is prepared for collection or delivery.</p>
+            </li>
+        </ol>
     </div>
 </section>
 
@@ -205,14 +498,12 @@
             <div class="col-lg-6">
                 <div class="section-heading-block mb-4">
                     <span class="classic-heading-eyebrow">Featured Showcase</span>
-                    <h2 class="classic-section-title">Advertisement & Brand Story</h2>
-                    <p class="text-muted fs-6">Showcase your next campaign with a powerful brand video and let clients feel the scale, speed, and quality of 3G DESIGN GLOBAL.</p>
+                    <h2 class="classic-section-title">Advertisement &amp; Brand Story</h2>
+                    <p class="text-muted fs-6">See the scale, speed, and finish behind 3G DESIGN GLOBAL — from concept to the products that represent your brand.</p>
                 </div>
-
                 <div class="glass-show-card p-4 p-xl-5">
                     <h3 class="h4 text-dark mb-3">A cinematic space for premium storytelling</h3>
                     <p class="text-muted mb-4">Use this area to present your strongest case study, campaign launch, or product spotlight. The video frame is designed to appear elegant, immersive, and easy to consume on every device.</p>
-
                     <div class="d-flex flex-column gap-3">
                         <div class="feature-pill">High-impact motion storytelling</div>
                         <div class="feature-pill">Responsive mobile viewing</div>
@@ -317,12 +608,13 @@
     </div>
 </section>
 
-<section class="py-5 bg-white">
+<section id="leadership" class="py-5 bg-white">
     <div class="container py-3">
         <div class="section-heading-block text-center mb-5">
+            <span class="classic-heading-eyebrow">The Team</span>
             <h2 class="classic-section-title">Leadership Core</h2>
         </div>
-        
+
         <div id="teamCarousel" class="carousel slide" data-bs-ride="carousel">
             <div class="carousel-inner">
                 {% for leader in leaders %}
@@ -342,20 +634,20 @@
                                             {% endif %}
                                         </div>
                                     </div>
-                                    
+
                                     <div class="col-12 col-md-7 col-xl-8">
                                         <div class="animate__animated animate__fadeInRight">
                                             <h3 class="fw-bold text-dark mb-1">{{ leader.name }}</h3>
                                             <h6 class="text-primary font-monospace text-uppercase tracking-wider mb-3">{{ leader.position or 'Team Member' }}</h6>
                                             <div class="text-muted small lh-lg mb-4 bio-text-container">
-                                                {{ (leader.bio or 'Dedicated professional at 3G DESIGN GLOBAL, committed to delivering excellence in every enterprise layout layer.')|brandify }}
+                                                {{ (leader.bio or 'Dedicated professional at 3G DESIGN GLOBAL, committed to delivering excellence in every project.')|brandify }}
                                             </div>
-                                            
+
                                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                                 <a href="#" class="social-link-icon"><i class="fab fa-linkedin-in"></i></a>
                                                 <a href="#" class="social-link-icon"><i class="fab fa-twitter"></i></a>
                                                 <a href="mailto:info@3gdesignglobal.com" class="social-link-icon"><i class="far fa-envelope"></i></a>
-                                                
+
                                                 {% if session.get('admin_logged_in') %}
                                                     {% set current_user = Admin.query.get(session.get('admin_id')) if Admin else None %}
                                                     {% if current_user and current_user.role == 'admin' %}
@@ -381,21 +673,75 @@
                 </div>
                 {% else %}
                 <div class="carousel-item active text-center py-5">
-                    <p class="text-muted font-monospace small">System administration profiles loading soon.</p>
+                    <p class="text-muted font-monospace small">Leadership profiles will appear here.</p>
                 </div>
                 {% endfor %}
             </div>
-            
+
             {% if leaders|length > 1 %}
-            <button class="carousel-control-prev" type="button" data-bs-target="#teamCarousel" data-bs-slide="prev">
+            <button class="carousel-control-prev" type="button" data-bs-target="#teamCarousel" aria-label="Previous leader">
                 <span class="carousel-control-prev-icon bg-dark rounded-3" aria-hidden="true"></span>
                 <span class="visually-hidden">Previous</span>
             </button>
-            <button class="carousel-control-next" type="button" data-bs-target="#teamCarousel" data-bs-slide="next">
+            <button class="carousel-control-next" type="button" data-bs-target="#teamCarousel" aria-label="Next leader">
                 <span class="carousel-control-next-icon bg-dark rounded-3" aria-hidden="true"></span>
                 <span class="visually-hidden">Next</span>
             </button>
             {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="about-commitment py-5">
+    <div class="container">
+        <div class="about-commitment-panel">
+            <span class="classic-heading-eyebrow">Our Promise</span>
+            <h2 class="classic-section-title">Our Commitment</h2>
+            <p>At 3G DESIGN GLOBAL, we believe that every printed product represents something bigger — your identity, your business, your event, or your message. That is why we don’t simply print.</p>
+            <p class="about-commitment-actions">We create. We brand. We customize. We deliver.</p>
+            <p class="mb-0">Our commitment is to provide creative solutions that combine quality, professionalism, innovation, and value.</p>
+        </div>
+    </div>
+</section>
+
+<section id="lets-create" class="about-cta py-5">
+    <div class="container">
+        <div class="about-cta-panel">
+            <span class="classic-heading-eyebrow text-white">Next Step</span>
+            <h2 class="classic-section-title text-white">Let’s Create Something Great</h2>
+            <p class="about-cta-lead">Whether you are launching a new business, promoting an existing brand, planning an event, celebrating a special occasion, or looking for customized products, 3G DESIGN GLOBAL is ready to bring your ideas to life.</p>
+            <p class="about-cta-line">Creative Design • Quality Printing • Professional Branding • Custom Solutions</p>
+            <p class="about-cta-tagline">Unleashing Creativity. Delivering Quality.</p>
+
+            <div class="about-cta-contacts">
+                <a class="about-cta-contact" href="https://maps.google.com/?q=Newport+and+Benson+Streets+Intersection+Monrovia+Liberia" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+                    <span>Newport &amp; Benson Streets Intersection, Monrovia, Liberia</span>
+                </a>
+                <a class="about-cta-contact" href="tel:+231775323731">
+                    <i class="fas fa-phone" aria-hidden="true"></i>
+                    <span>0775 323 731</span>
+                </a>
+                <a class="about-cta-contact" href="tel:+231881669599">
+                    <i class="fas fa-phone" aria-hidden="true"></i>
+                    <span>0881 669 599</span>
+                </a>
+            </div>
+
+            <div class="about-cta-social" aria-label="Social media">
+                <a href="{{ social_facebook_url() }}" target="_blank" rel="noopener noreferrer">Facebook</a>
+                <span>TikTok</span>
+                <span>Instagram</span>
+                <span>Twitter</span>
+                <span>#3GDesignGlobal</span>
+            </div>
+
+            <div class="about-cta-actions">
+                <a href="{{ social_whatsapp_url('Hello! I would like to start a project with 3G DESIGN GLOBAL.') }}" class="whatsapp-btn btn-lg" target="_blank" rel="noopener noreferrer">
+                    <i class="fab fa-whatsapp me-2"></i>Chat on WhatsApp
+                </a>
+                <a href="{{ url_for('contact') }}" class="btn btn-outline-light rounded-pill px-4 py-2">Visit Contact Page</a>
+            </div>
         </div>
     </div>
 </section>
