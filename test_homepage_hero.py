@@ -11,19 +11,33 @@ from app import app, db
 class NavbarBrandLogoTests(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix='.db')
+        self._orig_uri = app.config['SQLALCHEMY_DATABASE_URI']
         app.config['TESTING'] = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{self.db_path}'
         app.config['WTF_CSRF_ENABLED'] = False
         self.client = app.test_client()
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{self.db_path}'
+        engines = db._app_engines.setdefault(app, {})
+        for engine in list(engines.values()):
+            engine.dispose()
+        engines.clear()
+        options = {'url': f'sqlite:///{self.db_path}'}
+        options.update(app.config.get('SQLALCHEMY_ENGINE_OPTIONS') or {})
+        engines[None] = db._make_engine(None, options, app)
 
         with app.app_context():
-            db.engine.dispose()
             db.create_all()
 
     def tearDown(self):
         with app.app_context():
             db.session.remove()
-            db.engine.dispose()
+        app.config['SQLALCHEMY_DATABASE_URI'] = self._orig_uri
+        engines = db._app_engines.setdefault(app, {})
+        for engine in list(engines.values()):
+            engine.dispose()
+        engines.clear()
+        options = {'url': self._orig_uri}
+        options.update(app.config.get('SQLALCHEMY_ENGINE_OPTIONS') or {})
+        engines[None] = db._make_engine(None, options, app)
         os.close(self.db_fd)
         os.unlink(self.db_path)
 

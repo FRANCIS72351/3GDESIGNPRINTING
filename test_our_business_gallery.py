@@ -13,19 +13,31 @@ from app import app, db
 from models import Admin, BusinessGalleryImage
 
 
+def _rebind_sqlite(uri):
+    """Point Flask-SQLAlchemy at a new SQLite file without touching the live DB."""
+    app.config['SQLALCHEMY_DATABASE_URI'] = uri
+    engines = db._app_engines.setdefault(app, {})
+    for engine in list(engines.values()):
+        engine.dispose()
+    engines.clear()
+    options = {'url': uri}
+    options.update(app.config.get('SQLALCHEMY_ENGINE_OPTIONS') or {})
+    engines[None] = db._make_engine(None, options, app)
+
+
 class OurBusinessGalleryTests(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix='.db')
+        self._orig_uri = app.config['SQLALCHEMY_DATABASE_URI']
+        self._orig_folder = app.config.get('BUSINESS_GALLERY_FOLDER')
         app.config['TESTING'] = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{self.db_path}'
         app.config['WTF_CSRF_ENABLED'] = False
         self.client = app.test_client()
         self.upload_dir = tempfile.mkdtemp()
         app.config['BUSINESS_GALLERY_FOLDER'] = self.upload_dir
+        _rebind_sqlite(f'sqlite:///{self.db_path}')
 
         with app.app_context():
-            db.session.remove()
-            db.engine.dispose()
             db.create_all()
             admin = Admin(
                 username='gallery_test_admin',
@@ -40,7 +52,9 @@ class OurBusinessGalleryTests(unittest.TestCase):
         with app.app_context():
             db.session.remove()
             db.drop_all()
-            db.engine.dispose()
+        _rebind_sqlite(self._orig_uri)
+        if self._orig_folder:
+            app.config['BUSINESS_GALLERY_FOLDER'] = self._orig_folder
         os.close(self.db_fd)
         os.unlink(self.db_path)
         for name in os.listdir(self.upload_dir):
