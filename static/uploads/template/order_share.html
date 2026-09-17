@@ -21,7 +21,7 @@
     <meta name="twitter:image" content="{{ og_image }}">
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=style_version()) }}">
     {% include '_theme_override.html' %}
     <style>
         :root {
