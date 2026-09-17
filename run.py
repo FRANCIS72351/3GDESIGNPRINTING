@@ -6,6 +6,17 @@ This script starts the application using the Waitress WSGI server.
 
 import os
 import secrets
+import sys
+import traceback
+
+# Show startup/errors immediately in Windows terminals (avoids a silent 500 page).
+os.environ.setdefault('PYTHONUNBUFFERED', '1')
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 from app import app
 from models import db, Admin, AboutContent, HomepageContent, SystemSettings
 from server_stability import ensure_system_settings, get_about_content, get_homepage_content
@@ -79,6 +90,8 @@ if __name__ == '__main__':
             print("Please set up 2FA using the QR code at /setup-2fa")
             print("Save the recovery code in a safe place!")
 
+        db.session.remove()
+
     # Waitress capacity (override with env). Threads handle concurrent *requests*;
     # connection_limit + backlog absorb bursts. SQLite WAL helps many readers,
     # but writers still serialize — this is not 10k write RPS.
@@ -92,19 +105,37 @@ if __name__ == '__main__':
     connection_limit = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '800'))
     channel_timeout = int(os.getenv('WAITRESS_CHANNEL_TIMEOUT', '120'))
     backlog = int(os.getenv('WAITRESS_BACKLOG', '2048'))
+    # Flask DEBUG re-raises errors; Waitress then hides them behind a generic 500 page.
+    app.config['PROPAGATE_EXCEPTIONS'] = False
     print("Starting Production Server with Waitress...")
     print(f"Bind address: 0.0.0.0:{port} (all interfaces, threads={threads})")
     print(f"Waitress: connection_limit={connection_limit} backlog={backlog} channel_timeout={channel_timeout}")
     print(f"Do not use http://0.0.0.0:{port}/ in your browser.")
     print(f"Open in browser: http://127.0.0.1:{port}/")
     print(f"Open in browser: http://localhost:{port}/")
+
+    class _LoggedApp:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __call__(self, environ, start_response):
+            try:
+                return self.inner(environ, start_response)
+            except Exception:
+                traceback.print_exc()
+                log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+                os.makedirs(log_dir, exist_ok=True)
+                with open(os.path.join(log_dir, 'waitress_error.log'), 'a', encoding='utf-8') as log_file:
+                    traceback.print_exc(file=log_file)
+                raise
+
     serve(
-        app,
+        _LoggedApp(app),
         host='0.0.0.0',
         port=port,
         threads=threads,
         channel_timeout=channel_timeout,
         connection_limit=connection_limit,
         backlog=backlog,
-        asyncore_use_poll=True,
+        asyncore_use_poll=hasattr(__import__('select'), 'poll'),
     )

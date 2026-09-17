@@ -552,12 +552,21 @@ def moderator_permission_required(perm):
 # ----------------------------------
 @app.errorhandler(500)
 def handle_internal_error(error):
-    db.session.rollback()
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
     current_app.logger.exception('Unhandled server error')
     if request.path.startswith('/api/'):
         return jsonify({'error': 'Internal server error'}), 500
-    flash('Something went wrong. Please try again.', 'danger')
-    return redirect(request.referrer or url_for('home')), 302
+    try:
+        flash('Something went wrong. Please try again.', 'danger')
+    except Exception:
+        pass
+    try:
+        return redirect(request.referrer or url_for('home')), 302
+    except Exception:
+        return 'Internal Server Error', 500
 
 
 @app.before_request
