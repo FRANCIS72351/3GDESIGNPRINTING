@@ -1,0 +1,132 @@
+{# Unique 3G DESIGN GLOBAL stationery banner — used on invoices, receipts, and print docs. #}
+<style>
+    .lh-banner {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        min-height: 96px;
+        position: relative;
+        isolation: isolate;
+    }
+    .lh-brand {
+        position: relative;
+        z-index: 2;
+        flex: 0 0 46%;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.45rem 1.15rem 0.45rem 0.55rem;
+        background: linear-gradient(165deg, #2a4ed4 0%, #1a33b5 42%, #142c96 100%);
+        border-radius: 48px;
+        box-shadow: 10px 0 0 #fff;
+        min-width: 0;
+    }
+    .lh-logo {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        flex-shrink: 0;
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+    }
+    .lh-word {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        line-height: 0.95;
+        color: #fff;
+        font-family: 'Ethnocentric', 'Arial Black', sans-serif;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-shadow: 0 1px 0 rgba(0,0,0,0.18);
+    }
+    .lh-word .lh-line-1 {
+        font-size: clamp(0.92rem, 1.7vw, 1.22rem);
+        white-space: nowrap;
+    }
+    .lh-word .lh-line-2 {
+        font-size: clamp(0.92rem, 1.7vw, 1.22rem);
+        margin-top: 0.12rem;
+    }
+    .lh-contact {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.28rem;
+        margin-left: -2.15rem;
+        padding: 0.55rem 1.15rem 0.55rem 2.6rem;
+        background: linear-gradient(180deg, #14183a 0%, #070b22 100%);
+        border-radius: 0 48px 48px 0;
+        color: #fff;
+        min-width: 0;
+    }
+    .lh-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: 0.01em;
+    }
+    .lh-ico {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(79, 195, 247, 0.14);
+        color: #4FC3F7;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        margin-top: 1px;
+    }
+    @media (max-width: 640px) {
+        .lh-banner { flex-direction: column; min-height: 0; }
+        .lh-brand {
+            flex: none;
+            width: 100%;
+            border-radius: 28px 28px 0 0;
+            box-shadow: none;
+        }
+        .lh-contact {
+            margin-left: 0;
+            border-radius: 0 0 28px 28px;
+            padding: 0.75rem 1rem;
+        }
+    }
+    @media print {
+        .lh-banner, .lh-brand, .lh-contact, .lh-ico {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .lh-brand { box-shadow: 8px 0 0 #fff; }
+    }
+</style>
+<header class="lh-banner" aria-label="3G DESIGN GLOBAL letterhead">
+    <div class="lh-brand">
+        <img class="lh-logo" src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN GLOBAL" onerror="this.style.display='none'">
+        <div class="lh-word">
+            <span class="lh-line-1">3G DESIGN</span>
+            <span class="lh-line-2">GLOBAL</span>
+        </div>
+    </div>
+    <div class="lh-contact">
+        <div class="lh-row">
+            <span class="lh-ico"><i class="fa-solid fa-phone" aria-hidden="true"></i></span>
+            <span>{{ company.phone if company is defined else '0881669599 / 0775323731' }}</span>
+        </div>
+        <div class="lh-row">
+            <span class="lh-ico"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span>
+            <span>{{ company.email if company is defined else '3gdesignprinting7@gmail.com' }}</span>
+        </div>
+        <div class="lh-row">
+            <span class="lh-ico"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span>
+            <span>{{ company.address if company is defined else 'Newport & Benson Streets Intersection, Monrovia' }}</span>
+        </div>
+    </div>
+</header>

@@ -589,6 +589,14 @@ def check_system_status():
 
     schedule_late_staff_check(app, _run_late_staff_check_safe, app)
 
+
+@app.after_request
+def pwa_service_worker_headers(response):
+    if request.path == '/static/sw.js':
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache'
+    return response
+
 # ----------------------------------
 # Public Routes
 # ----------------------------------
@@ -1336,6 +1344,12 @@ def order_receipt(token):
         receipt=receipt,
         data=data,
         items=items,
+        company={
+            'phone': '0881669599 / 0775323731',
+            'email': '3gdesignprinting7@gmail.com',
+            'address': 'Newport & Benson Streets Intersection, Monrovia',
+            'tagline': 'Quality in Every Print, Excellence in Every Design',
+        },
         og_title=title,
         og_description=description,
         og_image=preview_image,

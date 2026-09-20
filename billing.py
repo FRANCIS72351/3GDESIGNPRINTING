@@ -30,11 +30,55 @@ BRAND_GOLD = '#4FC3F7'
 COMPANY = {
     'name': '3G DESIGN GLOBAL',
     'tagline': 'Quality in Every Print, Excellence in Every Design',
-    'phone': '+231 77 532 3731',
-    'email': 'info@3gdesignglobal.com',
+    'phone': '0881669599 / 0775323731',
+    'email': '3gdesignprinting7@gmail.com',
     'web': '3gdesignglobal.com',
-    'address': 'Newport & Benson Street, Monrovia, Liberia',
+    'address': 'Newport & Benson Streets Intersection, Monrovia',
 }
+
+
+def draw_letterhead(p, page_width, page_height, margin=16):
+    """Draw the capsule stationery banner used on every invoice and receipt."""
+    header_h = 78
+    x = margin
+    y = page_height - margin - header_h
+    w = page_width - (margin * 2)
+    brand_w = w * 0.47
+    overlap = 30
+
+    p.setFillColor(colors.HexColor('#070B22'))
+    p.roundRect(x + brand_w - overlap, y, w - brand_w + overlap, header_h, 28, fill=1, stroke=0)
+
+    p.setFillColor(colors.HexColor('#1A33B5'))
+    p.roundRect(x, y, brand_w, header_h, 28, fill=1, stroke=0)
+
+    logo_path = os.path.join(current_app.root_path, 'static', 'img', 'LOGO.png')
+    if os.path.exists(logo_path):
+        p.drawImage(logo_path, x + 8, y + 8, width=62, height=62, preserveAspectRatio=True, mask='auto')
+
+    p.setFillColor(colors.white)
+    p.setFont('Helvetica-Bold', 13)
+    p.drawString(x + 76, y + 44, '3G DESIGN')
+    p.drawString(x + 76, y + 26, 'GLOBAL')
+
+    contact_x = x + brand_w - 4
+    icon_x = contact_x
+    text_x = contact_x + 16
+    p.setFillColor(colors.HexColor('#4FC3F7'))
+    p.circle(icon_x + 5, y + 58, 5, fill=1, stroke=0)
+    p.circle(icon_x + 5, y + 40, 5, fill=1, stroke=0)
+    p.circle(icon_x + 5, y + 22, 5, fill=1, stroke=0)
+    p.setFillColor(colors.white)
+    p.setFont('Helvetica-Bold', 7)
+    p.drawCentredString(icon_x + 5, y + 56, 'P')
+    p.drawCentredString(icon_x + 5, y + 38, '@')
+    p.drawCentredString(icon_x + 5, y + 20, 'L')
+    p.setFont('Helvetica-Bold', 8.5)
+    p.drawString(text_x, y + 55, COMPANY['phone'])
+    p.drawString(text_x, y + 37, COMPANY['email'])
+    p.setFont('Helvetica', 7.6)
+    p.drawString(text_x, y + 19, COMPANY['address'])
+    return y
 
 
 def billing_roles_required(*roles, permission='billing'):
@@ -146,27 +190,7 @@ def render_pdf(payload):
     accent = colors.HexColor(BRAND_GOLD if is_receipt else BRAND_NAVY)
     navy = colors.HexColor(BRAND_NAVY)
 
-    header_h = 58
-    header_x = 18
-    header_y = height - 18 - header_h
-    header_w = width - (header_x * 2)
-    p.setFillColor(colors.HexColor('#08086F'))
-    p.roundRect(header_x, header_y, header_w, header_h, 10, fill=1, stroke=0)
-    p.setFillColor(colors.HexColor('#17277B'))
-    p.rect(width / 2, header_y, header_w / 2, header_h, fill=1, stroke=0)
-
-    logo_path = os.path.join(current_app.root_path, 'static', 'img', 'LOGO.png')
-    if os.path.exists(logo_path):
-        p.drawImage(logo_path, header_x + 4, header_y + 11, width=36, height=36, preserveAspectRatio=True, mask='auto')
-    draw_brand_wordmark_pdf(p, header_x + 46, header_y + 23, current_app.root_path, variant='light', img_height=12, suffix_size=9)
-
-    contact_x = header_x + header_w - 225
-    p.setFillColor(colors.white)
-    p.setFont('Helvetica-Bold', 8.5)
-    p.drawString(contact_x, header_y + 39, '+231 88 166 9599 / +231 77 532 3731')
-    p.drawString(contact_x, header_y + 27, COMPANY['email'])
-    p.setFont('Helvetica', 7)
-    p.drawString(contact_x, header_y + 15, 'Newport & Benson Streets, Intersection, Monrovia')
+    header_bottom = draw_letterhead(p, width, height)
 
     p.saveState()
     try:

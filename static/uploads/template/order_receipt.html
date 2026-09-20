@@ -7,12 +7,13 @@
     {% include '_favicon.html' %}
     {% include '_brand_font.html' %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=style_version()) }}">
     {% include '_theme_override.html' %}
     <style>
         body { background: #f0f2f5; }
-        .doc-sheet { max-width: 800px; margin: 2rem auto; background: #fff; box-shadow: 0 8px 40px rgba(11,31,58,0.12); border-top: 4px solid var(--brand-gold); }
-        .doc-header-bar { background: var(--brand-navy); color: #fff; padding: 0.6rem 2rem; display:flex; justify-content:space-between; font-size:0.85rem; font-weight:700; letter-spacing:0.06em; }
+        .doc-sheet { max-width: 800px; margin: 2rem auto; background: #fff; box-shadow: 0 8px 40px rgba(11,31,58,0.12); overflow: hidden; }
+        .doc-letterhead-slot { margin: 0.85rem 0.9rem 0.4rem; }
         .doc-body { padding: 2rem; }
         .doc-meta-box { border: 2px solid var(--brand-gold); border-radius: 8px; padding: 1rem; text-align: right; }
         .doc-table th { background: #f2f4f7; font-size: 0.8rem; text-transform: uppercase; }
@@ -33,18 +34,14 @@
     </div>
 
     <div class="doc-sheet">
-        <div class="doc-header-bar">
-            <span>{{ brand_wordmark('light', 'brand-wordmark--on-dark') }}</span>
-            <span>RECEIPT</span>
+        <div class="doc-letterhead-slot">
+            {% include '_letterhead.html' %}
         </div>
         <div class="doc-body">
             <div class="row mb-4">
                 <div class="col-7">
-                    <div class="doc-logo-badge">
-                        <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN GLOBAL" onerror="this.style.display='none'">
-                    </div>
                     <h2 class="h4 mb-1">{{ brand_wordmark('navy', 'brand-wordmark--doc') }}</h2>
-                    <div class="small text-muted">Newport & Benson Street, Monrovia, Liberia<br>Tel: +231 77 532 3731 · info@3gdesignglobal.com<br>3gdesignglobal.com</div>
+                    <div class="small text-muted">{{ company.tagline if company is defined else 'Quality in Every Print, Excellence in Every Design' }}</div>
                 </div>
                 <div class="col-5">
                     <div class="doc-meta-box">
