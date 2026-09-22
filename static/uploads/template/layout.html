@@ -16,6 +16,28 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=style_version()) }}">
     {% include '_theme_override.html' %}
+    <style id="navbar-brand-lockup-css">
+        nav.navbar a.navbar-brand {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 0.7rem !important;
+            white-space: nowrap !important;
+        }
+        nav.navbar a.navbar-brand img,
+        nav.navbar a.navbar-brand .navbar-brand-mark {
+            display: inline-block !important;
+            flex: 0 0 auto !important;
+            vertical-align: middle !important;
+        }
+        nav.navbar a.navbar-brand .brand-wordmark {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            margin-top: 0 !important;
+            white-space: nowrap !important;
+        }
+    </style>
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -28,8 +50,15 @@
         </div>
 
         <div class="container">
-            <a class="navbar-brand animate__animated animate__fadeIn" href="{{ url_for('home') }}">
-                <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="3G DESIGN GLOBAL Logo" class="navbar-brand-mark">
+            <a class="navbar-brand navbar-brand-lockup d-inline-flex flex-row flex-nowrap align-items-center animate__animated animate__fadeIn"
+               href="{{ url_for('home') }}"
+               style="display:inline-flex !important;flex-direction:row !important;flex-wrap:nowrap !important;align-items:center !important;gap:0.7rem;">
+                <img src="{{ url_for('static', filename='img/LOGO.png') }}"
+                     alt="3G DESIGN GLOBAL Logo"
+                     class="navbar-brand-mark"
+                     width="44"
+                     height="44"
+                     style="display:inline-block;flex-shrink:0;width:44px;height:44px;object-fit:contain;vertical-align:middle;">
                 {{ brand_wordmark('light', 'brand-subtext brand-wordmark--nav') }}
             </a>
             

@@ -982,9 +982,11 @@ from order_share import (
     build_order_copy_text,
     build_wa_me_caption,
     build_wa_me_fallback_text,
+    build_wa_me_media_text,
     build_whatsapp_text,
     build_whatsapp_short_message,
     generate_order_image,
+    receipt_jpeg_bytes,
     try_notify_shop_via_api,
 )
 from site_config import CANONICAL_CLOUD_SITE_URL, get_whatsapp_number, whatsapp_env_status, _sanitize_public_url
@@ -1271,10 +1273,8 @@ def order_share_page(token):
     image_url = (
         f"{base_url}/static/uploads/{image_rel}" if image_rel else f"{base_url}/static/img/LOGO.png"
     )
-    image_fetch_url = (
-        url_for('static', filename=f'uploads/{image_rel}')
-        if image_rel else url_for('static', filename='img/LOGO.png')
-    )
+    image_fetch_url = url_for('order_share_image', token=token)
+    image_share_url = f"{base_url}/order/share/{token}/image.jpg"
     # Copy/paste text: order details only (no URL). Image goes via Web Share.
     copy_text = build_order_copy_text(items)
     short_message = copy_text
@@ -1286,8 +1286,9 @@ def order_share_page(token):
         og_description += f' +{item_count - 3} more'
     phone = WHATSAPP_NUMBER.lstrip('+')
     wa_caption = build_wa_me_caption(items)
+    wa_media_text = build_wa_me_media_text(items, image_share_url)
     wa_chat_url = f"https://wa.me/{phone}"
-    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(wa_caption)}"
+    wa_preview_url = f"https://wa.me/{phone}?text={urllib.parse.quote(wa_media_text)}"
     wa_status = whatsapp_env_status()
     shop_api_ready = bool(wa_status.get('can_send'))
     product_images = [
@@ -1308,8 +1309,9 @@ def order_share_page(token):
         message_text=message_text,
         short_message=short_message,
         copy_text=copy_text,
-        image_url=image_url,
+        image_url=image_share_url,
         image_fetch_url=image_fetch_url,
+        image_share_url=image_share_url,
         share_page_url=share_page_url,
         product_images=product_images,
         wa_phone=phone,
@@ -1321,7 +1323,43 @@ def order_share_page(token):
         og_description=og_description,
         og_image=image_url,
         og_url=share_page_url,
+        wa_media_text=wa_media_text,
     )
+
+
+@app.route('/order/share/<token>/image.jpg')
+def order_share_image(token):
+    """Serve the order receipt as an inline JPEG so WhatsApp shows a photo, not a file."""
+    import json
+
+    receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
+    data = json.loads(receipt.payload)
+    image_rel = (data.get('share_image') or '').replace('\\', '/').lstrip('/')
+    if not image_rel.startswith('orders/') or '..' in image_rel:
+        abort(404)
+
+    png_path = os.path.join(app.root_path, 'static', 'uploads', image_rel.replace('/', os.sep))
+    orders_root = os.path.realpath(os.path.join(app.root_path, 'static', 'uploads', 'orders'))
+    real_path = os.path.realpath(png_path)
+    if not real_path.startswith(orders_root + os.sep) or not os.path.isfile(real_path):
+        abort(404)
+
+    jpeg = receipt_jpeg_bytes(real_path)
+    if jpeg is None:
+        abort(404)
+
+    response = send_file(
+        jpeg,
+        mimetype='image/jpeg',
+        as_attachment=False,
+        download_name='3G-Order-Receipt.jpg',
+        max_age=86400,
+        conditional=False,
+    )
+    response.headers['Content-Type'] = 'image/jpeg'
+    response.headers['Content-Disposition'] = 'inline; filename="3G-Order-Receipt.jpg"'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @app.route('/order/receipt/<token>')
