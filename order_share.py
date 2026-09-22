@@ -23,26 +23,51 @@ def _normalize_local_image(image_file):
     """Strip URL prefixes so relative upload paths resolve on disk."""
     if not image_file:
         return ''
-    value = str(image_file).strip()
-    if value.startswith('http'):
-        return None
-    value = value.replace('\\', '/')
+    value = str(image_file).strip().replace('\\', '/')
+    if value.startswith('http://') or value.startswith('https://'):
+        value = value.split('?', 1)[0]
+        for marker in ('/static/uploads/', '/uploads/'):
+            index = value.find(marker)
+            if index != -1:
+                return value[index + len(marker):]
+        if '/static/img/' in value:
+            return '__logo__'
+        return ''
     for prefix in ('/static/uploads/', 'static/uploads/', '/uploads/', 'uploads/'):
         if value.startswith(prefix):
-            value = value[len(prefix):]
+            return value[len(prefix):]
     return value.lstrip('/')
 
 
 def _resolve_image_path(app_root, image_file):
     normalized = _normalize_local_image(image_file)
-    if normalized is None:
-        return None
-    if not normalized:
-        return os.path.join(app_root, 'static', 'img', 'LOGO.png')
+    logo = os.path.join(app_root, 'static', 'img', 'LOGO.png')
+    if normalized == '__logo__' or not normalized:
+        return logo if os.path.exists(logo) else None
     path = os.path.join(app_root, 'static', 'uploads', normalized)
     if os.path.exists(path):
         return path
-    return os.path.join(app_root, 'static', 'img', 'LOGO.png')
+    basename = os.path.basename(normalized)
+    fallback = os.path.join(app_root, 'static', 'uploads', basename)
+    if basename and os.path.exists(fallback):
+        return fallback
+    return logo if os.path.exists(logo) else None
+
+
+def image_to_jpeg_bytes(path, quality=88, max_side=1600):
+    """Convert any local image into a WhatsApp-friendly JPEG (photo bubble, not a file)."""
+    from io import BytesIO
+
+    src = Image.open(path).convert('RGB')
+    width, height = src.size
+    longest = max(width, height)
+    if longest > max_side:
+        scale = max_side / float(longest)
+        src = src.resize((max(1, int(width * scale)), max(1, int(height * scale))), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    src.save(buf, format='JPEG', quality=quality, optimize=True)
+    buf.seek(0)
+    return buf
 
 
 def _font_candidates(bold=False):
@@ -222,13 +247,13 @@ def build_wa_me_fallback_text(cart_items=None):
 
 def generate_order_image(cart_items, token, app_root):
     """
-    Build one high-quality PNG receipt with product thumbnails + order details.
-    Designed for WhatsApp media bubbles (wide, crisp, navy/gold brand).
-    Saved to static/uploads/orders/order_{token}.png
+    Build one high-quality JPEG receipt with product photos + order details.
+    JPEG is required so WhatsApp shows a photo bubble instead of a document.
+    Saved to static/uploads/orders/order_{token}.jpg
     """
-    width = 900
-    thumb_size = 128
-    row_h = 156
+    width = 1080
+    thumb_size = 220
+    row_h = 248
     pad = 36
     header_h = 118
     meta_h = 44
@@ -277,7 +302,7 @@ def generate_order_image(cart_items, token, app_root):
                 fill='#FFFFFF',
             )
 
-        img_path = _resolve_image_path(app_root, item.get('image', ''))
+        img_path = _resolve_image_path(app_root, item.get('image') or item.get('image_url', ''))
         box = (pad, y, pad + thumb_size, y + thumb_size)
         _paste_thumbnail(canvas, draw, img_path, box, thumb_size, placeholder_font)
 
@@ -331,9 +356,9 @@ def generate_order_image(cart_items, token, app_root):
 
     out_dir = os.path.join(app_root, 'static', 'uploads', 'orders')
     os.makedirs(out_dir, exist_ok=True)
-    filename = f'order_{token}.png'
+    filename = f'order_{token}.jpg'
     out_path = os.path.join(out_dir, filename)
-    canvas.convert('RGB').save(out_path, 'PNG', optimize=True)
+    canvas.convert('RGB').save(out_path, 'JPEG', quality=88, optimize=True)
     return f'orders/{filename}'
 
 
@@ -364,8 +389,8 @@ def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root, 
                 resp = requests.post(
                     f'{base}/media',
                     headers=headers,
-                    data={'messaging_product': 'whatsapp', 'type': 'image/png'},
-                    files={'file': ('order.png', f, 'image/png')},
+                    data={'messaging_product': 'whatsapp', 'type': 'image/jpeg'},
+                    files={'file': ('3G-Order.jpg', f, 'image/jpeg')},
                     timeout=30,
                 )
             if resp.ok:
@@ -404,7 +429,7 @@ def try_notify_shop_via_api(cart_items, message_text, image_rel_path, app_root, 
         })
 
     for item in cart_items:
-        img_path = _resolve_image_path(app_root, item.get('image', ''))
+        img_path = _resolve_image_path(app_root, item.get('image') or item.get('image_url', ''))
         if not img_path or not os.path.exists(img_path):
             continue
         try:

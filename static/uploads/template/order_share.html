@@ -12,7 +12,9 @@
     <meta property="og:description" content="{{ og_description }}">
     <meta property="og:image" content="{{ og_image }}">
     <meta property="og:image:secure_url" content="{{ og_image }}">
-    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1080">
+    <meta property="og:image:height" content="1080">
     <meta property="og:url" content="{{ og_url }}">
     <meta property="og:site_name" content="3G DESIGN GLOBAL">
     <meta name="twitter:card" content="summary_large_image">
@@ -281,6 +283,29 @@
             user-select: text;
             -webkit-user-select: text;
         }
+        .photo-sheet {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            background: rgba(6, 20, 40, 0.92);
+            padding: 1rem;
+            overflow: auto;
+        }
+        .photo-sheet.open { display: flex; flex-direction: column; align-items: center; }
+        .photo-sheet img {
+            width: min(100%, 420px);
+            border-radius: 16px;
+            margin-top: 2rem;
+        }
+        .photo-sheet p {
+            color: #fff;
+            text-align: center;
+            max-width: 360px;
+            margin: 1rem 0;
+            font-size: 0.92rem;
+            line-height: 1.45;
+        }
     </style>
 </head>
 <body class="share-order-page">
@@ -298,7 +323,7 @@
             </div>
             <div class="chat-stage">
                 <div class="chat-bubble">
-                    <img src="{{ image_fetch_url }}" alt="3G DESIGN GLOBAL order receipt" class="receipt-preview" id="orderImage" crossorigin="anonymous">
+                    <img src="{{ image_fetch_url }}" alt="3G DESIGN GLOBAL order receipt" class="receipt-preview" id="orderImage">
                     <div class="chat-caption">{{ short_message.split('\n')[0] }}</div>
                 </div>
             </div>
@@ -307,7 +332,7 @@
             <div class="product-strip" aria-label="Products in this order">
                 {% for item in items %}
                 <div class="product-chip">
-                    <img src="{{ url_for('static', filename='uploads/' + item.image) if item.image else url_for('static', filename='img/LOGO.png') }}"
+                    <img src="{{ url_for('order_share_item_photo', token=token, index=loop.index0) }}"
                          alt="{{ item.product_name }}"
                          loading="lazy">
                     <span>{{ item.product_name }}</span>
@@ -346,17 +371,23 @@
                         <button type="button" class="btn-ghost" id="copyTextBtn" onclick="copyOrderText()">
                             <i class="fas fa-copy"></i> Copy order text
                         </button>
-                        <a href="{{ image_fetch_url }}" download="3G-Order-Receipt.png" class="btn-ghost" id="saveImageLink">
-                            <i class="fas fa-download"></i> Save receipt image
+                        <a href="{{ image_fetch_url }}" target="_blank" rel="noopener" class="btn-ghost" id="saveImageLink">
+                            <i class="fas fa-image"></i> Open order photo
                         </a>
-                        <button type="button" class="btn-ghost" onclick="manualAttachFlow()">
-                            <i class="fab fa-whatsapp"></i> Save image &amp; open WhatsApp
+                        <button type="button" class="btn-ghost" onclick="openWhatsAppChat()">
+                            <i class="fab fa-whatsapp"></i> Open WhatsApp chat
                         </button>
                     </div>
                     <div class="order-summary" id="orderSummary">{{ short_message }}</div>
                 </div>
             </details>
         </div>
+    </div>
+    <div class="photo-sheet" id="photoSheet" hidden>
+        <img id="photoSheetImage" alt="Order photo ready to share">
+        <p>Tap and hold the photo, then choose <strong>Share</strong> → <strong>WhatsApp</strong>. That drops the product picture into the chat.</p>
+        <button type="button" class="btn-wa-primary" onclick="sendOrderToWhatsApp()">Share photo to WhatsApp</button>
+        <button type="button" class="btn-ghost" style="margin-top:0.6rem;max-width:420px" onclick="closePhotoSheet()">Close</button>
     </div>
 
     <script>
@@ -372,9 +403,10 @@
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isMobile = isIOS || isAndroid;
     const PRIMARY_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Send Order to 3G DESIGN GLOBAL on WhatsApp';
-    const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Save &amp; Open WhatsApp';
+    const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Share Photos to WhatsApp';
 
     let cachedReceiptFile = null;
+    let cachedProductFiles = null;
 
     function setStatus(html, kind) {
         const el = document.getElementById('shareStatus');
@@ -384,9 +416,8 @@
     }
 
     function blobToFile(blob, name) {
-        const type = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/png';
         try {
-            return new File([blob], name, { type: type, lastModified: Date.now() });
+            return new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() });
         } catch (_) {
             blob.name = name;
             blob.lastModified = Date.now();
@@ -404,74 +435,51 @@
 
     async function fetchReceiptFile() {
         if (cachedReceiptFile) return cachedReceiptFile;
-
         const urls = [imageFetchUrl, imageAbsoluteUrl];
         let lastError;
         for (const url of urls) {
             if (!url) continue;
             try {
-                cachedReceiptFile = await fetchImageAsFile(url, '3G-Order-Receipt.png');
+                cachedReceiptFile = await fetchImageAsFile(url, '3G-Order.jpg');
                 return cachedReceiptFile;
             } catch (e) {
                 lastError = e;
             }
         }
-
-        try {
-            const img = document.getElementById('orderImage');
-            if (img && img.complete && img.naturalWidth) {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                canvas.getContext('2d').drawImage(img, 0, 0);
-                const blob = await new Promise((resolve, reject) => {
-                    canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
-                });
-                cachedReceiptFile = blobToFile(blob, '3G-Order-Receipt.png');
-                return cachedReceiptFile;
-            }
-        } catch (e) {
-            lastError = e;
-        }
-        throw lastError || new Error('Could not load receipt image');
+        throw lastError || new Error('Could not load order photo');
     }
 
-    function canShareFiles(files) {
-        if (!navigator.share) return false;
-        const payload = { files: files };
-        if (typeof navigator.canShare !== 'function') {
-            return files.length === 1;
+    async function fetchProductFiles() {
+        if (cachedProductFiles) return cachedProductFiles;
+        const files = [];
+        const list = Array.isArray(productImages) ? productImages.slice(0, 6) : [];
+        for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const url = item.fetch_url || item.url;
+            if (!url) continue;
+            try {
+                const safe = String(item.name || 'Product').replace(/[^\w\- ]+/g, '').slice(0, 32) || 'Product';
+                files.push(await fetchImageAsFile(url, safe + '.jpg'));
+            } catch (_) { /* skip missing product photo */ }
         }
+        cachedProductFiles = files;
+        return files;
+    }
+
+    function canShare(files) {
+        if (!navigator.share || !files.length) return false;
+        if (typeof navigator.canShare !== 'function') return true;
         try {
-            return navigator.canShare(payload);
+            return navigator.canShare({ files: files });
         } catch (_) {
             return false;
         }
     }
 
     async function shareImageFiles(files) {
-        if (!navigator.share || !files.length) return false;
-        const payload = { files: files };
-        if (typeof navigator.canShare === 'function') {
-            try {
-                if (!navigator.canShare(payload)) return false;
-            } catch (_) {
-                return false;
-            }
-        }
-        await navigator.share(payload);
+        if (!canShare(files)) return false;
+        await navigator.share({ files: files });
         return true;
-    }
-
-    function triggerDownload(file) {
-        const blobUrl = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = '3G-Order-Receipt.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
     }
 
     async function copyTextSilent() {
@@ -484,67 +492,83 @@
         }
     }
 
-    async function manualAttachFlow() {
-        try {
-            const file = await fetchReceiptFile();
-            triggerDownload(file);
-            await copyTextSilent();
-            setStatus(
-                'Receipt saved. WhatsApp is opening — attach the photo from your gallery, then tap <strong>Send</strong>.',
-                'warn'
-            );
-            window.location.href = waPreviewUrl || waChatUrl;
-        } catch (e) {
-            setStatus('Could not prepare the receipt image. Try <strong>Save receipt image</strong> in More options.', 'warn');
-        }
+    function openWhatsAppChat() {
+        window.location.href = waPreviewUrl || waChatUrl;
+    }
+
+    function openPhotoSheet(file) {
+        const sheet = document.getElementById('photoSheet');
+        const img = document.getElementById('photoSheetImage');
+        img.src = URL.createObjectURL(file);
+        sheet.hidden = false;
+        sheet.classList.add('open');
+    }
+
+    function closePhotoSheet() {
+        const sheet = document.getElementById('photoSheet');
+        sheet.classList.remove('open');
+        sheet.hidden = true;
     }
 
     async function sendOrderToWhatsApp() {
         const btn = document.getElementById('shareBtn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing your order...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing photos...';
 
         try {
             const receiptFile = await fetchReceiptFile();
+            const productFiles = await fetchProductFiles();
+            const album = productFiles.concat([receiptFile]);
 
             if (navigator.share) {
-                try {
-                    const shared = await shareImageFiles([receiptFile]);
-                    if (shared) {
-                        await copyTextSilent();
-                        setStatus(
-                            '<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. Your order photo is ready.',
-                            'success'
-                        );
-                        return;
+                const attempts = [album, productFiles, [receiptFile]];
+                for (const files of attempts) {
+                    if (!files.length) continue;
+                    try {
+                        const shared = await shareImageFiles(files);
+                        if (shared) {
+                            await copyTextSilent();
+                            setStatus(
+                                '<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. The product photos will appear in the chat.',
+                                'success'
+                            );
+                            closePhotoSheet();
+                            return;
+                        }
+                    } catch (e) {
+                        if (e && e.name === 'AbortError') {
+                            setStatus('Cancelled. Tap the button when you are ready to send.');
+                            return;
+                        }
                     }
-                } catch (e) {
-                    if (e && e.name === 'AbortError') {
-                        setStatus('Cancelled. Tap the button when you are ready to send.');
-                        return;
-                    }
-                    console.warn('File share failed', e);
                 }
             }
 
-            triggerDownload(receiptFile);
             await copyTextSilent();
-            setStatus(
-                'Receipt saved. Opening WhatsApp — attach the photo, then tap <strong>Send</strong>.',
-                'warn'
-            );
-            setTimeout(() => {
-                window.location.href = waPreviewUrl || waChatUrl;
-            }, 450);
+            if (isMobile) {
+                openPhotoSheet(productFiles[0] || receiptFile);
+                setStatus(
+                    'Hold the photo, then tap <strong>Share → WhatsApp</strong> so the picture lands in the chat.',
+                    'warn'
+                );
+            } else {
+                window.open(imageFetchUrl, '_blank');
+                setStatus(
+                    'The order photo opened in a new tab. On WhatsApp Web use the attach (clip) button and send that photo.',
+                    'warn'
+                );
+                setTimeout(openWhatsAppChat, 600);
+            }
         } catch (e) {
             if (e && e.name === 'AbortError') {
                 setStatus('Cancelled. Tap the button when you are ready to send.');
             } else {
                 console.warn('Share failed', e);
                 setStatus(
-                    'Could not auto-send. Open <strong>More options</strong> to save the image and open WhatsApp manually.',
+                    'Could not auto-share. Open the order photo, then share it to WhatsApp.',
                     'warn'
                 );
+                if (imageFetchUrl) window.open(imageFetchUrl, '_blank');
             }
         } finally {
             btn.disabled = false;
@@ -555,7 +579,7 @@
     function copyOrderText() {
         const text = copyText || shortMessage || '';
         navigator.clipboard.writeText(text).then(() => {
-            setStatus('Order text copied. Paste it in WhatsApp after the photo.', 'success');
+            setStatus('Order text copied. Paste it in WhatsApp after the photos.', 'success');
         }).catch(() => {
             const range = document.createRange();
             range.selectNodeContents(document.getElementById('orderSummary'));
@@ -568,12 +592,11 @@
 
     (function initPage() {
         if (!isMobile) {
-            setStatus('On a computer: the button saves your receipt and opens WhatsApp Web. Attach the saved photo there.', 'warn');
-            document.getElementById('shareBtn').innerHTML = DESKTOP_BTN_LABEL;
-        } else if (!navigator.share) {
+            setStatus('On a computer: share the photos into WhatsApp Web with the attach button.', 'warn');
             document.getElementById('shareBtn').innerHTML = DESKTOP_BTN_LABEL;
         }
         fetchReceiptFile().catch(() => {});
+        fetchProductFiles().catch(() => {});
     })();
     </script>
 </body>

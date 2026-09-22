@@ -150,7 +150,7 @@ class WhatsAppOrderTests(unittest.TestCase):
                 'image': '/static/uploads/shirt.png',
             }]
             rel = generate_order_image(items, 'unittesttoken', tmp)
-            self.assertEqual(rel, 'orders/order_unittesttoken.png')
+            self.assertEqual(rel, 'orders/order_unittesttoken.jpg')
             out = os.path.join(tmp, 'static', 'uploads', rel)
             self.assertTrue(os.path.isfile(out))
             self.assertGreater(os.path.getsize(out), 500)
@@ -187,7 +187,7 @@ class WhatsAppOrderTests(unittest.TestCase):
             self.assertNotIn('cart', sess)
 
     @patch('app.run_in_background')
-    @patch('app.generate_order_image', return_value='orders/order_page.png')
+    @patch('app.generate_order_image', return_value='orders/order_page.jpg')
     def test_order_share_page_shows_images(self, _mock_image, _mock_bg):
         with app.test_request_context('/'):
             token, _, _ = finalize_whatsapp_order([self._sample_item()])
@@ -196,14 +196,15 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         html = r.get_data(as_text=True)
         base = get_public_base_url()
-        self.assertIn(f'{base}/static/uploads/orders/order_page.png', html)
-        self.assertIn('/static/uploads/test-mug.jpg', html)
+        self.assertIn(f'{base}/order/share/{token}/photo.jpg', html)
+        self.assertIn(f'/order/share/{token}/photo.jpg', html)
+        self.assertIn(f'/order/share/{token}/item/0.jpg', html)
         self.assertIn('Test Mug', html)
         self.assertIn('product-strip', html)
         self.assertIn('receipt-preview', html)
 
     @patch('app.run_in_background')
-    @patch('app.generate_order_image', return_value='orders/order_og.png')
+    @patch('app.generate_order_image', return_value='orders/order_og.jpg')
     def test_order_share_page_has_single_primary_cta(self, _mock_image, _mock_bg):
         with app.test_request_context('/'):
             token, _, _ = finalize_whatsapp_order([self._sample_item('Poster', 'poster.jpg')])
@@ -212,7 +213,7 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         base = get_public_base_url()
         self.assertIn('property="og:image"', html)
-        self.assertIn(f'{base}/static/uploads/orders/order_og.png', html)
+        self.assertIn(f'{base}/order/share/{token}/photo.jpg', html)
         self.assertIn('property="og:title"', html)
         self.assertIn('property="og:description"', html)
         self.assertIn(f'{base}/order/share/{token}', html)
@@ -228,15 +229,15 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertNotIn('order%2Fshare', html)
 
     @patch('app.run_in_background')
-    @patch('app.generate_order_image', return_value='orders/order_abs.png')
+    @patch('app.generate_order_image', return_value='orders/order_abs.jpg')
     def test_order_share_uses_absolute_public_urls(self, _mock_image, _mock_bg):
         with app.test_request_context('/'):
             token, _, _ = finalize_whatsapp_order([self._sample_item()])
 
         r = self.client.get(f'/order/share/{token}')
         html = r.get_data(as_text=True)
-        self.assertIn('https://example.test/static/uploads/orders/order_abs.png', html)
         self.assertIn('https://example.test/order/share/', html)
+        self.assertIn('/photo.jpg', html)
         self.assertNotIn('https://pythonanywhere.com/', html)
 
     @patch('app.run_in_background')
@@ -251,6 +252,33 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('Test Mug', html)
         self.assertIn('const waCaption =', html)
         self.assertNotIn('/static/uploads/test-mug.jpg', html.split('const copyText =')[1].split('const shortMessage')[0])
+
+    @patch('app.run_in_background')
+    def test_order_photo_is_inline_jpeg(self, _mock_bg):
+        with tempfile.TemporaryDirectory() as tmp:
+            uploads = os.path.join(app.root_path, 'static', 'uploads', 'orders')
+            os.makedirs(uploads, exist_ok=True)
+            from PIL import Image
+            photo = os.path.join(uploads, 'order_phototest.jpg')
+            Image.new('RGB', (80, 80), 'green').save(photo, 'JPEG')
+            try:
+                with app.test_request_context('/'):
+                    token, _, _ = finalize_whatsapp_order([self._sample_item()])
+                receipt = PendingReceipt.query.filter_by(token=token).first()
+                data = json.loads(receipt.payload)
+                data['share_image'] = 'orders/order_phototest.jpg'
+                receipt.payload = json.dumps(data)
+                db.session.commit()
+
+                r = self.client.get(f'/order/share/{token}/photo.jpg')
+                self.assertEqual(r.status_code, 200)
+                self.assertTrue(r.content_type.startswith('image/jpeg'))
+                self.assertIn('inline', (r.headers.get('Content-Disposition') or '').lower())
+                self.assertNotIn('attachment', (r.headers.get('Content-Disposition') or '').lower())
+                self.assertGreater(len(r.data), 200)
+            finally:
+                if os.path.isfile(photo):
+                    os.remove(photo)
 
 
 if __name__ == '__main__':

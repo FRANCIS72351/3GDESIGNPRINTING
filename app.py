@@ -985,6 +985,7 @@ from order_share import (
     build_whatsapp_text,
     build_whatsapp_short_message,
     generate_order_image,
+    image_to_jpeg_bytes,
     try_notify_shop_via_api,
 )
 from site_config import CANONICAL_CLOUD_SITE_URL, get_whatsapp_number, whatsapp_env_status, _sanitize_public_url
@@ -1268,13 +1269,9 @@ def order_share_page(token):
     image_rel = data.get('share_image', '')
     base_url = get_public_base_url()
     share_page_url = f"{base_url}/order/share/{token}"
-    image_url = (
-        f"{base_url}/static/uploads/{image_rel}" if image_rel else f"{base_url}/static/img/LOGO.png"
-    )
-    image_fetch_url = (
-        url_for('static', filename=f'uploads/{image_rel}')
-        if image_rel else url_for('static', filename='img/LOGO.png')
-    )
+    photo_url = f"{base_url}/order/share/{token}/photo.jpg"
+    image_url = photo_url
+    image_fetch_url = url_for('order_share_photo', token=token)
     # Copy/paste text: order details only (no URL). Image goes via Web Share.
     copy_text = build_order_copy_text(items)
     short_message = copy_text
@@ -1292,14 +1289,11 @@ def order_share_page(token):
     shop_api_ready = bool(wa_status.get('can_send'))
     product_images = [
         {
-            'url': item.get('image_url') or absolute_product_image_url(item.get('image', '')),
-            'fetch_url': url_for(
-                'static',
-                filename=f"uploads/{normalize_image_filename(item.get('image', ''))}",
-            ) if item.get('image') else url_for('static', filename='img/LOGO.png'),
+            'url': f"{base_url}/order/share/{token}/item/{index}.jpg",
+            'fetch_url': url_for('order_share_item_photo', token=token, index=index),
             'name': item.get('product_name', 'Product'),
         }
-        for item in items
+        for index, item in enumerate(items)
     ]
     return render_template(
         'order_share.html',
@@ -1322,6 +1316,76 @@ def order_share_page(token):
         og_image=image_url,
         og_url=share_page_url,
     )
+
+
+def _safe_upload_path(relative_path):
+    relative = (relative_path or '').replace('\\', '/').lstrip('/')
+    if not relative or '..' in relative:
+        abort(404)
+    uploads_root = os.path.normpath(os.path.join(app.root_path, 'static', 'uploads'))
+    abs_path = os.path.normpath(os.path.join(uploads_root, relative))
+    if abs_path != uploads_root and not abs_path.startswith(uploads_root + os.sep):
+        abort(404)
+    return abs_path
+
+
+def _send_whatsapp_jpeg(path, download_name='3G-Order.jpg'):
+    if not path or not os.path.isfile(path):
+        abort(404)
+    buffer = image_to_jpeg_bytes(path)
+    response = send_file(
+        buffer,
+        mimetype='image/jpeg',
+        as_attachment=False,
+        download_name=download_name,
+        max_age=3600,
+    )
+    response.headers['Content-Disposition'] = f'inline; filename="{download_name}"'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@app.route('/order/share/<token>/photo.jpg')
+def order_share_photo(token):
+    """Public JPEG of the order card — inline so WhatsApp/iOS treat it as a photo."""
+    import json
+    receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
+    data = json.loads(receipt.payload)
+    image_rel = data.get('share_image', '')
+    if image_rel:
+        path = _safe_upload_path(image_rel)
+        if os.path.isfile(path):
+            return _send_whatsapp_jpeg(path, '3G-Order.jpg')
+    items = data.get('items') or []
+    if items:
+        first = items[0].get('image') or items[0].get('image_url', '')
+        local = normalize_image_filename(first)
+        if local and not str(local).startswith('http'):
+            path = _safe_upload_path(local)
+            if os.path.isfile(path):
+                return _send_whatsapp_jpeg(path, '3G-Product.jpg')
+    logo = os.path.join(app.root_path, 'static', 'img', 'LOGO.png')
+    return _send_whatsapp_jpeg(logo, '3G-Order.jpg')
+
+
+@app.route('/order/share/<token>/item/<int:index>.jpg')
+def order_share_item_photo(token, index):
+    """Public JPEG of one product photo for the WhatsApp share sheet."""
+    import json
+    receipt = PendingReceipt.query.filter_by(token=token).first_or_404()
+    data = json.loads(receipt.payload)
+    items = data.get('items') or []
+    if index < 0 or index >= len(items):
+        abort(404)
+    item = items[index]
+    local = normalize_image_filename(item.get('image') or item.get('image_url', ''))
+    if local and not str(local).startswith('http'):
+        path = _safe_upload_path(local)
+        if os.path.isfile(path):
+            safe_name = ''.join(ch for ch in (item.get('product_name') or 'Product') if ch.isalnum() or ch in ' -_')[:40]
+            return _send_whatsapp_jpeg(path, f'{safe_name or "3G-Product"}.jpg')
+    logo = os.path.join(app.root_path, 'static', 'img', 'LOGO.png')
+    return _send_whatsapp_jpeg(logo, '3G-Product.jpg')
 
 
 @app.route('/order/receipt/<token>')
