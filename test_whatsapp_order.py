@@ -13,8 +13,10 @@ from order_share import (
     build_order_copy_text,
     build_wa_me_caption,
     build_wa_me_fallback_text,
+    build_wa_me_media_text,
     build_whatsapp_short_message,
     generate_order_image,
+    receipt_jpeg_bytes,
 )
 from site_config import CANONICAL_CLOUD_SITE_URL, _sanitize_public_url, get_public_site_url
 
@@ -196,7 +198,9 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         html = r.get_data(as_text=True)
         base = get_public_base_url()
-        self.assertIn(f'{base}/static/uploads/orders/order_page.png', html)
+        self.assertIn(f'{base}/order/share/{token}/image.jpg', html)
+        self.assertIn('/order/share/', html)
+        self.assertIn('image.jpg', html)
         self.assertIn('/static/uploads/test-mug.jpg', html)
         self.assertIn('Test Mug', html)
         self.assertIn('product-strip', html)
@@ -212,7 +216,7 @@ class WhatsAppOrderTests(unittest.TestCase):
         html = r.get_data(as_text=True)
         base = get_public_base_url()
         self.assertIn('property="og:image"', html)
-        self.assertIn(f'{base}/static/uploads/orders/order_og.png', html)
+        self.assertIn(f'{base}/order/share/{token}/image.jpg', html)
         self.assertIn('property="og:title"', html)
         self.assertIn('property="og:description"', html)
         self.assertIn(f'{base}/order/share/{token}', html)
@@ -222,6 +226,9 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('steps-guide', html)
         self.assertIn('Choose WhatsApp', html)
         self.assertIn('wa.me/', html)
+        self.assertIn('3G-Order-Receipt.jpg', html)
+        self.assertIn('collectShareFiles', html)
+        self.assertNotIn('download="3G-Order-Receipt.png"', html)
         self.assertNotIn('View order with images', html)
         self.assertNotIn('Send to WhatsApp with Images', html)
         self.assertNotIn('sharePageLink', html)
@@ -235,7 +242,7 @@ class WhatsAppOrderTests(unittest.TestCase):
 
         r = self.client.get(f'/order/share/{token}')
         html = r.get_data(as_text=True)
-        self.assertIn('https://example.test/static/uploads/orders/order_abs.png', html)
+        self.assertIn(f'https://example.test/order/share/{token}/image.jpg', html)
         self.assertIn('https://example.test/order/share/', html)
         self.assertNotIn('https://pythonanywhere.com/', html)
 
@@ -251,6 +258,43 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertIn('Test Mug', html)
         self.assertIn('const waCaption =', html)
         self.assertNotIn('/static/uploads/test-mug.jpg', html.split('const copyText =')[1].split('const shortMessage')[0])
+
+    def test_wa_me_media_text_includes_direct_image_url(self):
+        url = 'https://example.test/order/share/abc/image.jpg'
+        text = build_wa_me_media_text([self._sample_item()], url)
+        self.assertIn('Test Mug', text)
+        self.assertIn(url, text)
+        self.assertTrue(text.endswith(url))
+
+    def test_receipt_jpeg_bytes_from_png(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            png = os.path.join(tmp, 'receipt.png')
+            from PIL import Image
+            Image.new('RGB', (20, 20), 'navy').save(png, 'PNG')
+            jpeg = receipt_jpeg_bytes(png)
+            self.assertIsNotNone(jpeg)
+            data = jpeg.read()
+            self.assertTrue(data.startswith(b'\xff\xd8\xff'))
+            self.assertGreater(len(data), 40)
+
+    @patch('app.run_in_background')
+    def test_order_share_image_is_inline_jpeg(self, _mock_bg):
+        with app.test_request_context('/'):
+            token, _, rel = finalize_whatsapp_order([self._sample_item()])
+        png = os.path.join(app.root_path, 'static', 'uploads', rel.replace('/', os.sep))
+        self.addCleanup(lambda: os.path.isfile(png) and os.remove(png))
+        self.assertTrue(os.path.isfile(png))
+
+        resp = self.client.get(f'/order/share/{token}/image.jpg')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.content_type.startswith('image/jpeg'))
+        disposition = resp.headers.get('Content-Disposition', '')
+        self.assertIn('inline', disposition.lower())
+        self.assertNotIn('attachment', disposition.lower())
+        self.assertTrue(resp.data.startswith(b'\xff\xd8\xff'))
+
+        missing = self.client.get('/order/share/not-a-real-token/image.jpg')
+        self.assertEqual(missing.status_code, 404)
 
 
 if __name__ == '__main__':

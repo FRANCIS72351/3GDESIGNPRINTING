@@ -288,7 +288,7 @@
         <header class="share-top">
             {{ brand_wordmark('light', 'brand-wordmark--login') }}
             <h1>Almost done!</h1>
-            <p>One tap sends your order photo to 3G DESIGN GLOBAL on WhatsApp</p>
+            <p>One tap sends the product photos into the WhatsApp chat</p>
         </header>
 
         <div class="chat-preview" aria-label="WhatsApp chat preview">
@@ -320,7 +320,7 @@
         <div class="steps-guide" aria-label="How to send your order">
             <div class="step"><div class="step-num">1</div>Tap the button</div>
             <div class="step"><div class="step-num">2</div>Choose WhatsApp</div>
-            <div class="step"><div class="step-num">3</div>Tap Send</div>
+            <div class="step"><div class="step-num">3</div>Send the photo</div>
         </div>
 
         <div class="share-actions">
@@ -330,7 +330,7 @@
             </button>
 
             <div class="share-status" id="shareStatus">
-                Tap the green button above. Your order photo opens in WhatsApp — just tap <strong>Send</strong>.
+                Tap the green button above. Your order photo appears in the chat — just tap <strong>Send</strong>.
             </div>
 
             {% if shop_api_ready %}
@@ -346,11 +346,11 @@
                         <button type="button" class="btn-ghost" id="copyTextBtn" onclick="copyOrderText()">
                             <i class="fas fa-copy"></i> Copy order text
                         </button>
-                        <a href="{{ image_fetch_url }}" download="3G-Order-Receipt.png" class="btn-ghost" id="saveImageLink">
-                            <i class="fas fa-download"></i> Save receipt image
+                        <a href="{{ image_fetch_url }}" target="_blank" rel="noopener" class="btn-ghost" id="saveImageLink">
+                            <i class="fas fa-image"></i> View receipt photo
                         </a>
                         <button type="button" class="btn-ghost" onclick="manualAttachFlow()">
-                            <i class="fab fa-whatsapp"></i> Save image &amp; open WhatsApp
+                            <i class="fab fa-whatsapp"></i> Open WhatsApp with photo
                         </button>
                     </div>
                     <div class="order-summary" id="orderSummary">{{ short_message }}</div>
@@ -365,6 +365,7 @@
     const waCaption = {{ wa_caption|tojson }};
     const imageFetchUrl = {{ image_fetch_url|tojson }};
     const imageAbsoluteUrl = {{ image_url|tojson }};
+    const imageShareUrl = {{ image_share_url|tojson }};
     const productImages = {{ product_images|tojson }};
     const waChatUrl = {{ wa_chat_url|tojson }};
     const waPreviewUrl = {{ wa_preview_url|tojson }};
@@ -372,7 +373,7 @@
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isMobile = isIOS || isAndroid;
     const PRIMARY_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Send Order to 3G DESIGN GLOBAL on WhatsApp';
-    const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Save &amp; Open WhatsApp';
+    const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Share Photo to WhatsApp';
 
     let cachedReceiptFile = null;
 
@@ -384,7 +385,8 @@
     }
 
     function blobToFile(blob, name) {
-        const type = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/png';
+        const fallback = /\.png$/i.test(name || '') ? 'image/png' : 'image/jpeg';
+        const type = (blob.type && blob.type.startsWith('image/')) ? blob.type : fallback;
         try {
             return new File([blob], name, { type: type, lastModified: Date.now() });
         } catch (_) {
@@ -405,12 +407,12 @@
     async function fetchReceiptFile() {
         if (cachedReceiptFile) return cachedReceiptFile;
 
-        const urls = [imageFetchUrl, imageAbsoluteUrl];
+        const urls = [imageFetchUrl, imageShareUrl, imageAbsoluteUrl];
         let lastError;
         for (const url of urls) {
             if (!url) continue;
             try {
-                cachedReceiptFile = await fetchImageAsFile(url, '3G-Order-Receipt.png');
+                cachedReceiptFile = await fetchImageAsFile(url, '3G-Order-Receipt.jpg');
                 return cachedReceiptFile;
             } catch (e) {
                 lastError = e;
@@ -425,15 +427,28 @@
                 canvas.height = img.naturalHeight;
                 canvas.getContext('2d').drawImage(img, 0, 0);
                 const blob = await new Promise((resolve, reject) => {
-                    canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+                    canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.9);
                 });
-                cachedReceiptFile = blobToFile(blob, '3G-Order-Receipt.png');
+                cachedReceiptFile = blobToFile(blob, '3G-Order-Receipt.jpg');
                 return cachedReceiptFile;
             }
         } catch (e) {
             lastError = e;
         }
         throw lastError || new Error('Could not load receipt image');
+    }
+
+    async function collectShareFiles() {
+        const files = [await fetchReceiptFile()];
+        for (const product of productImages || []) {
+            const url = product.fetch_url || product.url;
+            if (!url) continue;
+            try {
+                const safe = String(product.name || 'product').replace(/[^\w\-]+/g, '_').slice(0, 40);
+                files.push(await fetchImageAsFile(url, safe + '.jpg'));
+            } catch (_) {}
+        }
+        return files;
     }
 
     function canShareFiles(files) {
@@ -449,25 +464,31 @@
         }
     }
 
-    async function shareImageFiles(files) {
+    async function shareImageFiles(files, text) {
         if (!navigator.share || !files.length) return false;
-        const payload = { files: files };
-        if (typeof navigator.canShare === 'function') {
+        const payloads = [
+            { files: files, text: text || '' },
+            { files: files },
+            { files: [files[0]], text: text || '' },
+            { files: [files[0]] },
+        ];
+        for (const payload of payloads) {
+            if (!canShareFiles(payload.files)) continue;
             try {
-                if (!navigator.canShare(payload)) return false;
-            } catch (_) {
-                return false;
+                await navigator.share(payload);
+                return true;
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
             }
         }
-        await navigator.share(payload);
-        return true;
+        return false;
     }
 
     function triggerDownload(file) {
         const blobUrl = URL.createObjectURL(file);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = '3G-Order-Receipt.png';
+        a.download = file.name || '3G-Order-Receipt.jpg';
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -485,35 +506,26 @@
     }
 
     async function manualAttachFlow() {
-        try {
-            const file = await fetchReceiptFile();
-            triggerDownload(file);
-            await copyTextSilent();
-            setStatus(
-                'Receipt saved. WhatsApp is opening — attach the photo from your gallery, then tap <strong>Send</strong>.',
-                'warn'
-            );
-            window.location.href = waPreviewUrl || waChatUrl;
-        } catch (e) {
-            setStatus('Could not prepare the receipt image. Try <strong>Save receipt image</strong> in More options.', 'warn');
-        }
+        await copyTextSilent();
+        setStatus('Opening WhatsApp with your order photo. Tap <strong>Send</strong> so the picture appears in the chat.', 'success');
+        window.location.href = waPreviewUrl || waChatUrl;
     }
 
     async function sendOrderToWhatsApp() {
         const btn = document.getElementById('shareBtn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing your order...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing your order photos...';
 
         try {
-            const receiptFile = await fetchReceiptFile();
+            const files = await collectShareFiles();
 
             if (navigator.share) {
                 try {
-                    const shared = await shareImageFiles([receiptFile]);
+                    const shared = await shareImageFiles(files, shortMessage || waCaption);
                     if (shared) {
                         await copyTextSilent();
                         setStatus(
-                            '<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. Your order photo is ready.',
+                            '<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. Your order photos appear in the chat.',
                             'success'
                         );
                         return;
@@ -527,22 +539,16 @@
                 }
             }
 
-            triggerDownload(receiptFile);
             await copyTextSilent();
-            setStatus(
-                'Receipt saved. Opening WhatsApp — attach the photo, then tap <strong>Send</strong>.',
-                'warn'
-            );
-            setTimeout(() => {
-                window.location.href = waPreviewUrl || waChatUrl;
-            }, 450);
+            setStatus('Opening WhatsApp with your order photo. Tap <strong>Send</strong>.', 'success');
+            window.location.href = waPreviewUrl || waChatUrl;
         } catch (e) {
             if (e && e.name === 'AbortError') {
                 setStatus('Cancelled. Tap the button when you are ready to send.');
             } else {
                 console.warn('Share failed', e);
                 setStatus(
-                    'Could not auto-send. Open <strong>More options</strong> to save the image and open WhatsApp manually.',
+                    'Could not attach the photo automatically. Use <strong>Open WhatsApp with photo</strong> in More options.',
                     'warn'
                 );
             }

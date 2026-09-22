@@ -220,6 +220,28 @@ def build_wa_me_fallback_text(cart_items=None):
     return 'New order from 3G DESIGN GLOBAL — receipt image attached. Please confirm.'
 
 
+def build_wa_me_media_text(cart_items, image_url):
+    """wa.me fallback that includes a direct JPEG URL WhatsApp can preview as a photo."""
+    caption = build_wa_me_caption(cart_items) if cart_items else build_wa_me_fallback_text()
+    url = (image_url or '').strip()
+    if url:
+        return f'{caption}\n{url}'
+    return caption
+
+
+def receipt_jpeg_bytes(png_path, quality=90):
+    """Convert the composite receipt PNG to a WhatsApp-friendly JPEG."""
+    from io import BytesIO
+
+    if not png_path or not os.path.exists(png_path):
+        return None
+    image = Image.open(png_path).convert('RGB')
+    buf = BytesIO()
+    image.save(buf, format='JPEG', quality=quality, optimize=True)
+    buf.seek(0)
+    return buf
+
+
 def generate_order_image(cart_items, token, app_root):
     """
     Build one high-quality PNG receipt with product thumbnails + order details.
