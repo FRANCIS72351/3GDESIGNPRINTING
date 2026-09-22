@@ -52,6 +52,21 @@ class NavbarBrandLogoTests(unittest.TestCase):
         self.assertGreater(text_pos, logo_pos)
         self.assertIn('img/LOGO.png', brand)
         self.assertIn('3G DESIGN GLOBAL', brand)
+        self.assertIn('navbar-brand-lockup', brand)
+        self.assertIn('flex-direction:row', brand)
+
+    def test_homepage_navbar_has_logo_in_front_of_text(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+
+        self.assertNotIn('hero-brand-lockup', html)
+        self.assertNotIn('hero-brand-logo', html)
+        self.assertNotIn('class="home-page"', html)
+        self._assert_navbar_logo_before_wordmark(html)
+        self.assertIn('navbar-brand-lockup-css', html)
+        self.assertIn('style.css?v=', html)
+        self.assertNotRegex(html, r'nav\.navbar a\.navbar-brand[^}]*flex-direction:\s*column')
 
     def test_homepage_navbar_has_logo_in_front_of_text(self):
         response = self.client.get('/')
