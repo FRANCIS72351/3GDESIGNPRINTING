@@ -386,11 +386,15 @@
     <div class="photo-sheet" id="photoSheet" hidden>
         <img id="photoSheetImage" alt="Order photo ready to share">
         <p>Tap and hold the photo, then choose <strong>Share</strong> → <strong>WhatsApp</strong>. That drops the product picture into the chat.</p>
-        <button type="button" class="btn-wa-primary" onclick="sendOrderToWhatsApp()">Share photo to WhatsApp</button>
+        <button type="button" class="btn-wa-primary" id="sheetShareBtn" onclick="shareReadyPhoto()">Share photo to WhatsApp</button>
         <button type="button" class="btn-ghost" style="margin-top:0.6rem;max-width:420px" onclick="closePhotoSheet()">Close</button>
     </div>
 
     <script>
+    if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1)$/i.test(location.hostname)) {
+        location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+    }
+
     const copyText = {{ copy_text|tojson }};
     const shortMessage = {{ short_message|tojson }};
     const waCaption = {{ wa_caption|tojson }};
@@ -406,7 +410,8 @@
     const DESKTOP_BTN_LABEL = '<i class="fab fa-whatsapp"></i> Share Photos to WhatsApp';
 
     let cachedReceiptFile = null;
-    let cachedProductFiles = null;
+    let cachedProductFiles = [];
+    let preparePromise = null;
 
     function setStatus(html, kind) {
         const el = document.getElementById('shareStatus');
@@ -415,42 +420,61 @@
         el.classList.toggle('warn', kind === 'warn');
     }
 
+    function setBusy(busy, label) {
+        const btn = document.getElementById('shareBtn');
+        const sheetBtn = document.getElementById('sheetShareBtn');
+        btn.disabled = !!busy;
+        if (sheetBtn) sheetBtn.disabled = !!busy;
+        btn.innerHTML = busy ? (label || '<i class="fas fa-spinner fa-spin"></i> Preparing photo...') : PRIMARY_BTN_LABEL;
+        if (!isMobile && !busy) btn.innerHTML = DESKTOP_BTN_LABEL;
+    }
+
     function blobToFile(blob, name) {
+        const bytes = blob;
         try {
-            return new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() });
+            return new File([bytes], name, { type: 'image/jpeg', lastModified: Date.now() });
         } catch (_) {
-            blob.name = name;
-            blob.lastModified = Date.now();
-            return blob;
+            return bytes;
         }
     }
 
     async function fetchImageAsFile(url, name) {
-        const resp = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+        const resp = await fetch(url, { credentials: 'same-origin', cache: 'force-cache' });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const blob = await resp.blob();
-        if (!blob || blob.size < 50) throw new Error('Empty image');
+        const buffer = await resp.arrayBuffer();
+        if (!buffer || buffer.byteLength < 50) throw new Error('Empty image');
+        return blobToFile(new Blob([buffer], { type: 'image/jpeg' }), name);
+    }
+
+    async function fileFromVisibleImage(img, name) {
+        if (!img || !img.naturalWidth) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.9);
+        });
         return blobToFile(blob, name);
     }
 
     async function fetchReceiptFile() {
         if (cachedReceiptFile) return cachedReceiptFile;
         const urls = [imageFetchUrl, imageAbsoluteUrl];
-        let lastError;
         for (const url of urls) {
             if (!url) continue;
             try {
                 cachedReceiptFile = await fetchImageAsFile(url, '3G-Order.jpg');
                 return cachedReceiptFile;
-            } catch (e) {
-                lastError = e;
-            }
+            } catch (_) { /* try next */ }
         }
-        throw lastError || new Error('Could not load order photo');
+        cachedReceiptFile = await fileFromVisibleImage(document.getElementById('orderImage'), '3G-Order.jpg');
+        if (!cachedReceiptFile) throw new Error('Could not load order photo');
+        return cachedReceiptFile;
     }
 
     async function fetchProductFiles() {
-        if (cachedProductFiles) return cachedProductFiles;
+        if (cachedProductFiles.length) return cachedProductFiles;
         const files = [];
         const list = Array.isArray(productImages) ? productImages.slice(0, 6) : [];
         for (let i = 0; i < list.length; i++) {
@@ -466,29 +490,24 @@
         return files;
     }
 
-    function canShare(files) {
-        if (!navigator.share || !files.length) return false;
-        if (typeof navigator.canShare !== 'function') return true;
-        try {
-            return navigator.canShare({ files: files });
-        } catch (_) {
-            return false;
+    function readyPhoto() {
+        return cachedProductFiles[0] || cachedReceiptFile || null;
+    }
+
+    function prepareFiles() {
+        if (!preparePromise) {
+            preparePromise = Promise.all([
+                fetchReceiptFile().catch(() => null),
+                fetchProductFiles().catch(() => []),
+            ]).then(() => readyPhoto());
         }
+        return preparePromise;
     }
 
-    async function shareImageFiles(files) {
-        if (!canShare(files)) return false;
-        await navigator.share({ files: files });
-        return true;
-    }
-
-    async function copyTextSilent() {
+    function copyTextSilent() {
         const text = copyText || shortMessage || waCaption || '';
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch (_) {
-            return false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {});
         }
     }
 
@@ -510,70 +529,57 @@
         sheet.hidden = true;
     }
 
-    async function sendOrderToWhatsApp() {
-        const btn = document.getElementById('shareBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing photos...';
-
-        try {
-            const receiptFile = await fetchReceiptFile();
-            const productFiles = await fetchProductFiles();
-            const album = productFiles.concat([receiptFile]);
-
-            if (navigator.share) {
-                const attempts = [album, productFiles, [receiptFile]];
-                for (const files of attempts) {
-                    if (!files.length) continue;
-                    try {
-                        const shared = await shareImageFiles(files);
-                        if (shared) {
-                            await copyTextSilent();
-                            setStatus(
-                                '<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. The product photos will appear in the chat.',
-                                'success'
-                            );
-                            closePhotoSheet();
-                            return;
-                        }
-                    } catch (e) {
-                        if (e && e.name === 'AbortError') {
-                            setStatus('Cancelled. Tap the button when you are ready to send.');
-                            return;
-                        }
-                    }
-                }
-            }
-
-            await copyTextSilent();
-            if (isMobile) {
-                openPhotoSheet(productFiles[0] || receiptFile);
-                setStatus(
-                    'Hold the photo, then tap <strong>Share → WhatsApp</strong> so the picture lands in the chat.',
-                    'warn'
-                );
-            } else {
-                window.open(imageFetchUrl, '_blank');
-                setStatus(
-                    'The order photo opened in a new tab. On WhatsApp Web use the attach (clip) button and send that photo.',
-                    'warn'
-                );
-                setTimeout(openWhatsAppChat, 600);
-            }
-        } catch (e) {
-            if (e && e.name === 'AbortError') {
-                setStatus('Cancelled. Tap the button when you are ready to send.');
-            } else {
-                console.warn('Share failed', e);
-                setStatus(
-                    'Could not auto-share. Open the order photo, then share it to WhatsApp.',
-                    'warn'
-                );
-                if (imageFetchUrl) window.open(imageFetchUrl, '_blank');
-            }
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = (!navigator.share && !isMobile) ? DESKTOP_BTN_LABEL : PRIMARY_BTN_LABEL;
+    function shareWithWhatsApp(file) {
+        if (!file) return Promise.reject(new Error('No photo'));
+        if (typeof navigator.share !== 'function') {
+            return Promise.reject(new Error('Share API missing'));
         }
+        // Never gate on canShare — iPhone often returns false even when share works.
+        return navigator.share({ files: [file] });
+    }
+
+    function shareReadyPhoto() {
+        const file = readyPhoto();
+        if (!file) {
+            setStatus('Photo is still loading. Tap again in a moment.', 'warn');
+            prepareFiles();
+            return;
+        }
+        if (typeof navigator.share !== 'function') {
+            window.open(imageFetchUrl, '_blank');
+            setTimeout(openWhatsAppChat, 400);
+            setStatus('WhatsApp is opening. Attach the order photo with the clip button, then send.', 'warn');
+            return;
+        }
+        shareWithWhatsApp(file).then(() => {
+            copyTextSilent();
+            closePhotoSheet();
+            setStatus('<strong>Choose WhatsApp</strong>, then tap <strong>Send</strong>. Your product photo will appear in the chat.', 'success');
+        }).catch((e) => {
+            if (e && e.name === 'AbortError') {
+                setStatus('Cancelled. Tap the green button when you are ready to send.');
+                return;
+            }
+            openPhotoSheet(file);
+            setStatus('Tap <strong>Share photo to WhatsApp</strong> again, or press and hold the photo and choose WhatsApp.', 'warn');
+        });
+    }
+
+    function sendOrderToWhatsApp() {
+        const file = readyPhoto();
+        if (!file) {
+            setBusy(true);
+            prepareFiles().then((ready) => {
+                setBusy(false);
+                if (ready) {
+                    setStatus('Photo is ready. Tap the green button now to open WhatsApp.', 'success');
+                } else {
+                    setStatus('Could not prepare the photo. Open <strong>More options</strong> and use Open order photo.', 'warn');
+                }
+            });
+            return;
+        }
+        shareReadyPhoto();
     }
 
     function copyOrderText() {
@@ -595,8 +601,13 @@
             setStatus('On a computer: share the photos into WhatsApp Web with the attach button.', 'warn');
             document.getElementById('shareBtn').innerHTML = DESKTOP_BTN_LABEL;
         }
-        fetchReceiptFile().catch(() => {});
-        fetchProductFiles().catch(() => {});
+        setBusy(true, '<i class="fas fa-spinner fa-spin"></i> Preparing photo...');
+        prepareFiles().then((ready) => {
+            setBusy(false);
+            if (ready) {
+                setStatus('Tap the green button. Choose <strong>WhatsApp</strong>, then tap <strong>Send</strong>.', 'success');
+            }
+        }).catch(() => setBusy(false));
     })();
     </script>
 </body>

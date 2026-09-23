@@ -1125,6 +1125,75 @@ img {
     object-fit: contain !important;
 }
 
+.product-media {
+    position: relative;
+}
+
+.product-status-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 3;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 8px 18px rgba(11, 31, 58, 0.18);
+}
+
+.product-status-badge--sold {
+    background: #b42318;
+    color: #fff;
+}
+
+.product-status-badge--low {
+    background: #b54708;
+    color: #fff;
+}
+
+.product-card--sold-out .product-img {
+    filter: grayscale(0.35) brightness(0.92);
+}
+
+.product-card--sold-out:hover {
+    transform: none;
+}
+
+.product-availability {
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-top: 0.15rem;
+}
+
+.product-availability.is-in { color: #027a48; }
+.product-availability.is-low { color: #b54708; }
+.product-availability.is-sold { color: #b42318; }
+
+.sold-out-note {
+    font-size: 0.8rem;
+    color: #667085;
+    line-height: 1.4;
+    margin-bottom: 0.65rem;
+}
+
+.v-grid-item.is-sold {
+    opacity: 0.72;
+}
+
+.variant-sold-tag {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #b42318;
+    text-align: center;
+}
+
 .variant-thumb {
     aspect-ratio: 1 / 1;
     object-fit: cover;

@@ -41,14 +41,14 @@
                                         </div>
                                     </td>
                                     <td>
-                                        {% if item.currency == 'USD' %}${% else %}L${% endif %}{{ "%.2f"|format(item.price) }}
+                                        {{ item.price|money(item.currency) }}
                                     </td>
                                     <td>
                                         <div class="fw-bold">{{ item.quantity }}</div>
                                     </td>
                                     <td>
                                         <span class="fw-bold text-primary">
-                                            {% if item.currency == 'USD' %}${% else %}L${% endif %}{{ "%.2f"|format(item.price * item.quantity) }}
+                                            {{ (item.price * item.quantity)|money(item.currency) }}
                                         </span>
                                     </td>
                                     <td class="text-end pe-4">
@@ -89,11 +89,11 @@
                     
                     <div class="d-flex justify-content-between mb-2">
                         <span>Total USD:</span>
-                        <span class="fw-bold">${{ "%.2f"|format(total_usd) }}</span>
+                        <span class="fw-bold">{{ total_usd|money('USD') }}</span>
                     </div>
                     <div class="d-flex justify-content-between mb-4">
                         <span>Total LRD:</span>
-                        <span class="fw-bold text-success">L${{ "%.2f"|format(total_lrd) }}</span>
+                        <span class="fw-bold text-success">{{ total_lrd|money('LRD') }}</span>
                     </div>
                     
                     <hr class="my-4">

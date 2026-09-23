@@ -43,20 +43,32 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="price" class="form-label">Price</label>
-                                <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{ product.price }}">
+                                <label for="price" class="form-label">Base Price</label>
+                                <div class="input-group">
+                                    <span class="input-group-text currency-symbol">{{ 'L$' if product.currency == 'LRD' else '$' }}</span>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="price" name="price" value="{{ product.price }}">
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="currency" class="form-label">Currency</label>
                                 <select class="form-select" id="currency" name="currency">
-                                    <option value="USD" {{ 'selected' if product.currency == 'USD' }}>USD ($)</option>
-                                    <option value="LRD" {{ 'selected' if product.currency == 'LRD' }}>LRD (L$)</option>
+                                    <option value="USD" {{ 'selected' if product.currency != 'LRD' }}>USD — US Dollar ($)</option>
+                                    <option value="LRD" {{ 'selected' if product.currency == 'LRD' }}>LRD — Liberian Dollar (L$)</option>
                                 </select>
+                                <div class="form-text">This is the currency shown on the home page with the price.</div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="stock" class="form-label">Stock Level</label>
-                            <input type="number" class="form-control" id="stock" name="stock" value="{{ product.stock }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="stock" class="form-label">Stock Level</label>
+                                <input type="number" min="0" class="form-control" id="stock" name="stock" value="{{ product.stock }}">
+                                <div class="form-text">Set to 0 to mark this product Sold Out on the home page.</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="min_stock_threshold" class="form-label">Low-stock warning</label>
+                                <input type="number" min="0" class="form-control" id="min_stock_threshold" name="min_stock_threshold" value="{{ product.min_stock_threshold or 5 }}">
+                                <div class="form-text">Home page shows “Only a few left” at or below this number.</div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="description" class="form-label">Description</label>
@@ -74,9 +86,10 @@
                             <table class="table table-hover align-middle mb-0" id="variants-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="w-20">Variant Type</th>
-                                        <th class="w-20">Value/Size</th>
-                                        <th class="w-15">Price</th>
+                                        <th class="w-15">Variant Type</th>
+                                        <th class="w-15">Value/Size</th>
+                                        <th class="w-20">Price</th>
+                                        <th class="w-15">Currency</th>
                                         <th class="w-10">Stock</th>
                                         <th class="w-25">Design Image</th>
                                         <th class="w-10 text-center">Action</th>
@@ -96,9 +109,15 @@
                                         </td>
                                         <td>
                                             <div class="input-group input-group-sm">
-                                                <span class="input-group-text">$</span>
-                                                <input type="number" step="0.01" name="variant_price[]" class="form-control" value="{{ variant.price }}">
+                                                <span class="input-group-text currency-symbol">{{ 'L$' if (variant.currency or product.currency) == 'LRD' else '$' }}</span>
+                                                <input type="number" step="0.01" min="0" name="variant_price[]" class="form-control" value="{{ variant.price }}">
                                             </div>
+                                        </td>
+                                        <td>
+                                            <select name="variant_currency[]" class="form-select form-select-sm variant-currency">
+                                                <option value="USD" {{ 'selected' if (variant.currency or product.currency) != 'LRD' }}>USD ($)</option>
+                                                <option value="LRD" {{ 'selected' if (variant.currency or product.currency) == 'LRD' }}>LRD (L$)</option>
+                                            </select>
                                         </td>
                                         <td>
                                             <input type="number" name="variant_stock[]" class="form-control form-control-sm" value="{{ variant.stock }}">
@@ -131,9 +150,15 @@
                                         </td>
                                         <td>
                                             <div class="input-group input-group-sm">
-                                                <span class="input-group-text">$</span>
-                                                <input type="number" step="0.01" name="variant_price[]" class="form-control" placeholder="0.00">
+                                                <span class="input-group-text currency-symbol">{{ 'L$' if product.currency == 'LRD' else '$' }}</span>
+                                                <input type="number" step="0.01" min="0" name="variant_price[]" class="form-control" placeholder="0.00">
                                             </div>
+                                        </td>
+                                        <td>
+                                            <select name="variant_currency[]" class="form-select form-select-sm variant-currency">
+                                                <option value="USD" {{ 'selected' if product.currency != 'LRD' }}>USD ($)</option>
+                                                <option value="LRD" {{ 'selected' if product.currency == 'LRD' }}>LRD (L$)</option>
+                                            </select>
                                         </td>
                                         <td>
                                             <input type="number" name="variant_stock[]" class="form-control form-control-sm" placeholder="0">
@@ -166,15 +191,47 @@
 </div>
 
 <script>
+function currencySymbol(code) {
+    return code === 'LRD' ? 'L$' : '$';
+}
+
+function applyCurrencySymbols() {
+    const productCurrency = document.getElementById('currency').value;
+    document.querySelectorAll('.currency-symbol').forEach((el) => {
+        const row = el.closest('.variant-row');
+        const select = row ? row.querySelector('.variant-currency') : document.getElementById('currency');
+        el.textContent = currencySymbol(select ? select.value : productCurrency);
+    });
+}
+
+document.getElementById('currency').addEventListener('change', function() {
+    document.querySelectorAll('.variant-currency').forEach((select) => {
+        select.value = this.value;
+    });
+    applyCurrencySymbols();
+});
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('variant-currency')) {
+        applyCurrencySymbols();
+    }
+});
+
 document.getElementById('add-row').addEventListener('click', function() {
     const tableBody = document.querySelector('#variants-table tbody');
     const firstRow = tableBody.querySelector('.variant-row');
     const newRow = firstRow.cloneNode(true);
     
-    // Clear inputs in cloned row
-    newRow.querySelectorAll('input').forEach(input => input.value = '');
+    newRow.querySelectorAll('input').forEach(input => {
+        if (input.type === 'hidden') input.value = '';
+        else input.value = '';
+    });
+    newRow.querySelectorAll('img').forEach(img => img.remove());
+    const currencySelect = newRow.querySelector('.variant-currency');
+    if (currencySelect) currencySelect.value = document.getElementById('currency').value;
     
     tableBody.appendChild(newRow);
+    applyCurrencySymbols();
 });
 
 document.addEventListener('click', function(e) {
@@ -186,5 +243,7 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+applyCurrencySymbols();
 </script>
 {% endblock %}

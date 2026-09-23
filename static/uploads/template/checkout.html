@@ -43,7 +43,7 @@
                     {% for item in cart %}
                     <div class="d-flex justify-content-between gap-3 small mb-2">
                         <span>{{ item.product_name }} × {{ item.quantity }}</span>
-                        <strong>{{ item.currency }} {{ '%.2f'|format(item.price * item.quantity) }}</strong>
+                        <strong>{{ (item.price * item.quantity)|money(item.currency) }}</strong>
                     </div>
                     {% endfor %}
                     <hr>

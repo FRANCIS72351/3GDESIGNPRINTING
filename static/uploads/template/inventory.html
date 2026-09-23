@@ -274,6 +274,7 @@
                                     <th>Category</th>
                                     <th>Price</th>
                                     <th>Stock</th>
+                                    <th>Availability</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -289,11 +290,20 @@
                                     </td>
                                     <td><strong>{{ product.name }}</strong></td>
                                     <td><span class="badge bg-light text-dark">{{ product.category or '—' }}</span></td>
-                                    <td>{{ product.currency }} {{ "%.2f"|format(product.price) }}</td>
+                                    <td>{{ product.price|money(product.currency) }}</td>
                                     <td>
-                                        <span class="{% if product.stock <= (product.min_stock_threshold or 5) %}text-danger fw-bold{% endif %}">
-                                            {{ product.stock }}
+                                        <span class="{% if product_is_sold_out(product) or product_is_low_stock(product) %}text-danger fw-bold{% endif %}">
+                                            {{ product_available_qty(product) }}
                                         </span>
+                                    </td>
+                                    <td>
+                                        {% if product_is_sold_out(product) %}
+                                        <span class="badge rounded-pill bg-danger">Sold out</span>
+                                        {% elif product_is_low_stock(product) %}
+                                        <span class="badge rounded-pill bg-warning text-dark">Low stock</span>
+                                        {% else %}
+                                        <span class="badge rounded-pill bg-success">In stock</span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
@@ -310,7 +320,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No products found. Add a product to start logging stock.</td>
+                                    <td colspan="7" class="text-center py-4 text-muted">No products found. Add a product to start logging stock.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

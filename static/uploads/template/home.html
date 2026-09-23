@@ -128,20 +128,37 @@
 
         <div class="row">
             {% for product in products %}
+            {% set sold_out = product_is_sold_out(product) %}
+            {% set low_stock = product_is_low_stock(product) %}
+            {% set available_qty = product_available_qty(product) %}
             <div class="col-lg-4 col-md-6 mb-4 animate__animated animate__fadeInUp">
-                <div class="product-card h-100 position-relative shadow-sm rounded-4 overflow-hidden">
-                    <!-- Product Main Image -->
-
+                <div class="product-card h-100 position-relative shadow-sm rounded-4 overflow-hidden{% if sold_out %} product-card--sold-out{% endif %}" data-sold-out="{{ '1' if sold_out else '0' }}">
+                    <div class="product-media">
                     {% if product.image %}
                     <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" class="img-fluid w-100 product-img" onclick="viewImage(this.src)">
                     {% else %}
                     <img src="{{ url_for('static', filename='img/LOGO.png') }}" alt="{{ product.name }}" class="img-fluid w-100 p-5 bg-light product-img product-img-placeholder" onclick="viewImage(this.src)">
                     {% endif %}
+                    {% if sold_out %}
+                    <span class="product-status-badge product-status-badge--sold">Sold Out</span>
+                    {% elif low_stock %}
+                    <span class="product-status-badge product-status-badge--low">Only a few left</span>
+                    {% endif %}
+                    </div>
                     <div class="product-info p-4">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h4 class="mb-0">{{ product.name }}</h4>
                             <span class="badge bg-light text-primary border rounded-pill">{{ product.category }}</span>
                         </div>
+                        <p class="product-availability mb-2 {% if sold_out %}is-sold{% elif low_stock %}is-low{% else %}is-in{% endif %}">
+                            {% if sold_out %}
+                            Currently unavailable · still listed so you can ask about a restock
+                            {% elif low_stock %}
+                            Limited stock · {{ available_qty }} left
+                            {% else %}
+                            In stock · ready to order
+                            {% endif %}
+                        </p>
                         
                         {% if product.description %}
                         <p class="text-muted small mb-3">{{ product.description[:100] }}{{ '...' if product.description|length > 100 }}</p>
@@ -152,9 +169,11 @@
                         <label class="small fw-bold text-muted mb-2">Available Designs / Options:</label>
                         <div class="variant-grid d-flex flex-wrap gap-2 mb-4">
                             <!-- Base Option -->
-                            <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative active" 
+                            <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative active{% if (product.stock or 0) <= 0 %} is-sold{% endif %}" 
                                  data-name="Original Design"
                                  data-price="{{ product.price }}"
+                                 data-currency="{{ product.currency or 'USD' }}"
+                                 data-stock="{{ product.stock or 0 }}"
                                  data-image="{{ url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png') }}"
                                  data-image-file="{{ product.image }}"
                                  onclick="selectVariantUI(this)">
@@ -166,9 +185,11 @@
                             </div>
                             
                             {% for variant in product.variants %}
-                            <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative" 
+                            <div class="v-grid-item border rounded-3 p-1 cursor-pointer position-relative{% if variant_is_sold_out(variant) %} is-sold{% endif %}" 
                                  data-name="{{ variant.type_name }}: {{ variant.size or variant.type_value }}"
                                  data-price="{{ variant.price }}"
+                                 data-currency="{{ variant.currency or product.currency or 'USD' }}"
+                                 data-stock="{{ variant.stock or 0 }}"
                                  data-image="{{ url_for('static', filename='uploads/' + variant.image) if variant.image else (url_for('static', filename='uploads/' + product.image) if product.image else url_for('static', filename='img/LOGO.png')) }}"
                                  data-image-file="{{ variant.image if variant.image else product.image }}"
                                  onclick="selectVariantUI(this)">
@@ -178,6 +199,9 @@
                                     <i class="fas fa-check"></i>
                                 </div>
                                 <div class="variant-label small text-center mt-1 text-truncate">{{ variant.size or variant.type_value }}</div>
+                                {% if variant_is_sold_out(variant) %}
+                                <span class="variant-sold-tag">Sold out</span>
+                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -191,39 +215,52 @@
                             <div class="d-flex justify-content-between align-items-center small">
                                 <span class="qty-tier-qty text-muted">Qty: <strong>1</strong></span>
                                 <span class="qty-tier-discount badge bg-light text-dark border">Standard</span>
-                                <span class="qty-tier-total fw-bold text-primary">{% if product.currency == 'USD' %}${% else %}L${% endif %}{{ '%.2f'|format(product.price) }}</span>
+                                <span class="qty-tier-total fw-bold text-primary">{{ product.price|money(product.currency) }}</span>
                             </div>
                         </div>
 
                         <div class="d-flex flex-column gap-2 mt-auto">
+                            <div class="product-buy-actions" {% if sold_out %}hidden{% endif %}>
                             <div class="d-flex justify-content-between align-items-center">
-                                <p class="fw-bold text-primary h5 mb-0 price-display">
-                                    {% if product.currency == 'USD' %}${% else %}L${% endif %}{{ "%.2f"|format(product.price) }}
+                                <p class="fw-bold text-primary h5 mb-0 price-display" data-currency="{{ product.currency or 'USD' }}">
+                                    {{ product.price|money(product.currency) }}
                                 </p>
                                 <form action="{{ url_for('add_to_cart') }}" method="POST">
                                     <input type="hidden" name="product_id" value="{{ product.id }}">
                                     <input type="hidden" name="product_name" value="{{ product.name }}">
                                     <input type="hidden" name="variant_name" class="selected-variant-name" value="{% if product.variants %}Original Design{% else %}Base{% endif %}">
                                     <input type="hidden" name="price" class="selected-variant-price" value="{{ product.price }}">
-                                    <input type="hidden" name="currency" value="{{ product.currency }}">
+                                    <input type="hidden" name="currency" class="selected-variant-currency" value="{{ product.currency or 'USD' }}">
                                     <input type="hidden" name="image" class="selected-variant-image" value="{{ product.image or '' }}">
                                     <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill px-3">
                                         <i class="fas fa-cart-plus me-1"></i>Add to Cart
                                     </button>
                                 </form>
                             </div>
-                            <form action="{{ url_for('prepare_whatsapp_order') }}" method="POST" target="_blank">
+                            <form action="{{ url_for('prepare_whatsapp_order') }}" method="POST">
                                 <input type="hidden" name="product_id" value="{{ product.id }}">
                                 <input type="hidden" name="product_name" value="{{ product.name }}">
                                 <input type="hidden" name="variant_name" class="selected-variant-name" value="{% if product.variants %}Original Design{% else %}Base{% endif %}">
                                 <input type="hidden" name="price" class="selected-variant-price" value="{{ product.price }}">
-                                <input type="hidden" name="currency" value="{{ product.currency }}">
+                                <input type="hidden" name="currency" class="selected-variant-currency" value="{{ product.currency or 'USD' }}">
                                 <input type="hidden" name="image" class="selected-variant-image" value="{{ product.image or '' }}">
                                 <input type="hidden" name="quantity" class="order-qty-input" value="1">
                                 <button type="submit" class="btn btn-success rounded-pill w-100 fw-bold">
                                 <i class="fab fa-whatsapp me-2"></i>Order Now
                                 </button>
                             </form>
+                            </div>
+                            <div class="product-sold-actions" {% if not sold_out %}hidden{% endif %}>
+                                <p class="fw-bold text-primary h5 mb-2 price-display" data-currency="{{ product.currency or 'USD' }}">
+                                    {{ product.price|money(product.currency) }}
+                                </p>
+                                <div class="sold-out-note">This item is sold out. It stays on the page so you can ask when it is back.</div>
+                                <a class="btn btn-outline-success rounded-pill w-100 fw-bold"
+                                   href="{{ social_whatsapp_url('Hello! I am interested in ' ~ product.name ~ '. I see it is sold out. Please let me know when it is available again.') }}"
+                                   target="_blank" rel="noopener noreferrer">
+                                    <i class="fab fa-whatsapp me-2"></i>Ask about restock
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -287,28 +324,62 @@ function selectVariantUI(element) {
     const newSrc = element.getAttribute('data-image');
     mainImg.src = newSrc;
     
-    // Update Price Display
     const price = parseFloat(element.getAttribute('data-price')).toFixed(2);
-    const currency = priceDisplay.textContent.includes('$') ? 'USD' : 'LRD';
-    const symbol = currency === 'USD' ? '$' : 'L$';
-    priceDisplay.textContent = `${symbol}${price}`;
+    const currency = element.getAttribute('data-currency') || (priceDisplay && priceDisplay.dataset.currency) || 'USD';
+    const symbol = currency === 'LRD' ? 'L$' : '$';
+    if (priceDisplay) {
+        priceDisplay.dataset.currency = currency;
+        priceDisplay.textContent = `${currency} ${symbol}${price}`;
+    }
+    const tierBox = card.querySelector('.qty-tier-box');
+    if (tierBox) {
+        tierBox.dataset.currency = currency;
+        tierBox.dataset.basePrice = price;
+        const slider = tierBox.querySelector('.qty-tier-slider');
+        if (slider) updateQtyTier(slider);
+    }
     
-    // Update hidden inputs for WhatsApp AND Cart
     const nameInputs = card.querySelectorAll('.selected-variant-name');
     const priceInputs = card.querySelectorAll('.selected-variant-price');
+    const currencyInputs = card.querySelectorAll('.selected-variant-currency');
     const imageInputs = card.querySelectorAll('.selected-variant-image');
     
     nameInputs.forEach(input => input.value = element.getAttribute('data-name'));
     priceInputs.forEach(input => input.value = price);
+    currencyInputs.forEach(input => input.value = currency);
     imageInputs.forEach(input => input.value = element.getAttribute('data-image-file') || '');
+
+    const stock = parseInt(element.getAttribute('data-stock') || '0', 10);
+    const buy = card.querySelector('.product-buy-actions');
+    const sold = card.querySelector('.product-sold-actions');
+    const availability = card.querySelector('.product-availability');
+    const wholeCardSold = card.getAttribute('data-sold-out') === '1';
+    const optionSold = wholeCardSold || stock <= 0;
+    if (buy) buy.hidden = optionSold;
+    if (sold) sold.hidden = !optionSold;
+    if (availability) {
+        availability.classList.toggle('is-sold', optionSold);
+        availability.classList.toggle('is-low', !optionSold && stock > 0 && stock <= 5);
+        availability.classList.toggle('is-in', !optionSold && stock > 5);
+        if (optionSold) {
+            availability.textContent = wholeCardSold
+                ? 'Currently unavailable · still listed so you can ask about a restock'
+                : 'This option is sold out · choose another design or ask about a restock';
+        } else if (stock <= 5) {
+            availability.textContent = 'Limited stock · ' + stock + ' left';
+        } else {
+            availability.textContent = 'In stock · ready to order';
+        }
+    }
 }
 
 function updateQtyTier(slider) {
     const card = slider.closest('.product-card');
     const box = slider.closest('.qty-tier-box');
     const base = parseFloat(box.dataset.basePrice);
-    const currency = box.dataset.currency;
-    const sym = currency === 'USD' ? '$' : 'L$';
+    const currency = box.dataset.currency || 'USD';
+    const sym = currency === 'LRD' ? 'L$' : '$';
+    const money = (value) => `${currency} ${sym}${value.toFixed(2)}`;
     const qty = parseInt(slider.value, 10);
     let discount = 0, label = 'Standard';
     if (qty >= 100) { discount = 0.15; label = '15% bulk'; }
@@ -318,7 +389,7 @@ function updateQtyTier(slider) {
     const total = unit * qty;
     box.querySelector('.qty-tier-qty strong').textContent = qty;
     box.querySelector('.qty-tier-discount').textContent = label;
-    box.querySelector('.qty-tier-total').textContent = sym + total.toFixed(2);
+    box.querySelector('.qty-tier-total').textContent = money(total);
     const priceInput = card.querySelector('form[action*="prepare-whatsapp"] .selected-variant-price, form[action*="add-to-cart"] .selected-variant-price');
     if (priceInput) priceInput.value = unit.toFixed(2);
     const qtyInput = card.querySelector('.order-qty-input');

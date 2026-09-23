@@ -356,6 +356,29 @@ def brandify_filter(text, variant='navy'):
     return brandify_html(text, _static_url, variant=variant)
 
 
+def normalize_currency(value, default='USD'):
+    raw = str(value or default or 'USD').strip().upper()
+    if raw in ('LRD', 'LD', 'L$', 'LR', 'LIBERIAN DOLLAR'):
+        return 'LRD'
+    return 'USD'
+
+
+def format_store_money(amount, currency='USD'):
+    try:
+        amount = float(amount or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    code = normalize_currency(currency)
+    symbol = 'L$' if code == 'LRD' else '$'
+    return f'{code} {symbol}{amount:,.2f}'
+
+
+@app.template_filter('money')
+def money_filter(amount, currency='USD'):
+    """Professional storefront price: USD $4.00 or LRD L$600.00."""
+    return format_store_money(amount, currency)
+
+
 # ----------------------------------
 # Production Configuration for PythonAnywhere
 # ----------------------------------
@@ -567,6 +590,21 @@ def handle_internal_error(error):
         return redirect(request.referrer or url_for('home')), 302
     except Exception:
         return 'Internal Server Error', 500
+
+
+@app.before_request
+def force_https_on_public_site():
+    """WhatsApp photo share only works in a secure (HTTPS) browser context."""
+    if request.method not in ('GET', 'HEAD'):
+        return
+    host = (request.host or '').split(':')[0].lower()
+    if host in ('127.0.0.1', 'localhost') or host.endswith('.local'):
+        return
+    if not (host.endswith('3gdesignglobal.com') or os.getenv('FORCE_HTTPS', '').lower() in ('1', 'true', 'yes')):
+        return
+    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'http').split(',')[0].strip().lower()
+    if proto == 'http':
+        return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
 
 @app.before_request
@@ -1040,8 +1078,44 @@ def enrich_cart_item(item):
 def product_stock_level(product):
     """Canonical stock — keeps stock and stock_quantity in sync."""
     if product.stock is not None:
-        return product.stock
-    return product.stock_quantity or 0
+        return int(product.stock)
+    return int(product.stock_quantity or 0)
+
+
+def product_available_qty(product):
+    qty = max(product_stock_level(product), 0)
+    variants = list(getattr(product, 'variants', None) or [])
+    if not variants:
+        return qty
+    variant_qty = sum(max(int(getattr(variant, 'stock', 0) or 0), 0) for variant in variants)
+    return max(qty, variant_qty)
+
+
+def product_is_sold_out(product):
+    return product_available_qty(product) <= 0
+
+
+def product_is_low_stock(product):
+    qty = product_available_qty(product)
+    threshold = product.min_stock_threshold if getattr(product, 'min_stock_threshold', None) is not None else 5
+    return 0 < qty <= int(threshold or 5)
+
+
+def variant_is_sold_out(variant):
+    return int(getattr(variant, 'stock', 0) or 0) <= 0
+
+
+def selected_option_sold_out(product, variant_name=''):
+    if not product:
+        return False
+    name = (variant_name or '').strip()
+    if name and name not in ('Base', 'Original Design'):
+        for variant in list(getattr(product, 'variants', None) or []):
+            label = f"{variant.type_name}: {variant.size or variant.type_value}"
+            value = variant.size or variant.type_value
+            if name == label or name == value:
+                return variant_is_sold_out(variant)
+    return product_is_sold_out(product)
 
 
 def adjust_product_stock(product, delta):
@@ -1049,6 +1123,12 @@ def adjust_product_stock(product, delta):
     product.stock = level
     product.stock_quantity = level
     return level
+
+
+app.add_template_global(product_available_qty, name='product_available_qty')
+app.add_template_global(product_is_sold_out, name='product_is_sold_out')
+app.add_template_global(product_is_low_stock, name='product_is_low_stock')
+app.add_template_global(variant_is_sold_out, name='variant_is_sold_out')
 
 
 def finalize_whatsapp_order(cart_items):
@@ -1105,6 +1185,10 @@ def add_to_cart():
     currency = request.form.get('currency', 'USD')
     image = normalize_image_filename(request.form.get('image', ''))
     product_name = request.form.get('product_name', '')
+    catalog_product = Product.query.get(int(product_id)) if str(product_id or '').isdigit() else None
+    if catalog_product and selected_option_sold_out(catalog_product, variant_name):
+        flash(f'{catalog_product.name} is currently sold out and cannot be added to the cart.', 'warning')
+        return redirect(request.referrer or url_for('home'))
 
     if 'cart' not in session:
         session['cart'] = []
@@ -1254,6 +1338,11 @@ def prepare_whatsapp_order():
     }
     if not item['product_name']:
         flash('Product details missing.', 'warning')
+        return redirect(request.referrer or url_for('home'))
+
+    catalog_product = Product.query.get(int(item['product_id'])) if str(item.get('product_id') or '').isdigit() else None
+    if catalog_product and selected_option_sold_out(catalog_product, item.get('variant_name')):
+        flash(f'{catalog_product.name} is currently sold out. Please ask us when it will be back.', 'warning')
         return redirect(request.referrer or url_for('home'))
 
     token, message_text, image_rel = finalize_whatsapp_order([item])
@@ -3407,7 +3496,7 @@ def add_product():
         name = request.form.get('name')
         category = request.form.get('category')
         price = float(request.form.get('price') or 0)
-        currency = request.form.get('currency', 'USD')
+        currency = normalize_currency(request.form.get('currency', 'USD'))
         stock = int(request.form.get('stock') or 0)
         description = request.form.get('description')
         
@@ -3417,7 +3506,17 @@ def add_product():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['PRODUCT_FOLDER'], filename))
 
-        new_product = Product(name=name, category=category, price=price, currency=currency, stock=stock, description=description, image=filename)
+        new_product = Product(
+            name=name,
+            category=category,
+            price=price,
+            currency=currency,
+            stock=stock,
+            stock_quantity=stock,
+            min_stock_threshold=max(0, int(request.form.get('min_stock_threshold') or 5)),
+            description=description,
+            image=filename,
+        )
         db.session.add(new_product)
         db.session.flush() # Get product ID before commit
 
@@ -3425,6 +3524,7 @@ def add_product():
         variant_types = request.form.getlist('variant_type[]')
         variant_values = request.form.getlist('variant_value[]')
         variant_prices = request.form.getlist('variant_price[]')
+        variant_currencies = request.form.getlist('variant_currency[]')
         variant_stocks = request.form.getlist('variant_stock[]')
         variant_images = request.files.getlist('variant_image[]')
 
@@ -3433,6 +3533,7 @@ def add_product():
             v_type = variant_types[i] if i < len(variant_types) else ""
             v_value = variant_values[i] if i < len(variant_values) else ""
             v_price = float(variant_prices[i]) if i < len(variant_prices) and variant_prices[i] else price
+            v_currency = normalize_currency(variant_currencies[i] if i < len(variant_currencies) and variant_currencies[i] else currency)
             v_stock = int(variant_stocks[i]) if i < len(variant_stocks) and variant_stocks[i] else 0
             
             v_filename = None
@@ -3450,6 +3551,7 @@ def add_product():
                     type_value=v_value,
                     size=v_value, # Mapping value to size as well for backward compatibility in templates
                     price=v_price,
+                    currency=v_currency,
                     stock=v_stock,
                     image=v_filename
                 )
@@ -3472,8 +3574,10 @@ def edit_product(product_id):
         product.name = request.form.get('name')
         product.category = request.form.get('category')
         product.price = float(request.form.get('price') or 0)
-        product.currency = request.form.get('currency', 'USD')
+        product.currency = normalize_currency(request.form.get('currency', 'USD'))
         product.stock = int(request.form.get('stock') or 0)
+        product.stock_quantity = product.stock
+        product.min_stock_threshold = max(0, int(request.form.get('min_stock_threshold') or product.min_stock_threshold or 5))
         product.description = request.form.get('description')
         
         file = request.files.get('image')
@@ -3488,6 +3592,7 @@ def edit_product(product_id):
         variant_types = request.form.getlist('variant_type[]')
         variant_values = request.form.getlist('variant_value[]')
         variant_prices = request.form.getlist('variant_price[]')
+        variant_currencies = request.form.getlist('variant_currency[]')
         variant_stocks = request.form.getlist('variant_stock[]')
         variant_images = request.files.getlist('variant_image[]')
         variant_old_images = request.form.getlist('variant_old_image[]')
@@ -3496,6 +3601,7 @@ def edit_product(product_id):
             v_type = variant_types[i] if i < len(variant_types) else ""
             v_value = variant_values[i] if i < len(variant_values) else ""
             v_price = float(variant_prices[i]) if i < len(variant_prices) and variant_prices[i] else product.price
+            v_currency = normalize_currency(variant_currencies[i] if i < len(variant_currencies) and variant_currencies[i] else product.currency)
             v_stock = int(variant_stocks[i]) if i < len(variant_stocks) and variant_stocks[i] else 0
             
             v_filename = variant_old_images[i] if i < len(variant_old_images) else None
@@ -3514,6 +3620,7 @@ def edit_product(product_id):
                     type_value=v_value,
                     size=v_value,
                     price=v_price,
+                    currency=v_currency,
                     stock=v_stock,
                     image=v_filename
                 )
