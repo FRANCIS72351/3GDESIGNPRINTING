@@ -593,21 +593,6 @@ def handle_internal_error(error):
 
 
 @app.before_request
-def force_https_on_public_site():
-    """WhatsApp photo share only works in a secure (HTTPS) browser context."""
-    if request.method not in ('GET', 'HEAD'):
-        return
-    host = (request.host or '').split(':')[0].lower()
-    if host in ('127.0.0.1', 'localhost') or host.endswith('.local'):
-        return
-    if not (host.endswith('3gdesignglobal.com') or os.getenv('FORCE_HTTPS', '').lower() in ('1', 'true', 'yes')):
-        return
-    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'http').split(',')[0].strip().lower()
-    if proto == 'http':
-        return redirect(request.url.replace('http://', 'https://', 1), code=301)
-
-
-@app.before_request
 def check_system_status():
     # Cheap paths: no lock check, no late-staff thread.
     if ('ghost-protocol' in request.path or request.path.startswith('/static')
