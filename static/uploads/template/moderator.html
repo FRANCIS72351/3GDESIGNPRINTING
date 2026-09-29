@@ -131,60 +131,11 @@
 
     <div class="row g-4">
         <div class="col-lg-8">
-            <div class="admin-card role-portal-card h-100">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-th-large me-2"></i>Your Responsibilities</h5>
-                    <span class="badge bg-light text-muted border">{{ actions|length }} active</span>
-                </div>
-                <div class="admin-card-body pt-0">
-                    {% if actions %}
-                    <div class="row g-2">
-                        {% for action in actions %}
-                        <div class="col-md-6">
-                            {% if action.get('btn') %}
-                            <a href="{{ url_for(action.endpoint) }}" class="btn btn-{{ action.color }} {% if action.color == 'warning' %}text-dark fw-bold{% endif %} rounded-pill w-100 py-3 moderator-action-btn">
-                                <i class="fas {{ action.icon }} me-2"></i>{{ action.label }}
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for(action.endpoint) }}" class="moderator-action-card d-block p-3 rounded-3 border h-100 text-decoration-none">
-                                <div class="d-flex align-items-start">
-                                    <div class="moderator-action-icon text-{{ action.color }} me-3">
-                                        <i class="fas {{ action.icon }} fa-lg"></i>
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold text-dark small">{{ action.label }}</div>
-                                        <div class="text-muted" style="font-size:0.78rem;">{{ action.description }}</div>
-                                    </div>
-                                </div>
-                            </a>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5 text-muted">
-                        <i class="fas fa-user-lock fa-2x mb-3 opacity-50"></i>
-                        <p class="mb-0 small">No responsibilities have been assigned to your account.<br>Contact an administrator to request access.</p>
-                    </div>
-                    {% endif %}
-
-                    {% if 'operations' in permissions and active_jobs is defined %}
-                    <div class="mt-4 p-3 bg-light rounded-3 d-flex align-items-center justify-content-between">
-                        <div>
-                            <span class="text-muted small fw-medium">Production Pipeline</span>
-                            <div class="fw-bold text-dark">{{ active_jobs }} active jobs{% if pending_inbox %} · {{ pending_inbox }} inbox{% endif %}</div>
-                        </div>
-                        <a href="{{ url_for('operations.operations_hub') }}" class="btn btn-sm btn-outline-primary rounded-pill">Open Hub</a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
             {% if 'daily_reports' in permissions or 'financials' in permissions %}
-            <div class="card border-0 shadow-sm p-4 mt-4 bg-white manual-income-card">
+            <div class="card border-0 shadow-sm p-4 mb-4 bg-white manual-income-card" id="daily-sales">
                 <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
                     <h5 class="fw-bold text-dark mb-0">
-                        <i class="fas fa-hand-holding-dollar text-success me-2"></i>Manual Daily Income
+                        <i class="fas fa-hand-holding-dollar text-success me-2"></i>Record Daily Sales
                     </h5>
                     <span class="badge bg-soft-success text-success border border-success border-opacity-25 rounded-pill px-3 py-2">
                         <i class="fas fa-pen me-1"></i>Hand-entered
@@ -250,16 +201,16 @@
                             <i class="fas fa-undo me-1"></i>Clear
                         </button>
                         <button type="submit" class="btn btn-success rounded-pill px-4">
-                            <i class="fas fa-plus-circle me-2"></i>Log Income Entry
+                            <i class="fas fa-plus-circle me-2"></i>Record Daily Sale
                         </button>
                     </div>
                 </form>
             </div>
 
             {% if recent_reports %}
-            <div class="card border-0 shadow-sm p-4 mt-4 bg-white">
+            <div class="card border-0 shadow-sm p-4 mb-4 bg-white">
                 <h5 class="fw-bold text-dark mb-3">
-                    <i class="fas fa-clock-rotate-left me-2 text-muted"></i>Recent Manual Income
+                    <i class="fas fa-clock-rotate-left me-2 text-muted"></i>Recent Daily Sales
                 </h5>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 small manual-income-table">
@@ -294,6 +245,56 @@
             </div>
             {% endif %}
             {% endif %}
+
+            <div class="admin-card role-portal-card h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-primary"><i class="fas fa-th-large me-2"></i>Your Responsibilities</h5>
+                    <span class="badge bg-light text-muted border">{{ actions|length }} active</span>
+                </div>
+                <div class="admin-card-body pt-0">
+                    {% if actions %}
+                    <div class="row g-2">
+                        {% for action in actions %}
+                        <div class="col-md-6">
+                            {% if action.get('btn') %}
+                            <a href="{{ url_for(action.endpoint) }}{% if action.get('fragment') %}#{{ action.fragment }}{% endif %}" class="btn btn-{{ action.color }} {% if action.color == 'warning' %}text-dark fw-bold{% endif %} rounded-pill w-100 py-3 moderator-action-btn">
+                                <i class="fas {{ action.icon }} me-2"></i>{{ action.label }}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for(action.endpoint) }}{% if action.get('fragment') %}#{{ action.fragment }}{% endif %}" class="moderator-action-card d-block p-3 rounded-3 border h-100 text-decoration-none">
+                                <div class="d-flex align-items-start">
+                                    <div class="moderator-action-icon text-{{ action.color }} me-3">
+                                        <i class="fas {{ action.icon }} fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark small">{{ action.label }}</div>
+                                        <div class="text-muted" style="font-size:0.78rem;">{{ action.description }}</div>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-user-lock fa-2x mb-3 opacity-50"></i>
+                        <p class="mb-0 small">No responsibilities have been assigned to your account.<br>Contact an administrator to request access.</p>
+                    </div>
+                    {% endif %}
+
+                    {% if 'operations' in permissions and active_jobs is defined %}
+                    <div class="mt-4 p-3 bg-light rounded-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-medium">Production Pipeline</span>
+                            <div class="fw-bold text-dark">{{ active_jobs }} active jobs{% if pending_inbox %} · {{ pending_inbox }} inbox{% endif %}</div>
+                        </div>
+                        <a href="{{ url_for('operations.operations_hub') }}" class="btn btn-sm btn-outline-primary rounded-pill">Open Hub</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
 
         <div class="col-lg-4">

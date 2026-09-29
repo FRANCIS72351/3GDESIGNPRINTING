@@ -2527,7 +2527,9 @@ def financials():
                          total_expense_lrd=total_expense_lrd,
                          period=period,
                          admin=admin_user,
-                         show_annual=session.get('role') == 'admin')
+                         show_annual=session.get('role') == 'admin',
+                         payment_methods=INCOME_PAYMENT_METHODS,
+                         today_income_date=datetime.now().date().isoformat())
 
 @app.route("/admin/expense/add", methods=['POST'])
 @login_required
@@ -2933,6 +2935,19 @@ def send_welcome_email(customer_email, customer_name):
     except Exception as e:
         print(f"Mail failed: {e}")
 
+def _redirect_after_daily_report():
+    """Stay on Financials when the sale was recorded from that page."""
+    next_page = (request.form.get('next') or '').strip()
+    role = session.get('role')
+    if next_page == 'financials' and role in ('admin', 'moderator'):
+        return redirect(url_for('financials'))
+    if role == 'staff':
+        return redirect(url_for('staff.staff_portal'))
+    if role == 'moderator':
+        return redirect(url_for('moderator_portal'))
+    return redirect(url_for('dashboard'))
+
+
 @app.route("/admin/daily-report", methods=['POST'])
 @login_required
 @income_log_permission_required
@@ -2943,11 +2958,7 @@ def submit_daily_report():
     data, error = parse_manual_income_form(request.form, require_notes=require_notes)
     if error:
         flash(error, 'danger')
-        if role == 'staff':
-            return redirect(url_for('staff.staff_portal'))
-        if role == 'moderator':
-            return redirect(url_for('moderator_portal'))
-        return redirect(url_for('dashboard'))
+        return _redirect_after_daily_report()
 
     new_report = DailyReport(
         staff_id=session.get('admin_id'),
@@ -2964,11 +2975,7 @@ def submit_daily_report():
     db.session.commit()
 
     flash('Manual daily income logged successfully!', 'success')
-    if session.get('role') == 'staff':
-        return redirect(url_for('staff.staff_portal'))
-    if session.get('role') == 'moderator':
-        return redirect(url_for('moderator_portal'))
-    return redirect(url_for('dashboard'))
+    return _redirect_after_daily_report()
 
 # ----------------------------------
 # Quick Capture Route

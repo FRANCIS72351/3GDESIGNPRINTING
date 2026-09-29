@@ -200,7 +200,7 @@ class ModeratorDashboardTests(unittest.TestCase):
         resp = self.client.get('/moderator')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b'Time Tracking', resp.data)
-        self.assertIn(b'Manual Daily Income', resp.data)
+        self.assertIn(b'Record Daily Sales', resp.data)
         self.assertNotIn(b'Billing Center', resp.data)
         self.assertNotIn(b'Inventory &amp; Stock', resp.data)
 
@@ -248,7 +248,7 @@ class ModeratorDashboardTests(unittest.TestCase):
     def test_financials_moderator_can_log_manual_income(self):
         self._login_as(self.mod_fin_id, 'moderator', 'mod_fin')
         resp = self.client.get('/moderator')
-        self.assertIn(b'Manual Daily Income', resp.data)
+        self.assertIn(b'Record Daily Sales', resp.data)
         post = self.client.post('/admin/daily-report', data={
             'total_sales': '75',
             'currency': 'LRD',
@@ -274,6 +274,38 @@ class ModeratorDashboardTests(unittest.TestCase):
             'payment_method': 'cash',
         }, follow_redirects=True)
         self.assertIn(b'greater than zero', resp.data)
+
+    def test_financials_page_has_daily_sales_form(self):
+        self._login_as(self.mod_fin_id, 'moderator', 'mod_fin')
+        resp = self.client.get('/admin/financials')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+        self.assertIn('Record Daily Sale', html)
+        self.assertIn('daily-sales-form', html)
+        self.assertIn('name="total_sales"', html)
+        self.assertNotIn('Go to Dashboard to record sales', html)
+
+    def test_moderator_can_record_sale_from_financials(self):
+        self._login_as(self.mod_fin_id, 'moderator', 'mod_fin')
+        resp = self.client.post('/admin/daily-report', data={
+            'income_entry_mode': 'manual',
+            'next': 'financials',
+            'total_sales': '88.25',
+            'currency': 'USD',
+            'payment_method': 'cash',
+            'reference': 'FIN-SALE-1',
+            'report_text': 'Walk-in banner sale',
+        }, follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+        self.assertIn('Manual daily income logged successfully', html)
+        self.assertIn('Financial Management', html)
+        self.assertIn('FIN-SALE-1', html)
+        with app.app_context():
+            report = DailyReport.query.filter_by(reference='FIN-SALE-1').first()
+            self.assertIsNotNone(report)
+            self.assertEqual(report.total_sales, 88.25)
+            self.assertEqual(report.staff_name, 'mod_fin')
 
 
 if __name__ == '__main__':

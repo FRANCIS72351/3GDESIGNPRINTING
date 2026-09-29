@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-os.environ.setdefault('PUBLIC_SITE_URL', 'https://example.test')
+os.environ.setdefault('P/UBLIC_SITE_URL', 'https://3gdesignglobal.com')
 
 from app import app, finalize_whatsapp_order, get_public_base_url
 from models import db, PendingReceipt
@@ -47,7 +47,7 @@ class WhatsAppOrderTests(unittest.TestCase):
         self.assertFalse(hasattr(app, '_get_current_object'))
 
     def test_sanitize_rejects_bare_pythonanywhere(self):
-        self.assertEqual(_sanitize_public_url('https://pythonanywhere.com'), '')
+        self.assertEqual(_sanitize_public_url('https://3gdesignglobal.com'), '')
         self.assertEqual(
             _sanitize_public_url('https://3gdesignglobal.com'),
             'https://3gdesignglobal.com',
@@ -112,7 +112,7 @@ class WhatsAppOrderTests(unittest.TestCase):
 
     def test_build_whatsapp_short_message_has_no_share_link(self):
         items = [self._sample_item()]
-        url = 'https://example.test/order/share/abc123'
+        url = 'https://3gdesignglobal.com/order/share/abc123'
         text = build_whatsapp_short_message(items, share_page_url=url)
         self.assertIn('Test Mug', text)
         self.assertNotIn(url, text)
@@ -236,7 +236,7 @@ class WhatsAppOrderTests(unittest.TestCase):
 
         r = self.client.get(f'/order/share/{token}')
         html = r.get_data(as_text=True)
-        self.assertIn('https://example.test/order/share/', html)
+        self.assertIn('https://3gdesignglobal.com/order/share/', html)
         self.assertIn('/photo.jpg', html)
         self.assertNotIn('https://pythonanywhere.com/', html)
 

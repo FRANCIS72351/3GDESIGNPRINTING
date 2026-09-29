@@ -60,10 +60,21 @@ MODERATOR_DASHBOARD_ACTIONS = [
     {
         'perm': 'financials',
         'label': 'Financial Management',
-        'description': 'Daily and weekly income & expense records',
+        'description': 'Record daily sales, then review income and expenses',
         'icon': 'fa-chart-pie',
         'endpoint': 'financials',
         'color': 'success',
+        'fragment': 'daily-sales',
+    },
+    {
+        'perm': 'daily_reports',
+        'label': 'Record Daily Sales',
+        'description': 'Log cash, mobile money, and other payments received today',
+        'icon': 'fa-cash-register',
+        'endpoint': 'moderator_portal',
+        'color': 'success',
+        'btn': True,
+        'fragment': 'daily-sales',
     },
     {
         'perm': 'billing',
