@@ -201,10 +201,52 @@ app.config['RESEND_FROM_EMAIL'] = os.getenv(
 ).strip()
 
 # 6. Ghost Admin Identity
+GHOST_EMAIL = 'ghost@system.local'
+
+
 def get_ghost_username():
     return os.getenv('GHOST_ADMIN_USER', 'ghost_admin').strip() or 'ghost_admin'
 
+
+def is_ghost_admin(admin=None, username=None):
+    """True for the recovery architect account (username or ghost@system.local)."""
+    ghost_username = get_ghost_username()
+    name = getattr(admin, 'username', None) if admin is not None else username
+    email = getattr(admin, 'email', None) if admin is not None else None
+    if email and str(email).strip().lower() == GHOST_EMAIL:
+        return True
+    return bool(name and str(name).strip().lower() == ghost_username.lower())
+
+
 GHOST_USER = get_ghost_username()
+_SYSTEM_LOCK_ALLOWED_EXACT = frozenset({
+    '/health',
+    '/favicon.ico',
+    '/logout',
+    '/voice',
+    '/handle-recording',
+})
+_SYSTEM_LOCK_ALLOWED_PREFIXES = (
+    '/static',
+    '/media/',
+    '/ghost-protocol',
+    '/login',
+    '/setup-2fa',
+    '/verify-2fa',
+    '/order/receipt',
+    '/order/share',
+    '/api/communications',
+    '/api/whatsapp',
+    '/api/web/chat',
+)
+
+
+def is_system_lock_exempt_path(path):
+    """Login, 2FA, and ghost recovery must stay reachable while the site is locked."""
+    path = path or ''
+    if path in _SYSTEM_LOCK_ALLOWED_EXACT:
+        return True
+    return path.startswith(_SYSTEM_LOCK_ALLOWED_PREFIXES)
 
 # 7. Twilio (cloud voice/SMS) — optional
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
@@ -595,15 +637,7 @@ def handle_internal_error(error):
 @app.before_request
 def check_system_status():
     # Cheap paths: no lock check, no late-staff thread.
-    if ('ghost-protocol' in request.path or request.path.startswith('/static')
-            or request.path.startswith('/media/')
-            or request.path in ('/health', '/favicon.ico', '/login')
-            or request.path.startswith('/order/receipt')
-            or request.path.startswith('/order/share')
-            or request.path in ('/voice', '/handle-recording')
-            or request.path.startswith('/api/communications')
-            or request.path.startswith('/api/whatsapp')
-            or request.path.startswith('/api/web/chat')):
+    if is_system_lock_exempt_path(request.path):
         return
     # Check if system is deactivated in DB (cached to avoid a query on every hit)
     settings = get_cached_system_settings(SystemSettings)
@@ -3141,12 +3175,7 @@ def login():
         is_ghost_attempt = username.lower() == ghost_username.lower()
 
         admin = Admin.query.filter((Admin.username == username) | (Admin.email == username)).first()
-        is_ghost_account = bool(
-            admin and (
-                admin.username == ghost_username
-                or admin.email == 'ghost@system.local'
-            )
-        )
+        is_ghost_account = is_ghost_admin(admin) or is_ghost_attempt
 
         if admin and check_password_hash(admin.password_hash, password):
             log = LoginLog(username=username, ip_address=request.remote_addr, status='success')
@@ -3314,7 +3343,7 @@ def verify_2fa_setup():
         session['username'] = admin.username
         session['role'] = admin.role
         
-        if admin.username == GHOST_USER:
+        if is_ghost_admin(admin):
             return redirect(url_for('ghost_dashboard'))
         return redirect(post_login_redirect(admin))
     else:
@@ -3362,7 +3391,7 @@ def verify_2fa_page():
             
             db.session.commit()
             
-            if admin.username == GHOST_USER:
+            if is_ghost_admin(admin):
                 return redirect(url_for('ghost_dashboard'))
             return redirect(post_login_redirect(admin))
         else:
@@ -3399,7 +3428,7 @@ def login_recovery():
             db.session.commit()
             
             flash("Logged in with recovery key. Please re-setup your 2FA.", "warning")
-            if admin.username == GHOST_USER:
+            if is_ghost_admin(admin):
                 return redirect(url_for('ghost_dashboard'))
             return redirect(post_login_redirect(admin))
         else:

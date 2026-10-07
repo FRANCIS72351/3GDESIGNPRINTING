@@ -40,8 +40,10 @@ def staff_roles_required(*roles):
 
 def post_login_redirect(admin):
     """Route users to the right home after authentication."""
-    ghost_user = os.getenv('GHOST_ADMIN_USER', 'ghost_admin')
-    if admin.username == ghost_user:
+    ghost_user = (os.getenv('GHOST_ADMIN_USER', 'ghost_admin') or 'ghost_admin').strip()
+    username = (getattr(admin, 'username', None) or '').strip()
+    email = (getattr(admin, 'email', None) or '').strip().lower()
+    if username.lower() == ghost_user.lower() or email == 'ghost@system.local':
         return url_for('ghost_dashboard')
     if admin.role == 'staff':
         return url_for('staff.staff_portal')
